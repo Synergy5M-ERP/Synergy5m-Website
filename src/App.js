@@ -1,6 +1,7 @@
 import React from 'react';
 import ERPLandingPage from './ERPLandingPage';
-import { HelmetProvider } from 'react-helmet-async';
+import { HelmetProvider } from 'react-helmet-next';
+
 import './App.css';
 
 function App() {
