@@ -3,7 +3,7 @@ name: Build and Deploy React App to Azure Web App
 on:
   push:
     branches:
-      - master_react
+      - main
   workflow_dispatch:
 
 jobs:
@@ -18,7 +18,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
+          node-version: '20.x'
 
       # 3. Install dependencies with the React 19 fix
       - name: Install dependencies
@@ -37,4 +37,4 @@ jobs:
           app-name: 'SYNERGY5M-WEB'
           slot-name: 'Production'
           package: './build'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_FDC0FC52F3ED42149F6FEF507A979B72 }}
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE_SYNERG5M }}
