@@ -1,13 +1,15 @@
-
 import React from 'react';
 import ERPLandingPage from './ERPLandingPage';
-import './App.css'
+import { HelmetProvider } from 'react-helmet-async';
+import './App.css';
+
 function App() {
   return (
-    <div className="App">
-      <ERPLandingPage />
-      
-    </div>
+    <HelmetProvider>
+      <div className="App">
+        <ERPLandingPage />
+      </div>
+    </HelmetProvider>
   );
 }
 
