@@ -54,7 +54,7 @@ jobs:
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'SYNERGY5M-WEB'        # Your Azure App Service name
+          app-name: 'synergy5m-web'        # Your Azure App Service name
           slot-name: 'Production'                 # this is production
           package: './build'                       # Path to the React build folder
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_FDC0FC52F3ED42149F6FEF507A979B72 }} # Add this secret in GitHub
