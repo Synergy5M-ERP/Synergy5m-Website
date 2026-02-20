@@ -1,0 +1,60 @@
+name: Build and Deploy React App to Azure Web App
+
+on:
+  push:
+    branches:
+      - master_react
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      # Checkout the code
+      - uses: actions/checkout@v4
+
+      # Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22.x'
+
+      # Install dependencies
+      - name: Install dependencies
+        run: npm install
+
+      # Build the React app
+      - name: Build React App
+        run: npm run build
+        env:
+          CI: false
+
+      # Upload the build folder for deployment
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-build
+          path: build
+
+  deploy:
+    runs-on: windows-latest
+    needs: build
+
+    steps:
+      # Download the artifact from the build job
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: react-build
+          path: build
+
+     
+      # Deploy to Azure Web App
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'SYNERGY5M-WEB'        # Your Azure App Service name
+          slot-name: 'Production'                 # this is production
+          package: './build'                       # Path to the React build folder
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_FDC0FC52F3ED42149F6FEF507A979B72 }} # Add this secret in GitHub
