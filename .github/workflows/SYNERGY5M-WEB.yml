@@ -35,6 +35,5 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'SYNERGY5M-WEB'
-          slot-name: 'Production'
           package: './build'
           publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE_SYNERG5M }}
