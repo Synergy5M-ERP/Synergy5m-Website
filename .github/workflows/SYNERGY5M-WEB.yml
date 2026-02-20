@@ -7,54 +7,34 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: windows-latest
 
     steps:
-      # Checkout the code
+      # 1. Checkout the code
       - uses: actions/checkout@v4
 
-      # Set up Node.js
+      # 2. Set up Node.js
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '22.x'
 
-      # Install dependencies
+      # 3. Install dependencies with the React 19 fix
       - name: Install dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
-      # Build the React app
+      # 4. Build the React app
       - name: Build React App
         run: npm run build
         env:
-          CI: false
+          CI: false # Prevents warnings from failing the build
 
-      # Upload the build folder for deployment
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: react-build
-          path: build
-
-  deploy:
-    runs-on: windows-latest
-    needs: build
-
-    steps:
-      # Download the artifact from the build job
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: react-build
-          path: build
-
-     
-      # Deploy to Azure Web App
+      # 5. Deploy to Azure Web App
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'SYNERGY5M-WEB'        # Your Azure App Service name
-          slot-name: 'Production'                 # this is production
-          package: './build'                       # Path to the React build folder
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_FDC0FC52F3ED42149F6FEF507A979B72 }} # Add this secret in GitHub
+          app-name: 'SYNERGY5M-WEB'
+          slot-name: 'Production'
+          package: './build'
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_FDC0FC52F3ED42149F6FEF507A979B72 }}
