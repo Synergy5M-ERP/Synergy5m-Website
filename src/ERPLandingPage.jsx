@@ -223,7 +223,7 @@ const EnhancedERPPage = () => {
     //   ),
     //   icon: <Handshake size={48} />,
     //   gradientIndex: 0,
-    // },
+    // },\
     {
       title: "Fully Tailored to Your Business",
       description: `SYN 8 is mostly customized as per your exact workflows, reports, and modules—so your team doesn't have to adjust to a "standard ERP."`,
