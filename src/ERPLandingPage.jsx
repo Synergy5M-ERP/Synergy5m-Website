@@ -184,46 +184,46 @@ const EnhancedERPPage = () => {
   };
 
   const services = [
-    {
-      title: "Complete Module Coverage for MSME Operations",
-      description: (
-        <ul style={{ margin: 0, padding: 0, textAlign: 'left', listStyle: 'none' }}>
-          {b2bPoints.map((point, index) => (
-            <li
-              key={index}
-              onMouseEnter={() => setActiveBullet(index)}
-              onMouseLeave={() => setActiveBullet(null)}
-              style={{ cursor: 'pointer', marginBottom: '12px', transition: 'all 0.3s ease' }}
-            >
-              <div style={{
-                fontWeight: '600',
-                color: activeBullet === index ? '#ea580c' : '#b45309',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'color 0.3s ease'
-              }}>
-                <span style={{
-                  width: '8px', height: '8px', borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #fbbf24, #f97316)', display: 'inline-block'
-                }}></span>
-                {point.title}
-              </div>
-              {activeBullet === index && (
-                <p style={{
-                  marginTop: '8px', marginLeft: '16px', color: '#6b7280',
-                  fontSize: '0.875rem', lineHeight: '1.5', animation: 'fadeIn 0.3s ease-out'
-                }}>
-                  {point.description}
-                </p>
-              )}
-            </li>
-          ))}
-        </ul>
-      ),
-      icon: <Handshake size={48} />,
-      gradientIndex: 0,
-    },
+    // {
+    //   title: "Complete Module Coverage for MSME Operations",
+    //   description: (
+    //     <ul style={{ margin: 0, padding: 0, textAlign: 'left', listStyle: 'none' }}>
+    //       {b2bPoints.map((point, index) => (
+    //         <li
+    //           key={index}
+    //           onMouseEnter={() => setActiveBullet(index)}
+    //           onMouseLeave={() => setActiveBullet(null)}
+    //           style={{ cursor: 'pointer', marginBottom: '12px', transition: 'all 0.3s ease' }}
+    //         >
+    //           <div style={{
+    //             fontWeight: '600',
+    //             color: activeBullet === index ? '#ea580c' : '#b45309',
+    //             display: 'flex',
+    //             alignItems: 'center',
+    //             gap: '8px',
+    //             transition: 'color 0.3s ease'
+    //           }}>
+    //             <span style={{
+    //               width: '8px', height: '8px', borderRadius: '50%',
+    //               background: 'linear-gradient(135deg, #fbbf24, #f97316)', display: 'inline-block'
+    //             }}></span>
+    //             {point.title}
+    //           </div>
+    //           {activeBullet === index && (
+    //             <p style={{
+    //               marginTop: '8px', marginLeft: '16px', color: '#6b7280',
+    //               fontSize: '0.875rem', lineHeight: '1.5', animation: 'fadeIn 0.3s ease-out'
+    //             }}>
+    //               {point.description}
+    //             </p>
+    //           )}
+    //         </li>
+    //       ))}
+    //     </ul>
+    //   ),
+    //   icon: <Handshake size={48} />,
+    //   gradientIndex: 0,
+    // },
     {
       title: "Fully Tailored to Your Business",
       description: `SYN 8 is mostly customized as per your exact workflows, reports, and modules—so your team doesn't have to adjust to a "standard ERP."`,
