@@ -818,7 +818,7 @@ function Modal({ modal, close, children, title, subtitle, wide = false }) {
         <button className="modal-close" onClick={close}>
           <X />
         </button>
-        <span className="section-kicker orange">SYNERGY5M</span>
+        <span className="section-kicker orange">SYNERGY5M LLP</span>
         <h2>{title}</h2>
         {subtitle && <p>{subtitle}</p>}
         {children}
@@ -890,7 +890,7 @@ function NewLandingPage() {
       <main>
         <section id="home" className="hero section-wrap">
           <div className="hero-copy">
-            <div className="eyebrow">SYNERGY5M BUSINESS SOLUTIONS</div>
+            <div className="eyebrow">SYNERGY5M LLP BUSINESS SOLUTIONS</div>
             <h1>
               One Partner.
               <br />
