@@ -1,21 +1,60 @@
-
-
-
-import React, { useState, useEffect } from 'react';
-import { Helmet } from 'react-helmet-next';
+import React, { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-next";
 import {
-  User, Phone, Mail, Building2, ChevronDown, Layers, Database,
-  Settings2, Repeat, ClipboardCheck, TrendingUp, CreditCard,
-  Handshake, LayoutGrid, Truck, FileText, ShoppingCart,
-  BarChart3, Package, Users, Factory, Briefcase, Settings, Sparkles,
-  Zap, Check, ArrowRight, PieChart, Search, MapPin,
-  Facebook, HomeIcon, Instagram, Linkedin, LinkedinIcon, MailIcon, PhoneCall, Twitter,
+  User,
+  Phone,
+  Mail,
+  Building2,
+  ChevronDown,
+  Layers,
+  Database,
+  Settings2,
+  Repeat,
+  ClipboardCheck,
+  TrendingUp,
+  CreditCard,
+  Handshake,
+  LayoutGrid,
+  Truck,
+  FileText,
+  ShoppingCart,
+  BarChart3,
+  Package,
+  Users,
+  Factory,
+  Briefcase,
+  Settings,
+  Sparkles,
+  Zap,
+  Check,
+  ArrowRight,
+  PieChart,
+  Search,
+  MapPin,
+  Facebook,
+  HomeIcon,
+  Instagram,
+  Linkedin,
+  LinkedinIcon,
+  MailIcon,
+  PhoneCall,
+  Twitter,
   DollarSign,
-  Crown, Award, Cloud, Code
-} from 'lucide-react';
-import { toast, Toaster } from 'react-hot-toast';
-import { BadgeIndianRupee, BriefcaseBusiness, Link, LucideBadgeIndianRupee, LucideBriefcaseBusiness, LucideSunMedium } from 'lucide-react';
-import Logo from './logo (1).png';
+  Crown,
+  Award,
+  Cloud,
+  Code,
+} from "lucide-react";
+import { toast, Toaster } from "react-hot-toast";
+import {
+  BadgeIndianRupee,
+  BriefcaseBusiness,
+  Link,
+  LucideBadgeIndianRupee,
+  LucideBriefcaseBusiness,
+  LucideSunMedium,
+} from "lucide-react";
+import Logo from "./logo (1).png";
 
 const EnhancedERPPage = () => {
   const [activeModule, setActiveModule] = useState(null);
@@ -34,7 +73,7 @@ const EnhancedERPPage = () => {
     r = Math.min(255, Math.floor(r * 1.2));
     g = Math.min(255, Math.floor(g * 1.2));
     b = Math.min(255, Math.floor(b * 1.2));
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
   };
 
   useEffect(() => {
@@ -46,7 +85,7 @@ const EnhancedERPPage = () => {
           }
         });
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
 
     document.querySelectorAll('[id^="animate-"]').forEach((el) => {
@@ -54,26 +93,75 @@ const EnhancedERPPage = () => {
     });
 
     const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll);
 
     return () => {
       observer.disconnect();
-      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener("scroll", handleScroll);
     };
   }, []);
 
-
   const modules = [
-    { name: "MRP", info: "Material Requirements Planning", icon: <Settings size={22} />, color: "#e91e63" },
-    { name: "BOM", info: "Bill of Materials Management", icon: <FileText size={22} />, color: "#f39c12" },
-    { name: "Sales", info: "Revenue & Order Tracking", icon: <BarChart3 size={22} />, color: "#ffeb3b" },
-    { name: "Purchase", info: "Procurement & Vendor Logs", icon: <ShoppingCart size={22} />, color: "#8bc34a" },
-    { name: "Inventory", info: "Stock & Warehouse Control", icon: <Package size={22} />, color: "#00bcd4" },
-    { name: "Finance", info: "Accounts & GST Compliance", icon: <Database size={22} />, color: "#2196f3" },
-    { name: "Quality", info: "Customer Relations & Leads", icon: <Users size={22} />, color: "#3f51b5" },
-    { name: "Production", info: "Shop Floor & Manufacturing", icon: <Factory size={22} />, color: "#673ab7" },
-    { name: "HR", info: "Employee Lifecycle & Pay", icon: <Briefcase size={22} />, color: "#9c27b0" },
-    { name: "Planning", info: "Strategic Resource Forecast", icon: <Settings size={22} />, color: "#f44336" },
+    {
+      name: "MRP",
+      info: "Material Requirements Planning",
+      icon: <Settings size={22} />,
+      color: "#e91e63",
+    },
+    {
+      name: "BOM",
+      info: "Bill of Materials Management",
+      icon: <FileText size={22} />,
+      color: "#f39c12",
+    },
+    {
+      name: "Sales",
+      info: "Revenue & Order Tracking",
+      icon: <BarChart3 size={22} />,
+      color: "#ffeb3b",
+    },
+    {
+      name: "Purchase",
+      info: "Procurement & Vendor Logs",
+      icon: <ShoppingCart size={22} />,
+      color: "#8bc34a",
+    },
+    {
+      name: "Inventory",
+      info: "Stock & Warehouse Control",
+      icon: <Package size={22} />,
+      color: "#00bcd4",
+    },
+    {
+      name: "Finance",
+      info: "Accounts & GST Compliance",
+      icon: <Database size={22} />,
+      color: "#2196f3",
+    },
+    {
+      name: "Quality",
+      info: "Customer Relations & Leads",
+      icon: <Users size={22} />,
+      color: "#3f51b5",
+    },
+    {
+      name: "Production",
+      info: "Shop Floor & Manufacturing",
+      icon: <Factory size={22} />,
+      color: "#673ab7",
+    },
+    {
+      name: "HR",
+      info: "Employee Lifecycle & Pay",
+      icon: <Briefcase size={22} />,
+      color: "#9c27b0",
+    },
+    {
+      name: "Planning",
+      info: "Strategic Resource Forecast",
+      icon: <Settings size={22} />,
+      color: "#f44336",
+    },
   ];
 
   const detailedModules = [
@@ -89,98 +177,128 @@ const EnhancedERPPage = () => {
   ];
 
   const partners = [
-    { id: 1, name: "Shripad Polymer", logo: "https://shripad-syn8erp.azurewebsites.net/Images/Shripad%20LOGO.png" },
-    { id: 2, name: "Vistta", logo: "https://synergy5m-visttaerp8-uat.azurewebsites.net/Images/VistaLOGOEdited.JPG" },
-    { id: 3, name: "Chemikar", logo: "https://synergy5m-chemikarerp8.azurewebsites.net/Images/Logo(1).jpg" },
-    { id: 4, name: "Swami Samarth", logo: "https://synergy5m-swamisamartherp8.azurewebsites.net/Images/SwamiSamarthLogo.png" },
+    {
+      id: 1,
+      name: "Shripad Polymer",
+      logo: "https://shripad-syn8erp.azurewebsites.net/Images/Shripad%20LOGO.png",
+    },
+    {
+      id: 2,
+      name: "Vistta",
+      logo: "https://synergy5m-visttaerp8-uat.azurewebsites.net/Images/VistaLOGOEdited.JPG",
+    },
+    {
+      id: 3,
+      name: "Chemikar",
+      logo: "https://synergy5m-chemikarerp8.azurewebsites.net/Images/Logo(1).jpg",
+    },
+    {
+      id: 4,
+      name: "Swami Samarth",
+      logo: "https://synergy5m-swamisamartherp8.azurewebsites.net/Images/SwamiSamarthLogo.png",
+    },
   ];
 
   const integratedModules = [
     {
-      title: 'Sales & Distribution',
+      title: "Sales & Distribution",
       icon: <PieChart size={40} />,
-      color: '#6B1B5E',
+      color: "#6B1B5E",
       features: [
-        'Customer Management',
-        'Sales Orders',
-        'Dispatch & Delivery',
-        'Warehouse Inventory',
-        'Warehouse Inventory'
-      ]
+        "Customer Management",
+        "Sales Orders",
+        "Dispatch & Delivery",
+        "Warehouse Inventory",
+        "Warehouse Inventory",
+      ],
     },
     {
-      title: 'Materials Management (Procurement & RM Inventory)',
+      title: "Materials Management (Procurement & RM Inventory)",
       icon: <FileText size={40} />,
-      color: '#6B1B5E',
+      color: "#6B1B5E",
       features: [
-        'Vendor Management',
-        'Purchase Orders',
-        'Raw Material Inventory', 'Goods Receipt & Issue', 'Material Cost Tracking'
-      ]
+        "Vendor Management",
+        "Purchase Orders",
+        "Raw Material Inventory",
+        "Goods Receipt & Issue",
+        "Material Cost Tracking",
+      ],
     },
     {
-      title: 'Production Management',
+      title: "Production Management",
       icon: <Search size={40} />,
-      color: '#6B1B5E',
+      color: "#6B1B5E",
       features: [
-        'Production Planning',
-        'Work Orders',
-        'Semi-Finished Inventory',
-        'Process Tracking',
-        'Production Reporting'
-      ]
+        "Production Planning",
+        "Work Orders",
+        "Semi-Finished Inventory",
+        "Process Tracking",
+        "Production Reporting",
+      ],
     },
     {
-      title: 'Quality Control',
+      title: "Quality Control",
       icon: <BarChart3 size={40} />,
-      color: '#6B1B5E',
+      color: "#6B1B5E",
       features: [
-        'Inward Quality Inspection',
-        'Outward Quality Checks',
-        'Quality Standards',
-        'Rejection & Rework Tracking',
-        'Compliance Records'
-      ]
+        "Inward Quality Inspection",
+        "Outward Quality Checks",
+        "Quality Standards",
+        "Rejection & Rework Tracking",
+        "Compliance Records",
+      ],
     },
     {
-      title: 'Human Resource Management (HRM)',
+      title: "Human Resource Management (HRM)",
       icon: <Handshake size={40} />,
-      color: '#6B1B5E',
+      color: "#6B1B5E",
       features: [
-        'Employee Master',
-        'Attendance Management',
-        'Payroll Processing',
-        'Leave Management',
-        'HR Reports'
-      ]
+        "Employee Master",
+        "Attendance Management",
+        "Payroll Processing",
+        "Leave Management",
+        "HR Reports",
+      ],
     },
     {
-      title: 'Masters (Standardization & Control)',
+      title: "Masters (Standardization & Control)",
       icon: <CreditCard size={40} />,
-      color: '#6B1B5E',
+      color: "#6B1B5E",
       features: [
-        'Item & Product Masters',
-        'Vendor & Customer Masters',
-        'Process Standards',
-        'Quality Parameters'
-      ]
+        "Item & Product Masters",
+        "Vendor & Customer Masters",
+        "Process Standards",
+        "Quality Parameters",
+      ],
     },
   ];
 
   const b2bPoints = [
-    { title: "Sales & Distribution", description: "Warehouse stock and dispatch management." },
-    { title: " Materials Management", description: "Raw material inventory control." },
-    { title: "Production", description: "Planning and semi-finished tracking." },
-    { title: "Quality Control", description: "Inward and outward quality checks." },
+    {
+      title: "Sales & Distribution",
+      description: "Warehouse stock and dispatch management.",
+    },
+    {
+      title: " Materials Management",
+      description: "Raw material inventory control.",
+    },
+    {
+      title: "Production",
+      description: "Planning and semi-finished tracking.",
+    },
+    {
+      title: "Quality Control",
+      description: "Inward and outward quality checks.",
+    },
     { title: "HRM", description: "Attendance and payroll management." },
     { title: "Masters", description: "Centralized process standardization." },
   ];
 
   const gradients = {
-    0: { from: '#c42fe2', to: '#f17dc5' },
-    1: { from: '#e26ac4', to: '#e247c8' },
-    2: { from: '#d169d4', to: '#d77fe2' },
-    3: { from: '#e797d3', to: '#d862d8' },
+    0: { from: "#c42fe2", to: "#f17dc5" },
+    1: { from: "#e26ac4", to: "#e247c8" },
+    2: { from: "#d169d4", to: "#d77fe2" },
+    3: { from: "#e797d3", to: "#d862d8" },
   };
 
   const services = [
@@ -232,39 +350,77 @@ const EnhancedERPPage = () => {
     },
     {
       title: "White Label ERP – Under Your Brand",
-      description: "You can launch the ERP with your own brand name and logo, making it look like your proprietary business system.",
+      description:
+        "You can launch the ERP with your own brand name and logo, making it look like your proprietary business system.",
       icon: <Link size={48} />,
       gradientIndex: 2,
     },
     {
       title: "One-Time Cost (No Recurring Subscription)",
-      description: " Unlike typical SaaS ERP systems, SYN 8 offers a one-time licensing model, so you avoid monthly or yearly subscription burdens.",
+      description:
+        " Unlike typical SaaS ERP systems, SYN 8 offers a one-time licensing model, so you avoid monthly or yearly subscription burdens.",
       icon: <BriefcaseBusiness size={48} />,
       gradientIndex: 3,
     },
     {
       title: " Full Data Ownership + Control",
-      description: "Your ERP database stays in your own Azure cloud account, so you retain full control and ownership of your business data.",
+      description:
+        "Your ERP database stays in your own Azure cloud account, so you retain full control and ownership of your business data.",
       icon: <Crown size={48} />,
       gradientIndex: 3,
     },
     {
       title: "Master-Driven Flexibility",
-      description: "You can define master structures (items, customers, vendors, standards, etc.) based on how your business actually works, not how the software forces you to work.",
+      description:
+        "You can define master structures (items, customers, vendors, standards, etc.) based on how your business actually works, not how the software forces you to work.",
       icon: <Building2 size={48} />,
       gradientIndex: 3,
     },
   ];
 
   const teamMembers = [
-    { name: "Ajay Gokhale", designation: "Founder & Director", image: "https://www.jotform.com/uploads/TOOLS_sales/agent_files/avatar_images/764638853698c7115408343.18725757_icon.png", linkedin: "#" },
-    { name: "Supriya Jadhav", designation: "SR.Software Developer", image: "https://www.jotform.com/uploads/TOOLS_sales/agent_files/avatar_images/611494537698c5395bbff46.63878094_icon.png", linkedin: "#" },
-    { name: "Shubhangi shejwal", designation: "Software Developer", image: "https://www.jotform.com/uploads/TOOLS_sales/agent_files/avatar_images/611494537698c5395bbff46.63878094_icon.png", linkedin: "#" },
-    { name: "Neha Varma ", designation: "Software Developer", image: "https://www.jotform.com/uploads/TOOLS_sales/agent_files/avatar_images/611494537698c5395bbff46.63878094_icon.png", linkedin: "#" },
-    { name: "Mayuri  Jamdade ", designation: "Software Developer", image: "https://www.jotform.com/uploads/TOOLS_sales/agent_files/avatar_images/611494537698c5395bbff46.63878094_icon.png", linkedin: "#" }
+    {
+      name: "Ajay Gokhale",
+      designation: "Founder & Director",
+      image:
+        "https://www.jotform.com/uploads/TOOLS_sales/agent_files/avatar_images/764638853698c7115408343.18725757_icon.png",
+      linkedin: "#",
+    },
+    {
+      name: "Supriya Jadhav",
+      designation: "SR.Software Developer",
+      image:
+        "https://www.jotform.com/uploads/TOOLS_sales/agent_files/avatar_images/611494537698c5395bbff46.63878094_icon.png",
+      linkedin: "#",
+    },
+    {
+      name: "Shubhangi shejwal",
+      designation: "Software Developer",
+      image:
+        "https://www.jotform.com/uploads/TOOLS_sales/agent_files/avatar_images/611494537698c5395bbff46.63878094_icon.png",
+      linkedin: "#",
+    },
+    {
+      name: "Neha Varma ",
+      designation: "Software Developer",
+      image:
+        "https://www.jotform.com/uploads/TOOLS_sales/agent_files/avatar_images/611494537698c5395bbff46.63878094_icon.png",
+      linkedin: "#",
+    },
+    {
+      name: "Mayuri  Jamdade ",
+      designation: "Software Developer",
+      image:
+        "https://www.jotform.com/uploads/TOOLS_sales/agent_files/avatar_images/611494537698c5395bbff46.63878094_icon.png",
+      linkedin: "#",
+    },
   ];
 
-  const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    message: "",
+  });
   const [submitStatus, setSubmitStatus] = useState(null);
   const [selectedCard, setSelectedCard] = useState(0);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -281,17 +437,17 @@ const EnhancedERPPage = () => {
     try {
       const response = await fetch("https://api.web3forms.com/submit", {
         method: "POST",
-        body: formData
+        body: formData,
       });
       const data = await response.json();
       if (data.success) {
-        toast.success('Thank you! Your demo request sent successfully! 🎉');
+        toast.success("Thank you! Your demo request sent successfully! 🎉");
         event.target.reset();
       } else {
-        toast.error(data.message || 'Submission failed. Try again.');
+        toast.error(data.message || "Submission failed. Try again.");
       }
     } catch (error) {
-      toast.error('Network error. Please try again.');
+      toast.error("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -299,124 +455,137 @@ const EnhancedERPPage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    setSubmitStatus('Thank you for contacting us!');
-    setFormData({ name: '', email: '', message: '' });
+    setSubmitStatus("Thank you for contacting us!");
+    setFormData({ name: "", email: "", message: "" });
   };
 
   const contactCards = [
     {
       icon: MapPin,
-      title: 'OUR OFFICE',
-      line1: '501,Fortuna Business center',
-      line2: 'opp.McDonalds , Pimple Saudagar Pune-411027 Maharashtra India',
-      mapUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3780.4266267707835!2d73.78667731490292!3d18.595833!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2b91ed5619653%3A0x9e0f7613d1ce8b8b!2sWakad%20-%20Nashik%20Phata%20BRTS%20Rd%2C%20Pimple%20Saudagar%2C%20Pimpri-Chinchwad%2C%20Maharashtra%20411027!5e0!3m2!1sen!2sin!4v1698345678901!5m2!1sen!2sin'
+      title: "OUR OFFICE",
+      line1: "501,Fortuna Business center",
+      line2: "opp.McDonalds , Pimple Saudagar Pune-411027 Maharashtra India",
+      mapUrl:
+        "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3780.4266267707835!2d73.78667731490292!3d18.595833!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2b91ed5619653%3A0x9e0f7613d1ce8b8b!2sWakad%20-%20Nashik%20Phata%20BRTS%20Rd%2C%20Pimple%20Saudagar%2C%20Pimpri-Chinchwad%2C%20Maharashtra%20411027!5e0!3m2!1sen!2sin!4v1698345678901!5m2!1sen!2sin",
     },
     {
       icon: Phone,
-      title: 'PHONE NUMBER',
-      line1: '+91 20 48646699',
-      line2: '+91 9423579446',
-      mapUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3780.4266267707835!2d73.78667731490292!3d18.595833!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2b91ed5619653%3A0x9e0f7613d1ce8b8b!2sWakad%20-%20Nashik%20Phata%20BRTS%20Rd%2C%20Pimple%20Saudagar%2C%20Pimpri-Chinchwad%2C%20Maharashtra%20411027!5e0!3m2!1sen!2sin!4v1698345678901!5m2!1sen!2sin'
+      title: "PHONE NUMBER",
+      line1: "+91 20 48646699",
+      line2: "+91 9423579446",
+      mapUrl:
+        "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3780.4266267707835!2d73.78667731490292!3d18.595833!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2b91ed5619653%3A0x9e0f7613d1ce8b8b!2sWakad%20-%20Nashik%20Phata%20BRTS%20Rd%2C%20Pimple%20Saudagar%2C%20Pimpri-Chinchwad%2C%20Maharashtra%20411027!5e0!3m2!1sen!2sin!4v1698345678901!5m2!1sen!2sin",
     },
     {
       icon: Mail,
-      title: 'EMAIL',
-      line1: 'info@synergy5m.com',
-      line2: '',
-      mapUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3780.4266267707835!2d73.78667731490292!3d18.595833!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2b91ed5619653%3A0x9e0f7613d1ce8b8b!2sWakad%20-%20Nashik%20Phata%20BRTS%20Rd%2C%20Pimple%20Saudagar%2C%20Pimpri-Chinchwad%2C%20Maharashtra%20411027!5e0!3m2!1sen!2sin!4v1698345678901!5m2!1sen!2sin'
-    }
+      title: "EMAIL",
+      line1: "info@synergy5m.com",
+      line2: "",
+      mapUrl:
+        "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3780.4266267707835!2d73.78667731490292!3d18.595833!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2b91ed5619653%3A0x9e0f7613d1ce8b8b!2sWakad%20-%20Nashik%20Phata%20BRTS%20Rd%2C%20Pimple%20Saudagar%2C%20Pimpri-Chinchwad%2C%20Maharashtra%20411027!5e0!3m2!1sen!2sin!4v1698345678901!5m2!1sen!2sin",
+    },
   ];
 
   // ─── JSON-LD Structured Data ───────────────────────────────────────────────
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "Synergy 5M LLP",
-    "url": "https://www.synergy5m.com",
-    "logo": "https://www.synergy5m.com/logo.png",
-    "description": "Cloud-Based ERP for Indian MSMEs & Manufacturers. One-Time Cost, Full Data Control, White-Label ERP for Seamless Growth.",
-    "email": "info@synergy5m.com",
-    "telephone": ["+91-20-48646699", "+91-9423579446"],
-    "address": {
+    name: "Synergy 5M LLP",
+    url: "https://www.synergy5m.com",
+    logo: "https://www.synergy5m.com/logo.png",
+    description:
+      "Cloud-Based ERP for Indian MSMEs & Manufacturers. One-Time Cost, Full Data Control, White-Label ERP for Seamless Growth.",
+    email: "info@synergy5m.com",
+    telephone: ["+91-20-48646699", "+91-9423579446"],
+    address: {
       "@type": "PostalAddress",
-      "streetAddress": "501, Fortuna Business Center, Opp. McDonald's, Pimple Saudagar",
-      "addressLocality": "Pune",
-      "addressRegion": "Maharashtra",
-      "postalCode": "411027",
-      "addressCountry": "IN"
+      streetAddress:
+        "501, Fortuna Business Center, Opp. McDonald's, Pimple Saudagar",
+      addressLocality: "Pune",
+      addressRegion: "Maharashtra",
+      postalCode: "411027",
+      addressCountry: "IN",
     },
-    "sameAs": [
+    sameAs: [
       "https://www.linkedin.com/in/synergy5m-business-tools-5165063b0/",
-      "https://www.instagram.com/synergy_5m_llp/"
+      "https://www.instagram.com/synergy_5m_llp/",
     ],
-    "foundingDate": "2020",
-    "founder": {
+    foundingDate: "2020",
+    founder: {
       "@type": "Person",
-      "name": "Ajay Gokhale"
-    }
+      name: "Ajay Gokhale",
+    },
   };
 
   const softwareSchema = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "SYN-8 ERP",
-    "applicationCategory": "BusinessApplication",
-    "operatingSystem": "Web, Cloud (Microsoft Azure)",
-    "description": "SYN-8 is a fully customizable, white-label cloud ERP system designed for Indian MSMEs and manufacturers. Covers Sales, Purchase, Inventory, Production, Finance, Quality, HR, MRP, BOM and Planning modules.",
-    "offers": {
+    name: "SYN-8 ERP",
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web, Cloud (Microsoft Azure)",
+    description:
+      "SYN-8 is a fully customizable, white-label cloud ERP system designed for Indian MSMEs and manufacturers. Covers Sales, Purchase, Inventory, Production, Finance, Quality, HR, MRP, BOM and Planning modules.",
+    offers: {
       "@type": "Offer",
-      "priceCurrency": "INR",
-      "description": "One-time licensing cost — no recurring monthly/yearly subscription fees.",
-      "availability": "https://schema.org/InStock"
+      priceCurrency: "INR",
+      description:
+        "One-time licensing cost — no recurring monthly/yearly subscription fees.",
+      availability: "https://schema.org/InStock",
     },
-    "publisher": {
+    publisher: {
       "@type": "Organization",
-      "name": "Synergy 5M LLP"
-    }
+      name: "Synergy 5M LLP",
+    },
   };
 
   const localBusinessSchema = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
-    "name": "Synergy 5M LLP",
-    "image": "https://www.synergy5m.com/logo.png",
-    "url": "https://www.synergy5m.com",
-    "telephone": "+91-9423579446",
-    "email": "info@synergy5m.com",
-    "address": {
+    name: "Synergy 5M LLP",
+    image: "https://www.synergy5m.com/logo.png",
+    url: "https://www.synergy5m.com",
+    telephone: "+91-9423579446",
+    email: "info@synergy5m.com",
+    address: {
       "@type": "PostalAddress",
-      "streetAddress": "501, Fortuna Business Center, Opp. McDonald's, Pimple Saudagar",
-      "addressLocality": "Pune",
-      "addressRegion": "Maharashtra",
-      "postalCode": "411027",
-      "addressCountry": "IN"
+      streetAddress:
+        "501, Fortuna Business Center, Opp. McDonald's, Pimple Saudagar",
+      addressLocality: "Pune",
+      addressRegion: "Maharashtra",
+      postalCode: "411027",
+      addressCountry: "IN",
     },
-    "geo": {
+    geo: {
       "@type": "GeoCoordinates",
-      "latitude": 18.595833,
-      "longitude": 73.786677
+      latitude: 18.595833,
+      longitude: 73.786677,
     },
-    "openingHoursSpecification": {
+    openingHoursSpecification: {
       "@type": "OpeningHoursSpecification",
-      "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-      "opens": "09:00",
-      "closes": "18:00"
+      dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      opens: "09:00",
+      closes: "18:00",
     },
-    "priceRange": "₹₹"
+    priceRange: "₹₹",
   };
   // ──────────────────────────────────────────────────────────────────────────
 
   return (
     <div className="page-wrapper">
-
       {/* ═══════════════════════════════════════════════════════════════════
           SEO HELMET — all meta, OG, Twitter, canonical & structured data
       ═══════════════════════════════════════════════════════════════════ */}
       <Helmet>
         {/* ── Primary Meta Tags ── */}
         <html lang="en" />
-        <title>Synergy 5M LLP | Cloud-Based ERP for Indian MSMEs & Manufacturers | SYN-8</title>
-        <meta name="title" content="Synergy 5M LLP | Cloud-Based ERP for Indian MSMEs & Manufacturers | SYN-8" />
+        <title>
+          Synergy 5M LLP | Cloud-Based ERP for Indian MSMEs & Manufacturers |
+          SYN-8
+        </title>
+        <meta
+          name="title"
+          content="Synergy 5M LLP | Cloud-Based ERP for Indian MSMEs & Manufacturers | SYN-8"
+        />
         <meta
           name="description"
           content="SYN-8 by Synergy 5M LLP is a fully customizable, white-label Cloud ERP for Indian MSMEs and manufacturers. One-time cost, full Azure data ownership, GST-compliant modules: Sales, Purchase, Inventory, Production, Finance, Quality, HR, MRP & BOM. Get a free demo today."
@@ -426,7 +595,10 @@ const EnhancedERPPage = () => {
           content="ERP for MSME India, cloud ERP Pune, manufacturing ERP, SYN-8 ERP, white label ERP, one-time ERP cost, MRP software India, BOM software, GST compliant ERP, production management software, inventory management India, Synergy 5M LLP, Azure ERP, MSME ERP Pune, ERP for manufacturers"
         />
         <meta name="author" content="Synergy 5M LLP" />
-        <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+        <meta
+          name="robots"
+          content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"
+        />
         <meta name="googlebot" content="index, follow" />
         <link rel="canonical" href="https://www.synergy5m.com/" />
 
@@ -440,27 +612,42 @@ const EnhancedERPPage = () => {
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://www.synergy5m.com/" />
         <meta property="og:site_name" content="Synergy 5M LLP" />
-        <meta property="og:title" content="Synergy 5M LLP | Cloud-Based ERP for Indian MSMEs & Manufacturers" />
+        <meta
+          property="og:title"
+          content="Synergy 5M LLP | Cloud-Based ERP for Indian MSMEs & Manufacturers"
+        />
         <meta
           property="og:description"
           content="SYN-8 ERP — Fully customizable, white-label Cloud ERP built for Indian MSMEs. One-time cost, Azure data ownership, GST compliance. Modules: Sales, Purchase, Inventory, Production, Finance, Quality, HR, MRP & BOM."
         />
-        <meta property="og:image" content="https://www.synergy5m.com/og-image.jpg" />
+        <meta
+          property="og:image"
+          content="https://www.synergy5m.com/og-image.jpg"
+        />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
-        <meta property="og:image:alt" content="Synergy 5M LLP - SYN-8 Cloud ERP Dashboard" />
+        <meta
+          property="og:image:alt"
+          content="Synergy 5M LLP - SYN-8 Cloud ERP Dashboard"
+        />
         <meta property="og:locale" content="en_IN" />
 
         {/* ── Twitter Card ── */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:site" content="@synergy5m" />
         <meta name="twitter:creator" content="@synergy5m" />
-        <meta name="twitter:title" content="Synergy 5M LLP | Cloud ERP for Indian MSMEs | SYN-8" />
+        <meta
+          name="twitter:title"
+          content="Synergy 5M LLP | Cloud ERP for Indian MSMEs | SYN-8"
+        />
         <meta
           name="twitter:description"
           content="SYN-8 ERP: fully customizable, white-label, one-time cost Cloud ERP for Indian MSMEs & manufacturers. Sales, Inventory, Production, Finance, HR, MRP, BOM & more."
         />
-        <meta name="twitter:image" content="https://www.synergy5m.com/og-image.jpg" />
+        <meta
+          name="twitter:image"
+          content="https://www.synergy5m.com/og-image.jpg"
+        />
         <meta name="twitter:image:alt" content="SYN-8 ERP by Synergy 5M LLP" />
 
         {/* ── Mobile / PWA ── */}
@@ -487,29 +674,29 @@ const EnhancedERPPage = () => {
       </Helmet>
       {/* ═══════════════════════════════════════════════════════════════════ */}
 
-      <style jsx>{`
-       
-      `}</style>
+      <style jsx>{``}</style>
 
       {/* Header Section */}
       <header className="header-animate">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <img
             src={Logo}
             alt="SYNERGY 5M Logo"
-            style={{ height: '60px', width: 'auto', objectFit: 'contain' }}
+            style={{ height: "60px", width: "auto", objectFit: "contain" }}
           />
-          <h1 style={{
-            margin: 0,
-            fontSize: 'clamp(1rem, 4vw, 1.8rem)',
-            fontWeight: 'bold',
-            color: 'inherit'
-          }}>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "clamp(1rem, 4vw, 1.8rem)",
+              fontWeight: "bold",
+              color: "inherit",
+            }}
+          >
             SYNERGY 5M LLP
           </h1>
         </div>
         <div className="contact-info">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <Phone size={18} />
             <span>+91 9423579446</span>
           </div>
@@ -519,8 +706,13 @@ const EnhancedERPPage = () => {
       {/* Hero Section */}
       <section className="hero-section">
         <div className="hero-top">
-          <h2>SYNERGY 5M LLP  INTEGRATING BUSSINESSES - <span style={{ color: 'yellow' }}>Cloud-Based ERP for Indian MSMEs & Manufacturers
-            One-Time Cost, Full Data Control, White-Label ERP for Seamless Growth.</span></h2>
+          <h2>
+            SYNERGY 5M LLP INTEGRATING BUSSINESSES -{" "}
+            <span style={{ color: "yellow" }}>
+              Cloud-Based ERP for Indian MSMEs & Manufacturers One-Time Cost,
+              Full Data Control, White-Label ERP for Seamless Growth.
+            </span>
+          </h2>
         </div>
 
         <div className="hero-main">
@@ -530,7 +722,11 @@ const EnhancedERPPage = () => {
             <div className="wheel-center-hub">
               {activeModule ? (
                 <>
-                  <div style={{ color: activeModule.color, marginBottom: '10px' }}>{activeModule.icon}</div>
+                  <div
+                    style={{ color: activeModule.color, marginBottom: "10px" }}
+                  >
+                    {activeModule.icon}
+                  </div>
                   <h2>{activeModule.name}</h2>
                   <p>{activeModule.info}</p>
                 </>
@@ -557,23 +753,27 @@ const EnhancedERPPage = () => {
                     left: `calc(50% + ${x}px - ${nodeOffset})`,
                     animationDelay: `${i * 0.1}s`,
                     width: `clamp(56px, 14vw, 84px)`,
-                    height: `clamp(52px, 13vw, 84px)`
+                    height: `clamp(52px, 13vw, 84px)`,
                   }}
                   onMouseEnter={() => setActiveModule(m)}
                   onMouseLeave={() => setActiveModule(null)}
                 >
-                  <div style={{
-                    color: 'white',
-                    fontSize: `clamp(18px, 4.5vw, 24px)`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '100%',
-                    height: '70%'
-                  }}>
+                  <div
+                    style={{
+                      color: "white",
+                      fontSize: `clamp(18px, 4.5vw, 24px)`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "100%",
+                      height: "70%",
+                    }}
+                  >
                     {m.icon}
                   </div>
-                  <span style={{ fontSize: `clamp(10px, 2.8vw, 13px)` }}>{m.name}</span>
+                  <span style={{ fontSize: `clamp(10px, 2.8vw, 13px)` }}>
+                    {m.name}
+                  </span>
                 </div>
               );
             })}
@@ -581,80 +781,184 @@ const EnhancedERPPage = () => {
 
           {/* Contact Form */}
           <form className="form-card" onSubmit={onSubmit}>
-            <h3 style={{ animation: 'fadeInDown 0.6s ease-out' }}>Get Your Free Demo</h3>
+            <h3 style={{ animation: "fadeInDown 0.6s ease-out" }}>
+              Get Your Free Demo
+            </h3>
 
             <div className="">
               <div className="input-row">
-                <div className="icon-wrap"><User size={20} /></div>
-                <input type="text" name="name" placeholder="Full Name*" required />
+                <div className="icon-wrap">
+                  <User size={20} />
+                </div>
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Full Name*"
+                  required
+                />
               </div>
               <div className="input-row">
-                <div className="icon-wrap"><Phone size={20} /></div>
-                <div style={{ display: 'flex', width: '100%', alignItems: 'center' }}>
+                <div className="icon-wrap">
+                  <Phone size={20} />
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    width: "100%",
+                    alignItems: "center",
+                  }}
+                >
                   <span className="phone-prefix">🇮🇳 +91 </span>
-                  <input type="tel" name="phone" placeholder="Phone Number*" required />
+                  <input
+                    type="tel"
+                    name="phone"
+                    placeholder="Phone Number*"
+                    required
+                  />
                 </div>
               </div>
             </div>
 
             <div className="">
               <div className="input-row">
-                <div className="icon-wrap"><Mail size={20} /></div>
-                <input type="email" name="email" placeholder="Email ID*" required />
+                <div className="icon-wrap">
+                  <Mail size={20} />
+                </div>
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="Email ID*"
+                  required
+                />
               </div>
               <div className="input-row">
-                <div className="icon-wrap"><Building2 size={20} /></div>
-                <input type="text" name="company" placeholder="Company Name*" required />
+                <div className="icon-wrap">
+                  <Building2 size={20} />
+                </div>
+                <input
+                  type="text"
+                  name="company"
+                  placeholder="Company Name*"
+                  required
+                />
               </div>
             </div>
 
-            <button className="btn-submit" type="submit" disabled={loading} style={{ alignContent: 'center' }}>
-              {loading ? 'Sending...' : 'Contact Us'}
+            <button
+              className="btn-submit"
+              type="submit"
+              disabled={loading}
+              style={{ alignContent: "center" }}
+            >
+              {loading ? "Sending..." : "Contact Us"}
             </button>
           </form>
         </div>
       </section>
 
       {/* About Us */}
-      <section style={{
-        position: 'relative', overflow: 'hidden', paddingBottom: '10px',
-        display: 'flex', alignItems: 'center'
-      }}>
-        <div style={{
-          position: 'absolute', top: '-10%', right: '-5%', width: '400px', height: '400px',
-          filter: 'blur(80px)', animation: 'pulse 6s ease-in-out infinite'
-        }}></div>
-        <div style={{
-          position: 'absolute', bottom: '10%', left: '-5%', width: '300px', height: '300px',
-          background: 'radial-gradient(circle, rgba(112, 13, 93, 0.08), transparent 70%)',
-          filter: 'blur(60px)', animation: 'pulse 4s ease-in-out infinite'
-        }}></div>
+      <section
+        style={{
+          position: "relative",
+          overflow: "hidden",
+          paddingBottom: "10px",
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            top: "-10%",
+            right: "-5%",
+            width: "400px",
+            height: "400px",
+            filter: "blur(80px)",
+            animation: "pulse 6s ease-in-out infinite",
+          }}
+        ></div>
+        <div
+          style={{
+            position: "absolute",
+            bottom: "10%",
+            left: "-5%",
+            width: "300px",
+            height: "300px",
+            background:
+              "radial-gradient(circle, rgba(112, 13, 93, 0.08), transparent 70%)",
+            filter: "blur(60px)",
+            animation: "pulse 4s ease-in-out infinite",
+          }}
+        ></div>
 
-        <div style={{ maxWidth: '1200px', margin: '20px auto', position: 'relative', zIndex: 2 }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ display: 'inline-block', marginBottom: '2rem' }}>
-              <h2 style={{
-                fontSize: 'clamp(2.2rem, 6vw, 3.5rem)', fontWeight: '800',
-                background: 'linear-gradient(90deg, #700d5d, #ea580c)',
-                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                margin: 0, letterSpacing: '-1px'
-              }}>
+        <div
+          style={{
+            maxWidth: "1200px",
+            margin: "20px auto",
+            position: "relative",
+            zIndex: 2,
+          }}
+        >
+          <div style={{ textAlign: "center" }}>
+            <div style={{ display: "inline-block", marginBottom: "2rem" }}>
+              <h2
+                style={{
+                  fontSize: "clamp(2.2rem, 6vw, 3.5rem)",
+                  fontWeight: "800",
+                  background: "linear-gradient(90deg, #700d5d, #ea580c)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  margin: 0,
+                  letterSpacing: "-1px",
+                }}
+              >
                 About Us
               </h2>
-              <div style={{
-                height: '5px', width: '60%', margin: '10px auto 0',
-                background: 'linear-gradient(90deg, #ea580c, #f59e0b)', borderRadius: '10px'
-              }}></div>
+              <div
+                style={{
+                  height: "5px",
+                  width: "60%",
+                  margin: "10px auto 0",
+                  background: "linear-gradient(90deg, #ea580c, #f59e0b)",
+                  borderRadius: "10px",
+                }}
+              ></div>
             </div>
 
-            <div style={{ backdropFilter: 'blur(10px)', borderRadius: '24px', animation: 'fadeInUp 1.2s ease-out' }}>
-              <p style={{ color: '#374151', fontSize: 'clamp(1rem, 2.8vw, 1.25rem)', lineHeight: '1.8', margin: 0, fontWeight: '500' }}>
-                <strong style={{ color: '#ea580c' }}>Synergy5M LLP</strong>, founded by Ajay Gokhale, empowers MSMEs with owner-centric digital solutions.
-                Our flagship MSME ERP <span style={{ color: '#700d5d', fontWeight: 'bold' }}>SYN-8</span> is built by
-                talented young female professionals using <span style={{ textDecoration: 'underline decoration-orange-500' }}>ASP.NET Core & MVC</span>.
-                <br /><br />
-                Seamlessly deployed on <strong>Microsoft Azure Cloud</strong>, we provide manufacturers
-                with complete visibility and the tools for scalable, sustainable growth.
+            <div
+              style={{
+                backdropFilter: "blur(10px)",
+                borderRadius: "24px",
+                animation: "fadeInUp 1.2s ease-out",
+              }}
+            >
+              <p
+                style={{
+                  color: "#374151",
+                  fontSize: "clamp(1rem, 2.8vw, 1.25rem)",
+                  lineHeight: "1.8",
+                  margin: 0,
+                  fontWeight: "500",
+                }}
+              >
+                <strong style={{ color: "#ea580c" }}>Synergy5M LLP</strong>,
+                founded by Ajay Gokhale, empowers MSMEs with owner-centric
+                digital solutions. Our flagship MSME ERP{" "}
+                <span style={{ color: "#700d5d", fontWeight: "bold" }}>
+                  SYN-8
+                </span>{" "}
+                is built by talented young female professionals using{" "}
+                <span
+                  style={{ textDecoration: "underline decoration-orange-500" }}
+                >
+                  ASP.NET Core & MVC
+                </span>
+                .
+                <br />
+                <br />
+                Seamlessly deployed on <strong>Microsoft Azure Cloud</strong>,
+                we provide manufacturers with complete visibility and the tools
+                for scalable, sustainable growth.
               </p>
             </div>
           </div>
@@ -663,29 +967,62 @@ const EnhancedERPPage = () => {
 
       {/* Services Section */}
       <section className="services-section">
-        <div style={{
-          position: 'absolute', top: '80px', left: '40px', width: '80px', height: '80px',
-          background: 'radial-gradient(circle, #fde047, #fb923c)', borderRadius: '50%',
-          filter: 'blur(60px)', opacity: 0.3, animation: 'pulse 3s ease-in-out infinite'
-        }}></div>
+        <div
+          style={{
+            position: "absolute",
+            top: "80px",
+            left: "40px",
+            width: "80px",
+            height: "80px",
+            background: "radial-gradient(circle, #fde047, #fb923c)",
+            borderRadius: "50%",
+            filter: "blur(60px)",
+            opacity: 0.3,
+            animation: "pulse 3s ease-in-out infinite",
+          }}
+        ></div>
 
-        <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 'clamp(1rem, 4vw, 4rem)' }}>
-            <div style={{ display: 'inline-block' }}>
-              <h2 style={{
-                fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 'bold',
-                background: 'linear-gradient(90deg, #ea580c, #f59e0b, #eab308)',
-                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text', marginBottom: '1rem', animation: 'fadeInDown 1s ease-out'
-              }}>
+        <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
+          <div
+            style={{
+              textAlign: "center",
+              marginBottom: "clamp(1rem, 4vw, 4rem)",
+            }}
+          >
+            <div style={{ display: "inline-block" }}>
+              <h2
+                style={{
+                  fontSize: "clamp(2rem, 5vw, 3rem)",
+                  fontWeight: "bold",
+                  background:
+                    "linear-gradient(90deg, #ea580c, #f59e0b, #eab308)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                  marginBottom: "1rem",
+                  animation: "fadeInDown 1s ease-out",
+                }}
+              >
                 Our Services
               </h2>
-              <div style={{
-                height: '6px', background: 'linear-gradient(90deg, #fb923c, #fbbf24, #facc15)', borderRadius: '9999px'
-              }}></div>
+              <div
+                style={{
+                  height: "6px",
+                  background:
+                    "linear-gradient(90deg, #fb923c, #fbbf24, #facc15)",
+                  borderRadius: "9999px",
+                }}
+              ></div>
             </div>
-            <p style={{ color: '#6b7280', fontSize: 'clamp(1rem, 2.5vw, 1.125rem)', margin: '1.5rem auto 0' }}>
-              Empowering businesses with innovative solutions for sustainable growth
+            <p
+              style={{
+                color: "#6b7280",
+                fontSize: "clamp(2rem, 2.5vw, 1.125rem)",
+                margin: "1.5rem auto 0",
+              }}
+            >
+              Empowering businesses with innovative solutions for sustainable
+              growth
             </p>
           </div>
 
@@ -699,48 +1036,86 @@ const EnhancedERPPage = () => {
                   className="service-card"
                   onMouseEnter={() => setHoveredCard(idx)}
                   onMouseLeave={() => setHoveredCard(null)}
-                  style={{ animation: `fadeInUp 0.8s ease-out ${idx * 0.1}s backwards` }}
+                  style={{
+                    animation: `fadeInUp 0.8s ease-out ${idx * 0.1}s backwards`,
+                  }}
                 >
-                  <div style={{
-                    position: 'absolute', top: '-64px', right: '-64px', width: '128px', height: '128px',
-                    background: `linear-gradient(135deg, ${gradient.from}, ${gradient.to})`,
-                    opacity: isHovered ? 0.2 : 0.1, borderRadius: '50%', filter: 'blur(60px)',
-                    transition: 'opacity 0.5s ease'
-                  }}></div>
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "-64px",
+                      right: "-64px",
+                      width: "128px",
+                      height: "128px",
+                      background: `linear-gradient(135deg, ${gradient.from}, ${gradient.to})`,
+                      opacity: isHovered ? 0.2 : 0.1,
+                      borderRadius: "50%",
+                      filter: "blur(60px)",
+                      transition: "opacity 0.5s ease",
+                    }}
+                  ></div>
 
-                  <div style={{
-                    position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    width: 'clamp(60px, 12vw, 80px)', height: 'clamp(60px, 12vw, 80px)', borderRadius: '1rem',
-                    background: `linear-gradient(135deg, ${gradient.from}, ${gradient.to})`,
-                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', marginBottom: '1.5rem',
-                    transform: isHovered ? 'scale(1.1) rotate(6deg)' : 'scale(1) rotate(0deg)',
-                    transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)', color: '#ffffff'
-                  }}>
+                  <div
+                    style={{
+                      position: "relative",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "clamp(60px, 12vw, 80px)",
+                      height: "clamp(60px, 12vw, 80px)",
+                      borderRadius: "1rem",
+                      background: `linear-gradient(135deg, ${gradient.from}, ${gradient.to})`,
+                      boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+                      marginBottom: "1.5rem",
+                      transform: isHovered
+                        ? "scale(1.1) rotate(6deg)"
+                        : "scale(1) rotate(0deg)",
+                      transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+                      color: "#ffffff",
+                    }}
+                  >
                     {service.icon}
                   </div>
 
-                  <h3 style={{
-                    fontSize: 'clamp(1.2rem, 3vw, 1.5rem)', fontWeight: 'bold',
-                    color: isHovered ? 'transparent' : '#1f2937',
-                    background: isHovered ? 'linear-gradient(90deg, #ea580c, #f59e0b)' : 'none',
-                    WebkitBackgroundClip: isHovered ? 'text' : 'unset',
-                    WebkitTextFillColor: isHovered ? 'transparent' : 'unset',
-                    backgroundClip: isHovered ? 'text' : 'unset',
-                    marginBottom: '1rem', transition: 'all 0.3s ease'
-                  }}>
+                  <h3
+                    style={{
+                      fontSize: "clamp(1.2rem, 3vw, 1.5rem)",
+                      fontWeight: "bold",
+                      color: isHovered ? "transparent" : "#1f2937",
+                      background: isHovered
+                        ? "linear-gradient(90deg, #ea580c, #f59e0b)"
+                        : "none",
+                      WebkitBackgroundClip: isHovered ? "text" : "unset",
+                      WebkitTextFillColor: isHovered ? "transparent" : "unset",
+                      backgroundClip: isHovered ? "text" : "unset",
+                      marginBottom: "1rem",
+                      transition: "all 0.3s ease",
+                    }}
+                  >
                     {service.title}
                   </h3>
 
-                  <div style={{ color: '#6b7280', lineHeight: '1.75', fontSize: 'clamp(0.9rem, 2vw, 1rem)' }}>
+                  <div
+                    style={{
+                      color: "#6b7280",
+                      lineHeight: "1.75",
+                      fontSize: "clamp(0.9rem, 2vw, 1rem)",
+                    }}
+                  >
                     {service.description}
                   </div>
 
-                  <div style={{
-                    position: 'absolute', bottom: 0, left: 0, height: '4px',
-                    width: isHovered ? '100%' : '0%',
-                    background: `linear-gradient(90deg, ${gradient.from}, ${gradient.to})`,
-                    transition: 'width 0.5s ease'
-                  }}></div>
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: 0,
+                      left: 0,
+                      height: "4px",
+                      width: isHovered ? "100%" : "0%",
+                      background: `linear-gradient(90deg, ${gradient.from}, ${gradient.to})`,
+                      transition: "width 0.5s ease",
+                    }}
+                  ></div>
                 </div>
               );
             })}
@@ -753,74 +1128,161 @@ const EnhancedERPPage = () => {
         <div className="section-header">
           <h2
             id="animate-industrial-title"
-            className={`animate-title ${isVisible['animate-industrial-title'] ? 'visible' : ''}`}
+            className={`animate-title ${isVisible["animate-industrial-title"] ? "visible" : ""}`}
           >
             Who Can Use SyNERGY 5M LLP ERP?
           </h2>
-          <p>Built specifically for Indian manufacturing and growing businesses that want better control, visibility, and scalability — without complexity.</p>
+          <p>
+            Built specifically for Indian manufacturing and growing businesses
+            that want better control, visibility, and scalability — without
+            complexity.
+          </p>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', padding: '0 20px', flexWrap: 'wrap' }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "15px",
+            padding: "0 20px",
+            flexWrap: "wrap",
+          }}
+        >
           {[
-            { id: 1, icon: <Layers size={30} />, text: "Manufacturing MSMEs", desc: "Best for small & medium manufacturing units" },
-            { id: 2, icon: <Database size={30} />, text: "Discrete Manufacturing Units", desc: "BOM & routing management. Order-wise production tracking" },
-            { id: 3, icon: <Settings2 size={30} />, text: "Process / Batch Manufacturers", desc: 'Batch-wise production & traceability.Quality checks at every stage.' },
-            { id: 4, icon: <Repeat size={30} />, text: "Growing Businesses Scaling Operations", desc: 'Moving from Excel to ERP. Need real-time reports & dashboards' },
-            { id: 6, icon: <TrendingUp size={30} />, text: "Trading Houses", desc: "Streamline processes & boost profits with ERP automation" },
-            { id: 7, icon: <Layers size={30} />, text: "Process Improvement", desc: "Real-time supply chain visibility & automated workflows" },
-            { id: 8, icon: <DollarSign size={30} />, text: "Bottom Line Improvement", desc: "Cut costs 15-30% with inventory optimization & waste reduction" }
+            {
+              id: 1,
+              icon: <Layers size={30} />,
+              text: "Manufacturing MSMEs",
+              desc: "Best for small & medium manufacturing units",
+            },
+            {
+              id: 2,
+              icon: <Database size={30} />,
+              text: "Discrete Manufacturing Units",
+              desc: "BOM & routing management. Order-wise production tracking",
+            },
+            {
+              id: 3,
+              icon: <Settings2 size={30} />,
+              text: "Process / Batch Manufacturers",
+              desc: "Batch-wise production & traceability.Quality checks at every stage.",
+            },
+            {
+              id: 4,
+              icon: <Repeat size={30} />,
+              text: "Growing Businesses Scaling Operations",
+              desc: "Moving from Excel to ERP. Need real-time reports & dashboards",
+            },
+            {
+              id: 6,
+              icon: <TrendingUp size={30} />,
+              text: "Trading Houses",
+              desc: "Streamline processes & boost profits with ERP automation",
+            },
+            {
+              id: 7,
+              icon: <Layers size={30} />,
+              text: "Process Improvement",
+              desc: "Real-time supply chain visibility & automated workflows",
+            },
+            {
+              id: 8,
+              icon: <DollarSign size={30} />,
+              text: "Bottom Line Improvement",
+              desc: "Cut costs 15-30% with inventory optimization & waste reduction",
+            },
           ].map((item) => (
             <div
               key={item.id}
               id={`animate-solution-${item.id}`}
-              className={`solution-card ${isVisible[`animate-solution-${item.id}`] ? 'visible' : ''}`}
+              className={`solution-card ${isVisible[`animate-solution-${item.id}`] ? "visible" : ""}`}
               style={{
-                flex: '1', minWidth: '200px', maxWidth: '250px', padding: '25px 20px',
-                textAlign: 'center', background: '#fff', borderRadius: '12px',
-                boxShadow: '0 4px 15px rgba(0,0,0,0.05)', display: 'flex',
-                flexDirection: 'column', alignItems: 'center', gap: '10px',
-                cursor: 'pointer', transition: 'all 0.3s ease'
+                flex: "1",
+                minWidth: "200px",
+                maxWidth: "250px",
+                padding: "25px 20px",
+                textAlign: "center",
+                background: "#fff",
+                borderRadius: "12px",
+                boxShadow: "0 4px 15px rgba(0,0,0,0.05)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "10px",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-10px) scale(1.05)';
-                e.currentTarget.style.boxShadow = '0 10px 30px rgba(103, 58, 183, 0.3)';
+                e.currentTarget.style.transform =
+                  "translateY(-10px) scale(1.05)";
+                e.currentTarget.style.boxShadow =
+                  "0 10px 30px rgba(103, 58, 183, 0.3)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.05)';
+                e.currentTarget.style.transform = "translateY(0) scale(1)";
+                e.currentTarget.style.boxShadow = "0 4px 15px rgba(0,0,0,0.05)";
               }}
             >
-              <div style={{ color: '#673ab7', transition: 'all 0.3s ease' }}>{item.icon}</div>
-              <h4 style={{ fontSize: '14px', margin: 0, lineHeight: '1.4', color: '#333', fontWeight: 'bold' }}>{item.text}</h4>
-              <p style={{ fontSize: '12px', color: '#666', margin: 0, lineHeight: '1.5' }}>{item.desc}</p>
+              <div style={{ color: "#673ab7", transition: "all 0.3s ease" }}>
+                {item.icon}
+              </div>
+              <h4
+                style={{
+                  fontSize: "14px",
+                  margin: 0,
+                  lineHeight: "1.4",
+                  color: "#333",
+                  fontWeight: "bold",
+                }}
+              >
+                {item.text}
+              </h4>
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: "#666",
+                  margin: 0,
+                  lineHeight: "1.5",
+                }}
+              >
+                {item.desc}
+              </p>
             </div>
           ))}
         </div>
       </section>
 
       {/* Easy-to-integrate Modules Section */}
-      <section className='modules-section'>
-        <div style={{ display: 'inline-block' }}>
-          <h2 style={{
-            fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 'bold',
-            background: 'linear-gradient(90deg, #ea580c, #f59e0b, #eab308)',
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text', marginBottom: '1rem', animation: 'fadeInDown 1s ease-out'
-          }}>
+      <section className="modules-section">
+        <div style={{ display: "inline-block" }}>
+          <h2
+            style={{
+              fontSize: "clamp(2rem, 5vw, 3rem)",
+              fontWeight: "bold",
+              background: "linear-gradient(90deg, #ea580c, #f59e0b, #eab308)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+              marginBottom: "1rem",
+              animation: "fadeInDown 1s ease-out",
+            }}
+          >
             Our Modules
           </h2>
         </div>
-        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+        <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
           <div className="integrated-modules-grid">
             {integratedModules.map((module, index) => (
               <div
                 key={index}
                 id={`animate-integrated-${index}`}
-                className={`integrated-module-card ${isVisible[`animate-integrated-${index}`] ? 'visible' : ''}`}
+                className={`integrated-module-card ${isVisible[`animate-integrated-${index}`] ? "visible" : ""}`}
               >
                 <div
                   className="icon-container"
-                  style={{ background: `linear-gradient(135deg, ${module.color}, ${lightenColor(module.color)})` }}
+                  style={{
+                    background: `linear-gradient(135deg, ${module.color}, ${lightenColor(module.color)})`,
+                  }}
                 >
                   {module.icon}
                 </div>
@@ -828,7 +1290,15 @@ const EnhancedERPPage = () => {
                 <ul>
                   {module.features.map((feature, idx) => (
                     <li key={idx}>
-                      <span style={{ color: module.color, marginRight: '12px', fontWeight: 'bold' }}>•</span>
+                      <span
+                        style={{
+                          color: module.color,
+                          marginRight: "12px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        •
+                      </span>
                       <span>{feature}</span>
                     </li>
                   ))}
@@ -841,17 +1311,29 @@ const EnhancedERPPage = () => {
 
       {/* Partners */}
       <section style={styles.container}>
-        <h2 style={{
-          fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 'bold',
-          background: 'linear-gradient(90deg, #ea580c, #f59e0b, #eab308)',
-          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text', marginBottom: '1rem', animation: 'fadeInDown 1s ease-out'
-        }}>Our Partners</h2>
+        <h2
+          style={{
+            fontSize: "clamp(2rem, 5vw, 3rem)",
+            fontWeight: "bold",
+            background: "linear-gradient(90deg, #ea580c, #f59e0b, #eab308)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            marginBottom: "1rem",
+            animation: "fadeInDown 1s ease-out",
+          }}
+        >
+          Our Partners
+        </h2>
         <div style={styles.marquee}>
           <div style={styles.track}>
             {partners.concat(partners).map((partner, index) => (
               <div key={index} style={styles.logoWrapper} title={partner.name}>
-                <img src={partner.logo} alt={partner.name} style={styles.logoImage} />
+                <img
+                  src={partner.logo}
+                  alt={partner.name}
+                  style={styles.logoImage}
+                />
               </div>
             ))}
           </div>
@@ -871,25 +1353,61 @@ const EnhancedERPPage = () => {
                     key={index}
                     className="contact-card"
                     style={{
-                      border: isSelected ? '3px solid #ff5722' : '3px solid transparent',
-                      animation: `fadeInLeft 0.8s ease-out ${index * 0.15}s backwards`
+                      border: isSelected
+                        ? "3px solid #ff5722"
+                        : "3px solid transparent",
+                      animation: `fadeInLeft 0.8s ease-out ${index * 0.15}s backwards`,
                     }}
                     onClick={() => setSelectedCard(index)}
                   >
-                    <div style={{
-                      width: 'clamp(50px, 10vw, 60px)', height: 'clamp(50px, 10vw, 60px)',
-                      background: '#fff', borderRadius: '50%', display: 'flex',
-                      alignItems: 'center', justifyContent: 'center',
-                      margin: '0 auto 1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                    }}>
+                    <div
+                      style={{
+                        width: "clamp(50px, 10vw, 60px)",
+                        height: "clamp(50px, 10vw, 60px)",
+                        background: "#fff",
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        margin: "0 auto 1rem",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                      }}
+                    >
                       <Icon size={32} color="#ff5722" strokeWidth={1} />
                     </div>
-                    <h3 style={{
-                      color: '#ff5722', fontSize: 'clamp(0.75rem, 2vw, 0.85rem)',
-                      fontWeight: '700', letterSpacing: '1px', marginBottom: '0.75rem'
-                    }}>{card.title}</h3>
-                    <p style={{ color: '#333', fontSize: 'clamp(0.85rem, 2vw, 0.9rem)', margin: '0.25rem 0', lineHeight: '1.5' }}>{card.line1}</p>
-                    {card.line2 && <p style={{ color: '#333', fontSize: 'clamp(0.85rem, 2vw, 0.9rem)', margin: '0.25rem 0', lineHeight: '1.5' }}>{card.line2}</p>}
+                    <h3
+                      style={{
+                        color: "#ff5722",
+                        fontSize: "clamp(0.75rem, 2vw, 0.85rem)",
+                        fontWeight: "700",
+                        letterSpacing: "1px",
+                        marginBottom: "0.75rem",
+                      }}
+                    >
+                      {card.title}
+                    </h3>
+                    <p
+                      style={{
+                        color: "#333",
+                        fontSize: "clamp(0.85rem, 2vw, 0.9rem)",
+                        margin: "0.25rem 0",
+                        lineHeight: "1.5",
+                      }}
+                    >
+                      {card.line1}
+                    </p>
+                    {card.line2 && (
+                      <p
+                        style={{
+                          color: "#333",
+                          fontSize: "clamp(0.85rem, 2vw, 0.9rem)",
+                          margin: "0.25rem 0",
+                          lineHeight: "1.5",
+                        }}
+                      >
+                        {card.line2}
+                      </p>
+                    )}
                   </div>
                 );
               })}
@@ -913,16 +1431,35 @@ const EnhancedERPPage = () => {
         <div className="footer-container">
           <div className="footer-section">
             <h3>Contact</h3>
-            <p style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-              <HomeIcon style={{ color: '#3b82f6', minWidth: '20px', marginTop: '4px' }} size={20} />
-              <span>501, FORTUNA BUSINESS CENTER, OPP. McDONALD'S, PIMPLE SAUDAGAR PUNE - 411027, MAHARASHTRA, INDIA</span>
+            <p
+              style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}
+            >
+              <HomeIcon
+                style={{ color: "#3b82f6", minWidth: "20px", marginTop: "4px" }}
+                size={20}
+              />
+              <span>
+                501, FORTUNA BUSINESS CENTER, OPP. McDONALD'S, PIMPLE SAUDAGAR
+                PUNE - 411027, MAHARASHTRA, INDIA
+              </span>
             </p>
-            <p style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <MailIcon style={{ color: '#10b981', minWidth: '20px' }} size={20} />
-              <a href="mailto:info@synergy5m.com" style={{ color: '#bbb', textDecoration: 'none' }}>info@synergy5m.com</a>
+            <p style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <MailIcon
+                style={{ color: "#10b981", minWidth: "20px" }}
+                size={20}
+              />
+              <a
+                href="mailto:info@synergy5m.com"
+                style={{ color: "#bbb", textDecoration: "none" }}
+              >
+                info@synergy5m.com
+              </a>
             </p>
-            <p style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <PhoneCall style={{ color: '#f97316', minWidth: '20px' }} size={20} />
+            <p style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <PhoneCall
+                style={{ color: "#f97316", minWidth: "20px" }}
+                size={20}
+              />
               +91 20 48646699
             </p>
           </div>
@@ -930,10 +1467,20 @@ const EnhancedERPPage = () => {
           <div className="footer-section">
             <h3>Follow Us</h3>
             <div className="social-icons">
-              <a href="https://www.linkedin.com/in/synergy5m-business-tools-5165063b0/" target="_blank" rel="noopener noreferrer" style={{ color: '#bbb', transition: 'color 0.3s' }}>
+              <a
+                href="https://www.linkedin.com/in/synergy5m-business-tools-5165063b0/"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "#bbb", transition: "color 0.3s" }}
+              >
                 <LinkedinIcon size={28} />
               </a>
-              <a href="https://www.instagram.com/synergy_5m_llp/" target="_blank" rel="noopener noreferrer" style={{ color: '#bbb', transition: 'color 0.3s' }}>
+              <a
+                href="https://www.instagram.com/synergy_5m_llp/"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "#bbb", transition: "color 0.3s" }}
+              >
                 <Instagram size={28} />
               </a>
             </div>
@@ -943,26 +1490,34 @@ const EnhancedERPPage = () => {
           &copy; {new Date().getFullYear()} Synergy. All rights reserved.
         </div>
       </footer>
-
     </div>
   );
 };
 
 const styles = {
   container: {
-    margin: '2rem auto',
-    maxWidth: '1000px',
-    fontFamily: 'Arial, sans-serif',
-    textAlign: 'center',
+    margin: "2rem auto",
+    maxWidth: "1000px",
+    fontFamily: "Arial, sans-serif",
+    textAlign: "center",
   },
-  heading: { color: '#667eea', marginBottom: '1rem' },
+  heading: { color: "#667eea", marginBottom: "1rem" },
   marquee: {
-    overflow: 'hidden', whiteSpace: 'nowrap', borderRadius: '10px',
-    border: '1px solid #ddd', backgroundColor: '#f9f9f9', padding: '10px 0',
+    overflow: "hidden",
+    whiteSpace: "nowrap",
+    borderRadius: "10px",
+    border: "1px solid #ddd",
+    backgroundColor: "#f9f9f9",
+    padding: "10px 0",
   },
-  track: { display: 'inline-flex', animation: 'scroll 20s linear infinite' },
-  logoWrapper: { flex: '0 0 auto', width: '150px', height: '100px', margin: '0 15px' },
-  logoImage: { width: '100%', height: '100%', objectFit: 'contain' },
+  track: { display: "inline-flex", animation: "scroll 20s linear infinite" },
+  logoWrapper: {
+    flex: "0 0 auto",
+    width: "150px",
+    height: "100px",
+    margin: "0 15px",
+  },
+  logoImage: { width: "100%", height: "100%", objectFit: "contain" },
 };
 
 const styleSheet = `
@@ -972,8 +1527,8 @@ const styleSheet = `
 }
 `;
 
-if (typeof document !== 'undefined') {
-  const styleTag = document.createElement('style');
+if (typeof document !== "undefined") {
+  const styleTag = document.createElement("style");
   styleTag.textContent = styleSheet;
   document.head.appendChild(styleTag);
 }
