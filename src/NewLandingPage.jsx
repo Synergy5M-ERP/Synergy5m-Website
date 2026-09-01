@@ -20,11 +20,8 @@ import {
   FileCheck2,
   Building2,
   UserCheck,
-  Search,
   ClipboardCheck,
   CircleDollarSign,
-  CalendarDays,
-  MapPin,
   BadgeCheck,
 } from "lucide-react";
 import Logo from "./logo (1).png";
@@ -32,7 +29,7 @@ import "./NewLandingPage.css";
 
 const consulting = {
   Marketing: {
-    icon: <Target size={25} />,
+    Icon: Target,
     tagline: "Right Market. Right Strategy. Right Growth.",
     intro:
       "We help businesses understand where the next opportunity lies and how to convert market potential into sustainable revenue.",
@@ -56,7 +53,7 @@ const consulting = {
     ],
   },
   Materials: {
-    icon: <Package size={25} />,
+    Icon: Package,
     tagline: "Right Material. Right Source. Right Cost.",
     intro:
       "We help businesses improve sourcing, procurement and inventory while building stronger and more reliable supply chains.",
@@ -81,7 +78,7 @@ const consulting = {
     ],
   },
   Manpower: {
-    icon: <Users size={25} />,
+    Icon: Users,
     tagline: "Right People. Right Skills. Right Productivity.",
     intro:
       "We help businesses build accountability, productivity and capability while reducing excessive dependency on individuals.",
@@ -107,7 +104,7 @@ const consulting = {
     ],
   },
   Machines: {
-    icon: <Cog size={25} />,
+    Icon: Cog,
     tagline: "Right Technology. Right Capacity. Right Productivity.",
     intro:
       "We help businesses ensure their machines and technology deliver maximum productivity and return on investment.",
@@ -133,7 +130,7 @@ const consulting = {
     ],
   },
   Money: {
-    icon: <WalletCards size={25} />,
+    Icon: WalletCards,
     tagline: "Right Capital. Right Control. Right Returns.",
     intro:
       "We help management understand where money is invested, where it is blocked and where profitability can be improved.",
@@ -166,7 +163,7 @@ const consulting = {
 const erpModules = [
   {
     title: "Material Management",
-    icon: <Package />,
+    Icon: Package,
     tagline: "Buy Better. Stock Smarter. Control Your Cost.",
     covers: [
       "Purchase Requisition",
@@ -190,7 +187,7 @@ const erpModules = [
   },
   {
     title: "Sales & Distribution",
-    icon: <ShoppingCart />,
+    Icon: ShoppingCart,
     tagline: "From Enquiry to Collection — One Connected Sales Cycle.",
     covers: [
       "Customer Master",
@@ -213,7 +210,7 @@ const erpModules = [
   },
   {
     title: "Production Management",
-    icon: <Factory />,
+    Icon: Factory,
     tagline: "Plan Better. Produce Better. Waste Less.",
     covers: [
       "Production Planning",
@@ -235,7 +232,7 @@ const erpModules = [
   },
   {
     title: "Quality Management",
-    icon: <ShieldCheck />,
+    Icon: ShieldCheck,
     tagline: "Quality Built Into the Process — Not Checked Only at the End.",
     covers: [
       "Incoming Material Inspection",
@@ -257,7 +254,7 @@ const erpModules = [
   },
   {
     title: "HR & Manpower Management",
-    icon: <Users />,
+    Icon: Users,
     tagline: "Right People. Right Responsibility. Right Productivity.",
     covers: [
       "Employee Master",
@@ -278,7 +275,7 @@ const erpModules = [
   },
   {
     title: "Accounts & Finance",
-    icon: <Landmark />,
+    Icon: Landmark,
     tagline: "Don't Just Record Money. Understand Your Money.",
     covers: [
       "Chart of Accounts",
@@ -314,7 +311,6 @@ const connectSteps = [
   "Success Fee",
 ];
 
-// Existing application client/partner list — retained in the new UI as a continuously scrolling strip.
 const existingClients = [
   {
     id: 1,
@@ -348,6 +344,7 @@ const buyerRoles = [
   "Supply Chain Head",
   "Other authorised senior employee",
 ];
+
 const sellerRoles = [
   "Owner / Promoter",
   "Director",
@@ -360,9 +357,9 @@ const sellerRoles = [
   "Other authorised senior employee",
 ];
 
-function Field({ label, children, required = false, hint }) {
+function Field({ label, children, required = false, hint, className = "" }) {
   return (
-    <label className="form-field">
+    <label className={`form-field ${className}`.trim()}>
       <span>
         {label}
         {required && <em> *</em>}
@@ -379,7 +376,7 @@ function CompanyVerificationFields() {
       <div className="form-section-title">
         <Building2 size={18} /> Company & Verification
       </div>
-      <div className="form-grid two">
+      <div className="form-grid three">
         <Field label="Company Name" required>
           <input
             required
@@ -400,13 +397,8 @@ function CompanyVerificationFields() {
             placeholder="15-character GSTIN"
           />
         </Field>
-        <Field
-          label="CIN / LLPIN"
-          required
-          hint="MCA / appropriate statutory registration"
-        >
+        <Field label="CIN / LLPIN">
           <input
-            required
             name="cin"
             pattern="[A-Za-z0-9-]{6,30}"
             title="Enter your CIN or LLPIN"
@@ -479,7 +471,7 @@ function RegistrationBlock({ type }) {
       <div className="form-section-title">
         <UserCheck size={18} /> Authorised Representative
       </div>
-      <div className="form-grid two">
+      <div className="form-grid three">
         <Field label="Full Name" required>
           <input
             required
@@ -515,250 +507,12 @@ function RegistrationBlock({ type }) {
         </Field>
       </div>
       <label className="authority-check">
-        <input required type="checkbox" name="authority" />{" "}
+        <input required type="checkbox" name="authority" />
         <span>
           I confirm that I am authorised by the organisation to submit business
           requirements / offers through Synergy5M Business Connect.
         </span>
       </label>
-    </>
-  );
-}
-
-function BuyerForm() {
-  return (
-    <>
-      <RegistrationBlock type="buyer" />
-      <div className="form-section-title">
-        <ClipboardCheck size={18} /> Post a Buying Requirement
-      </div>
-      <div className="form-grid two">
-        <Field label="Product Name" required>
-          <input required placeholder="Product name" />
-        </Field>
-        <Field label="Product Category" required>
-          <input required placeholder="Category" />
-        </Field>
-        <Field label="Application / End Use" required>
-          <input required placeholder="Application / end use" />
-        </Field>
-        <Field label="Grade / Model">
-          <input placeholder="Grade or model" />
-        </Field>
-        <Field label="Technical Specification" required>
-          <textarea required rows="3" placeholder="Technical specification" />
-        </Field>
-        <Field label="Brand Preference">
-          <input placeholder="Preferred brand, if any" />
-        </Field>
-        <Field label="HSN Code">
-          <input placeholder="HSN code" />
-        </Field>
-        <Field label="Required Certification / Standard">
-          <input placeholder="Certification / standard" />
-        </Field>
-        <Field label="Required Quantity" required>
-          <input required placeholder="Quantity" />
-        </Field>
-        <Field label="Unit" required>
-          <input required placeholder="MT / Nos / Kg / etc." />
-        </Field>
-        <Field label="Requirement Frequency">
-          <select defaultValue="">
-            <option value="" disabled>
-              Select
-            </option>
-            <option>One-Time</option>
-            <option>Recurring</option>
-            <option>Monthly</option>
-            <option>Quarterly</option>
-            <option>Annual</option>
-          </select>
-        </Field>
-        <Field label="Expected Price Range">
-          <input placeholder="Price range" />
-        </Field>
-        <Field label="Target Price">
-          <input placeholder="Target price" />
-        </Field>
-        <Field label="Currency">
-          <input placeholder="INR / USD / etc." />
-        </Field>
-        <Field label="Payment Terms Expected">
-          <input placeholder="Payment terms" />
-        </Field>
-        <Field label="Credit Period">
-          <input placeholder="Credit period" />
-        </Field>
-        <Field label="Delivery Location" required>
-          <input required placeholder="City / State / Country" />
-        </Field>
-        <Field label="Required Delivery Date" required>
-          <input required type="date" />
-        </Field>
-        <Field label="Preferred Incoterm">
-          <input placeholder="If applicable" />
-        </Field>
-        <Field label="Domestic / Import Requirement">
-          <select defaultValue="">
-            <option value="" disabled>
-              Select
-            </option>
-            <option>Domestic</option>
-            <option>Import</option>
-            <option>Either</option>
-          </select>
-        </Field>
-        <Field label="Supplier Preference">
-          <select defaultValue="">
-            <option value="" disabled>
-              Select
-            </option>
-            <option>Manufacturer</option>
-            <option>Authorised Distributor</option>
-            <option>Exporter</option>
-            <option>Trader</option>
-            <option>OEM</option>
-            <option>Any suitable supplier</option>
-          </select>
-        </Field>
-        <Field label="Preferred Origin / Country">
-          <input placeholder="Preferred origin" />
-        </Field>
-        <Field label="Certifications Required">
-          <input placeholder="Required supplier certifications" />
-        </Field>
-        <Field label="Minimum Supplier Experience">
-          <input placeholder="Years / experience" />
-        </Field>
-        <Field label="Specification / RFQ / Drawing / BOQ">
-          <input type="file" />
-        </Field>
-        <Field label="Additional Information">
-          <textarea rows="3" placeholder="Additional remarks" />
-        </Field>
-      </div>
-      <CommissionBlock />
-    </>
-  );
-}
-
-function SellerForm() {
-  return (
-    <>
-      <RegistrationBlock type="seller" />
-      <div className="form-section-title">
-        <Factory size={18} /> List Your Product / Selling Opportunity
-      </div>
-      <div className="form-grid two">
-        <Field label="Product Name" required>
-          <input required placeholder="Product name" />
-        </Field>
-        <Field label="Product Category" required>
-          <input required placeholder="Category" />
-        </Field>
-        <Field label="Manufacturer / Supplier" required>
-          <input required placeholder="Manufacturer / supplier" />
-        </Field>
-        <Field label="Product Description" required>
-          <textarea required rows="3" placeholder="Product description" />
-        </Field>
-        <Field label="Technical Specification" required>
-          <textarea required rows="3" placeholder="Technical specification" />
-        </Field>
-        <Field label="Grade / Model" required>
-          <input required placeholder="Grade / model" />
-        </Field>
-        <Field label="Application">
-          <input placeholder="Application" />
-        </Field>
-        <Field label="HSN Code">
-          <input placeholder="HSN code" />
-        </Field>
-        <Field label="Capacity">
-          <input placeholder="Capacity" />
-        </Field>
-        <Field label="Production Capacity">
-          <input placeholder="Production capacity" />
-        </Field>
-        <Field label="Available Capacity">
-          <input placeholder="Available capacity" />
-        </Field>
-        <Field label="MOQ">
-          <input placeholder="Minimum order quantity" />
-        </Field>
-        <Field label="Monthly Capacity">
-          <input placeholder="Monthly capacity" />
-        </Field>
-        <Field label="Lead Time">
-          <input placeholder="Lead time" />
-        </Field>
-        <Field label="Indicative Price / Price Range">
-          <input placeholder="Price / range" />
-        </Field>
-        <Field label="Currency">
-          <input placeholder="INR / USD / etc." />
-        </Field>
-        <Field label="Payment Terms">
-          <input placeholder="Payment terms" />
-        </Field>
-        <Field label="Credit Terms">
-          <input placeholder="Credit terms" />
-        </Field>
-        <Field label="Domestic / Export">
-          <select defaultValue="">
-            <option value="" disabled>
-              Select
-            </option>
-            <option>Domestic</option>
-            <option>Export</option>
-            <option>Both</option>
-          </select>
-        </Field>
-        <Field label="Geography">
-          <input placeholder="Target geography" />
-        </Field>
-        <Field label="Supply Locations">
-          <input placeholder="Supply locations" />
-        </Field>
-        <Field label="Countries Served">
-          <input placeholder="Countries served" />
-        </Field>
-        <Field label="Preferred Buyer Location">
-          <input placeholder="Preferred buyer location" />
-        </Field>
-        <Field label="Years in Business">
-          <input placeholder="Years" />
-        </Field>
-        <Field label="Certifications">
-          <input placeholder="Certifications" />
-        </Field>
-        <Field label="Major Industries Served">
-          <input placeholder="Industries served" />
-        </Field>
-        <Field label="OEM Capability">
-          <select defaultValue="">
-            <option value="" disabled>
-              Select
-            </option>
-            <option>Yes</option>
-            <option>No</option>
-          </select>
-        </Field>
-        <Field label="Private Label Capability">
-          <select defaultValue="">
-            <option value="" disabled>
-              Select
-            </option>
-            <option>Yes</option>
-            <option>No</option>
-          </select>
-        </Field>
-        <Field label="Upload TDS / Catalogue / Images / Certifications / Company Profile">
-          <input type="file" multiple />
-        </Field>
-      </div>
-      <CommissionBlock />
     </>
   );
 }
@@ -773,9 +527,9 @@ function CommissionBlock() {
         What commercial commission can your company offer Synergy5M if this
         business is successfully concluded through our introduction?
       </p>
-      <div className="form-grid two">
+      <div className="form-grid three">
         <Field label="Commission Type">
-          <select defaultValue="">
+          <select name="commissionType" defaultValue="">
             <option value="" disabled>
               Select
             </option>
@@ -786,10 +540,10 @@ function CommissionBlock() {
           </select>
         </Field>
         <Field label="Proposed Commission">
-          <input placeholder="% / ₹ amount" />
+          <input name="proposedCommission" placeholder="% / ₹ amount" />
         </Field>
         <Field label="Commission Applicable On">
-          <select defaultValue="">
+          <select name="commissionApplicableOn" defaultValue="">
             <option value="" disabled>
               Select
             </option>
@@ -808,14 +562,302 @@ function CommissionBlock() {
   );
 }
 
-function Modal({ modal, close, children, title, subtitle, wide = false }) {
+function BuyerForm() {
+  return (
+    <>
+      <RegistrationBlock type="buyer" />
+      <div className="form-section-title">
+        <ClipboardCheck size={18} /> Post a Buying Requirement
+      </div>
+      <div className="form-grid three">
+        <Field label="Product Category" required>
+          <input name="productCategory" required placeholder="Category" />
+        </Field>
+        <Field label="Product Name" required>
+          <input name="productName" required placeholder="Product name" />
+        </Field>
+        <Field label="Application / End Use" required>
+          <input
+            name="application"
+            required
+            placeholder="Application / end use"
+          />
+        </Field>
+        <Field label="Grade / Model">
+          <input name="gradeModel" placeholder="Grade or model" />
+        </Field>
+        <Field label="Brand Preference">
+          <input name="brandPreference" placeholder="Preferred brand, if any" />
+        </Field>
+        <Field label="HSN Code">
+          <input name="hsnCode" placeholder="HSN code" />
+        </Field>
+        <Field label="Required Certification / Standard">
+          <input
+            name="requiredCertification"
+            placeholder="Certification / standard"
+          />
+        </Field>
+        <Field label="Required Quantity" required>
+          <input name="requiredQuantity" required placeholder="Quantity" />
+        </Field>
+        <Field label="Unit" required>
+          <input name="unit" required placeholder="MT / Nos / Kg / etc." />
+        </Field>
+        <Field label="Requirement Frequency">
+          <select name="requirementFrequency" defaultValue="">
+            <option value="" disabled>
+              Select
+            </option>
+            <option>One-Time</option>
+            <option>Recurring</option>
+            <option>Monthly</option>
+            <option>Quarterly</option>
+            <option>Annual</option>
+          </select>
+        </Field>
+        <Field label="Expected Price Range">
+          <input name="expectedPriceRange" placeholder="Price range" />
+        </Field>
+        <Field label="Target Price">
+          <input name="targetPrice" placeholder="Target price" />
+        </Field>
+        <Field label="Currency">
+          <input name="currency" placeholder="INR / USD / etc." />
+        </Field>
+        <Field label="Payment Terms Expected">
+          <input name="paymentTermsExpected" placeholder="Payment terms" />
+        </Field>
+        <Field label="Credit Period">
+          <input name="creditPeriod" placeholder="Credit period" />
+        </Field>
+        <Field label="Delivery Location" required>
+          <input
+            name="deliveryLocation"
+            required
+            placeholder="City / State / Country"
+          />
+        </Field>
+        <Field label="Required Delivery Date" required>
+          <input name="requiredDeliveryDate" required type="date" />
+        </Field>
+        <Field label="Preferred Incoterm">
+          <input name="preferredIncoterm" placeholder="If applicable" />
+        </Field>
+        <Field label="Domestic / Import Requirement">
+          <select name="domesticOrImport" defaultValue="">
+            <option value="" disabled>
+              Select
+            </option>
+            <option>Domestic</option>
+            <option>Import</option>
+            <option>Either</option>
+          </select>
+        </Field>
+        <Field label="Supplier Preference">
+          <select name="supplierPreference" defaultValue="">
+            <option value="" disabled>
+              Select
+            </option>
+            <option>Manufacturer</option>
+            <option>Authorised Distributor</option>
+            <option>Exporter</option>
+            <option>Trader</option>
+            <option>OEM</option>
+            <option>Any suitable supplier</option>
+          </select>
+        </Field>
+        <Field label="Preferred Origin / Country">
+          <input name="preferredOrigin" placeholder="Preferred origin" />
+        </Field>
+        <Field label="Certifications Required">
+          <input
+            name="certificationsRequired"
+            placeholder="Required supplier certifications"
+          />
+        </Field>
+        <Field label="Minimum Supplier Experience">
+          <input
+            name="minSupplierExperience"
+            placeholder="Years / experience"
+          />
+        </Field>
+        <Field label="Specification / RFQ / Drawing / BOQ">
+          <input name="attachment" type="file" />
+        </Field>
+
+        <div className="textarea-row">
+          <Field label="Technical Specification" required>
+            <textarea
+              name="technicalSpecification"
+              required
+              rows="3"
+              placeholder="Technical specification"
+            />
+          </Field>
+          <Field label="Additional Information">
+            <textarea
+              name="additionalInfo"
+              rows="3"
+              placeholder="Additional remarks"
+            />
+          </Field>
+        </div>
+      </div>
+      <CommissionBlock />
+    </>
+  );
+}
+
+function SellerForm() {
+  return (
+    <>
+      <RegistrationBlock type="seller" />
+      <div className="form-section-title">
+        <Factory size={18} /> List Your Product / Selling Opportunity
+      </div>
+      <div className="form-grid three">
+        <Field label="Product Name" required>
+          <input name="productName" required placeholder="Product name" />
+        </Field>
+        <Field label="Product Category" required>
+          <input name="productCategory" required placeholder="Category" />
+        </Field>
+        <Field label="Manufacturer / Supplier" required>
+          <input
+            name="manufacturerSupplier"
+            required
+            placeholder="Manufacturer / supplier"
+          />
+        </Field>
+        <Field label="Grade / Model" required>
+          <input name="gradeModel" required placeholder="Grade / model" />
+        </Field>
+        <Field label="Application">
+          <input name="application" placeholder="Application" />
+        </Field>
+        <Field label="HSN Code">
+          <input name="hsnCode" placeholder="HSN code" />
+        </Field>
+
+        <div className="textarea-row">
+          <Field label="Product Description" required>
+            <textarea
+              name="productDescription"
+              required
+              rows="3"
+              placeholder="Product description"
+            />
+          </Field>
+          <Field label="Technical Specification" required>
+            <textarea
+              name="technicalSpecification"
+              required
+              rows="3"
+              placeholder="Technical specification"
+            />
+          </Field>
+        </div>
+
+        <Field label="Capacity">
+          <input name="capacity" placeholder="Capacity" />
+        </Field>
+        <Field label="Production Capacity">
+          <input name="productionCapacity" placeholder="Production capacity" />
+        </Field>
+        <Field label="Available Capacity">
+          <input name="availableCapacity" placeholder="Available capacity" />
+        </Field>
+        <Field label="MOQ">
+          <input name="moq" placeholder="Minimum order quantity" />
+        </Field>
+        <Field label="Monthly Capacity">
+          <input name="monthlyCapacity" placeholder="Monthly capacity" />
+        </Field>
+        <Field label="Lead Time">
+          <input name="leadTime" placeholder="Lead time" />
+        </Field>
+        <Field label="Indicative Price / Price Range">
+          <input name="indicativePrice" placeholder="Price / range" />
+        </Field>
+        <Field label="Currency">
+          <input name="currency" placeholder="INR / USD / etc." />
+        </Field>
+        <Field label="Payment Terms">
+          <input name="paymentTerms" placeholder="Payment terms" />
+        </Field>
+        <Field label="Credit Terms">
+          <input name="creditTerms" placeholder="Credit terms" />
+        </Field>
+        <Field label="Domestic / Export">
+          <select name="domesticOrExport" defaultValue="">
+            <option value="" disabled>
+              Select
+            </option>
+            <option>Domestic</option>
+            <option>Export</option>
+            <option>Both</option>
+          </select>
+        </Field>
+        <Field label="Geography">
+          <input name="geography" placeholder="Target geography" />
+        </Field>
+        <Field label="Supply Locations">
+          <input name="supplyLocations" placeholder="Supply locations" />
+        </Field>
+        <Field label="Countries Served">
+          <input name="countriesServed" placeholder="Countries served" />
+        </Field>
+        <Field label="Preferred Buyer Location">
+          <input
+            name="preferredBuyerLocation"
+            placeholder="Preferred buyer location"
+          />
+        </Field>
+        <Field label="Years in Business">
+          <input name="sellerYearsInBusiness" placeholder="Years" />
+        </Field>
+        <Field label="Certifications">
+          <input name="certifications" placeholder="Certifications" />
+        </Field>
+        <Field label="Major Industries Served">
+          <input name="majorIndustriesServed" placeholder="Industries served" />
+        </Field>
+        <Field label="OEM Capability">
+          <select name="oemCapability" defaultValue="">
+            <option value="" disabled>
+              Select
+            </option>
+            <option>Yes</option>
+            <option>No</option>
+          </select>
+        </Field>
+        <Field label="Private Label Capability">
+          <select name="privateLabelCapability" defaultValue="">
+            <option value="" disabled>
+              Select
+            </option>
+            <option>Yes</option>
+            <option>No</option>
+          </select>
+        </Field>
+        <Field label="Upload TDS / Catalogue / Images / Certifications / Company Profile">
+          <input name="documents" type="file" multiple />
+        </Field>
+      </div>
+      <CommissionBlock />
+    </>
+  );
+}
+
+function Modal({ close, children, title, subtitle, wide = false }) {
   return (
     <div className="modal-backdrop" onClick={close}>
       <div
         className={`modal ${wide ? "modal-wide" : ""}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <button className="modal-close" onClick={close} type="button">
           <X />
         </button>
         <span className="section-kicker orange">SYNERGY5M LLP</span>
@@ -841,12 +883,57 @@ function NewLandingPage() {
   };
 
   const closeModal = () => setModal(null);
-  const submitForm = (e) => {
+
+  const submitForm = async (e, formType) => {
     e.preventDefault();
-    closeModal();
-    window.alert(
-      "Thank you. Your request has been submitted for review by Synergy5M.",
-    );
+    const formElement = e.target;
+    const formData = new FormData(formElement);
+
+    let endpoint = "/api/inquiries";
+    let isMultipart = false;
+
+    if (formType === "buyer" || formType === "seller") {
+      endpoint = "/api/business-connect";
+      isMultipart = true;
+      formData.append("category", formType === "buyer" ? "Buyer" : "Seller");
+    } else if (formType === "demo") {
+      endpoint = "/api/demo-request";
+    }
+
+    try {
+      let response;
+      if (isMultipart) {
+        response = await fetch(endpoint, {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        const jsonObject = Object.fromEntries(formData.entries());
+        response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(jsonObject),
+        });
+      }
+
+      const result = await response.json();
+      if (response.ok && result.success) {
+        window.alert(
+          result.message ||
+            "Thank you. Your request has been submitted for review by Synergy5M.",
+        );
+        closeModal();
+      } else {
+        window.alert(
+          "Submission error: " + (result.message || "Failed to submit."),
+        );
+      }
+    } catch (err) {
+      console.error("Submission failed:", err);
+      window.alert(
+        "Server error. Please ensure the backend server is reachable.",
+      );
+    }
   };
 
   const openERP = (module) => setActiveERP(module);
@@ -862,6 +949,7 @@ function NewLandingPage() {
           >
             <img src={Logo} alt="Synergy5M" />
           </button>
+
           <button
             className="mobile-menu"
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -869,17 +957,43 @@ function NewLandingPage() {
           >
             {mobileOpen ? <X /> : <Menu />}
           </button>
+
           <nav className={mobileOpen ? "main-nav open" : "main-nav"}>
             <button onClick={() => scrollTo("home")}>HOME</button>
+
             <button onClick={() => scrollTo("consulting")}>
-              BUSINESS MANAGEMENT CONSULTING
+              MANAGEMENT CONSULTING
             </button>
-            <button onClick={() => scrollTo("erp")}>SYN ERP 10 SOFTWARE</button>
-            <button onClick={() => scrollTo("connect")}>
-              INDENTING & CONNECT
-            </button>
+
+            {/* ERP Software & Registered User Link */}
+            <div className="nav-item-dropdown">
+              <button onClick={() => scrollTo("erp")}>ERP SOFTWARE</button>
+              <a
+                href="https://synergy5m-shripaderp8-bvgth5fuf2a4drgq.centralindia-01.azurewebsites.net/Login/Login"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="registered-user-btn"
+              >
+                Registered User
+              </a>
+            </div>
+
+            {/* Buying & Selling & Registered User Link */}
+            <div className="nav-item-dropdown">
+              <button onClick={() => scrollTo("connect")}>BUYING & SELLING</button>
+              <a
+                href="https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="registered-user-btn"
+              >
+                Registered User
+              </a>
+            </div>
+
             <button onClick={() => scrollTo("about")}>ABOUT US</button>
             <button onClick={() => scrollTo("contact")}>CONTACT US</button>
+
             <button className="expert-btn" onClick={() => setModal("expert")}>
               Talk to an Expert <ArrowRight size={15} />
             </button>
@@ -891,13 +1005,9 @@ function NewLandingPage() {
         <section id="home" className="hero section-wrap">
           <div className="hero-copy">
             <div className="eyebrow">SYNERGY5M LLP BUSINESS SOLUTIONS</div>
-            <h1>
-              One Partner.
-              <br />
-              <span>Three Powerful Solutions.</span>
-              <br />
-              Unlimited Possibilities.
-            </h1>
+            <h1>One Partner.</h1>
+            <h3>Three Powerful Solutions.</h3>
+            <h2>Unlimited Possibilities.</h2>
             <p>
               Empowering businesses with <b>Consulting Excellence</b>,{" "}
               <b>Intelligent ERP</b> and <b>Strong Industry Connections.</b>
@@ -941,7 +1051,7 @@ function NewLandingPage() {
           <div className="section-kicker orange">01</div>
           <div className="consulting-heading">
             <div>
-              <h2>BUSINESS MANAGEMENT CONSULTING</h2>
+              <h2> MANAGEMENT CONSULTING</h2>
               <h3>The 5M Framework for Business Excellence</h3>
               <p>
                 We help businesses optimise every critical element of their
@@ -958,16 +1068,21 @@ function NewLandingPage() {
             <img src="/consulting-dart.png" alt="Business target" />
           </div>
           <div className="consulting-tabs">
-            {Object.entries(consulting).map(([name, item]) => (
-              <button
-                key={name}
-                className={activeConsulting === name ? "active" : ""}
-                onClick={() => setActiveConsulting(name)}
-              >
-                <span>{item.icon}</span>
-                <b>{name}</b>
-              </button>
-            ))}
+            {Object.entries(consulting).map(([name, item]) => {
+              const TabIcon = item.Icon;
+              return (
+                <button
+                  key={name}
+                  className={activeConsulting === name ? "active" : ""}
+                  onClick={() => setActiveConsulting(name)}
+                >
+                  <span>
+                    <TabIcon size={20} />
+                  </span>
+                  <b>{name}</b>
+                </button>
+              );
+            })}
           </div>
           <div className="consulting-content">
             <div>
@@ -1001,17 +1116,14 @@ function NewLandingPage() {
           <div className="section-kicker blue">02</div>
           <div className="erp-intro">
             <div>
-              <h2>SYN ERP 10 SOFTWARE</h2>
+              <h2> ERP SOFTWARE</h2>
               <h3>Your Business. Your ERP. Your Brand.</h3>
               <p>
                 A powerful, integrated ERP software designed for MSMEs to
                 automate operations, improve control and drive growth.
               </p>
-              <button
-                className="blue-btn"
-                onClick={() => openERP(erpModules[0])}
-              >
-                Explore SYN ERP 10 <ArrowRight size={17} />
+              <button className="expert-btn" onClick={() => setModal("demo")}>
+                Book a Demo <ArrowRight size={15} />
               </button>
             </div>
             <img src="/erp-dashboard.png" alt="SYN ERP 10 dashboard" />
@@ -1037,20 +1149,27 @@ function NewLandingPage() {
             <div>
               <h3>Powerful Modules. Complete Coverage.</h3>
               <div className="erp-grid">
-                {erpModules.map((module) => (
-                  <button
-                    className="erp-module-card"
-                    key={module.title}
-                    onClick={() => openERP(module)}
-                  >
-                    <span>{React.cloneElement(module.icon, { size: 24 })}</span>
-                    <b>{module.title}</b>
-                    <small  >{module.covers.slice(0, 4).join(" • ")}</small>
-                    <span className="view-details">
-                      View details <ArrowRight size={12} />
-                    </span>
-                  </button>
-                ))}
+                {erpModules.map((module) => {
+                  const ModuleIcon = module.Icon;
+                  return (
+                    <button
+                      className="erp-module-card"
+                      key={module.title}
+                      onClick={() => openERP(module)}
+                    >
+                      <span>
+                        <ModuleIcon size={24} />
+                      </span>
+                      <b>{module.title}</b>
+                      <small className="fw-600">
+                        {module.covers.slice(0, 4).join(" • ")}
+                      </small>
+                      <span className="view-details">
+                        View details <ArrowRight size={12} />
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
             <aside>
@@ -1080,7 +1199,7 @@ function NewLandingPage() {
           <div className="connect-heading">
             <div>
               <h2>
-                INDENTING & CONNECTING
+                Buyer & Sellers
                 <br />
                 BUYERS TO POTENTIAL SELLERS
               </h2>
@@ -1147,7 +1266,7 @@ function NewLandingPage() {
                 <li>Strong Network & Connections</li>
                 <li>Market Intelligence & Insights</li>
                 <li>Trusted & Transparent Process</li>
-                <li>Wi-Fi / Win-Win Partnerships</li>
+                <li>Win-Win Partnerships</li>
               </ul>
               <button onClick={() => setModal("expert")}>
                 Know Our Expertise
@@ -1224,6 +1343,7 @@ function NewLandingPage() {
             </small>
           </div>
         </section>
+
         <section className="process section-wrap">
           <div className="process-head">
             <div>
@@ -1286,6 +1406,7 @@ function NewLandingPage() {
           Schedule a Meeting <ArrowRight size={17} />
         </button>
       </section>
+
       <footer id="contact" className="site-footer">
         <div className="footer-inner">
           <div className="footer-brand">
@@ -1356,7 +1477,7 @@ function NewLandingPage() {
           <div className="erp-detail">
             <div className="erp-detail-top">
               <span className="erp-detail-icon">
-                {React.cloneElement(activeERP.icon, { size: 30 })}
+                {React.createElement(activeERP.Icon, { size: 30 })}
               </span>
               <div>
                 <b>What SYN ERP 10 covers</b>
@@ -1392,7 +1513,7 @@ function NewLandingPage() {
           subtitle="Verified company registration + authorised buyer + complete buying enquiry."
           wide
         >
-          <form onSubmit={submitForm}>
+          <form onSubmit={(e) => submitForm(e, "buyer")}>
             <BuyerForm />
             <div className="form-actions">
               <button className="blue-btn" type="submit">
@@ -1402,6 +1523,7 @@ function NewLandingPage() {
           </form>
         </Modal>
       )}
+
       {modal === "seller" && (
         <Modal
           close={closeModal}
@@ -1409,7 +1531,7 @@ function NewLandingPage() {
           subtitle="Verified company registration + authorised seller + complete selling opportunity."
           wide
         >
-          <form onSubmit={submitForm}>
+          <form onSubmit={(e) => submitForm(e, "seller")}>
             <SellerForm />
             <div className="form-actions">
               <button className="blue-btn" type="submit">
@@ -1419,63 +1541,159 @@ function NewLandingPage() {
           </form>
         </Modal>
       )}
-      {["expert", "consulting", "connect", "demo", "meeting"].includes(
-        modal,
-      ) && (
-        <Modal
-          close={closeModal}
-          title={
-            modal === "demo"
-              ? "Request a SYN ERP 10 Demo"
-              : modal === "consulting"
-                ? "Explore Business Consulting"
-                : modal === "connect"
-                  ? "Become a Business Connect Partner"
-                  : modal === "meeting"
-                    ? "Schedule a Meeting"
-                    : "Talk to an Expert"
-          }
-          subtitle="Share your business details and our team will get in touch with you."
-        >
-          <form onSubmit={submitForm}>
-            <div className="form-grid two">
-              <Field label="Your Name" required>
-                <input required placeholder="Your name" />
-              </Field>
-              <Field label="Business Email" required>
-                <input required type="email" placeholder="Business email" />
-              </Field>
-              <Field label="Company Name" required>
-                <input required placeholder="Company name" />
-              </Field>
-              <Field label="Official Mobile" required>
-                <input required type="tel" placeholder="Business mobile" />
-              </Field>
-              <Field label="Interested In" required>
-                <select required defaultValue="">
-                  <option value="" disabled>
-                    Select
-                  </option>
-                  <option>Business Consulting</option>
-                  <option>SYN ERP 10</option>
-                  <option>Business Connect</option>
-                </select>
-              </Field>
-              <Field label="Requirement">
-                <textarea
-                  rows="4"
-                  placeholder="Tell us about your requirement"
-                />
-              </Field>
-            </div>
-            <div className="form-actions">
-              <button className="blue-btn" type="submit">
-                Submit Enquiry <ArrowRight size={16} />
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
+
+      {modal &&
+        ["expert", "consulting", "connect", "demo", "meeting"].includes(
+          modal,
+        ) && (
+          <Modal
+            close={closeModal}
+            title={
+              modal === "demo"
+                ? "Request a SYN ERP 10 Demo"
+                : modal === "consulting"
+                  ? "Explore Business Consulting"
+                  : modal === "connect"
+                    ? "Become a Business Connect Partner"
+                    : modal === "meeting"
+                      ? "Schedule a Meeting"
+                      : "Talk to an Expert"
+            }
+            subtitle={
+              modal === "demo"
+                ? "Pick your preferred date, time, and meeting platform for a live demonstration."
+                : "Share your business details and our team will get in touch with you."
+            }
+          >
+            <form
+              key={modal}
+              onSubmit={(e) => submitForm(e, modal === "demo" ? "demo" : "inquiry")}
+            >
+              <div className="form-grid two">
+                <Field label="Your Name" required>
+                  <input name="fullName" required placeholder="Your name" />
+                </Field>
+
+                <Field label="Business Email" required>
+                  <input
+                    name="businessEmail"
+                    required
+                    type="email"
+                    placeholder="Business email"
+                  />
+                </Field>
+
+                <Field label="Company Name" required>
+                  <input
+                    name="companyName"
+                    required
+                    placeholder="Company name"
+                  />
+                </Field>
+
+                <Field label="Official Mobile" required>
+                  <input
+                    name="officialMobile"
+                    required
+                    type="tel"
+                    placeholder="Business mobile"
+                  />
+                </Field>
+
+                {modal === "demo" ? (
+                  <>
+                    <Field label="Preferred Date" required>
+                      <input
+                        name="preferredDate"
+                        required
+                        type="date"
+                        min={new Date().toISOString().split("T")[0]}
+                      />
+                    </Field>
+
+                    <Field label="Time Slot" required>
+                      <select name="timeSlot" required defaultValue="">
+                        <option value="" disabled>
+                          Select time slot
+                        </option>
+                        <option value="10:00 AM - 11:00 AM">
+                          10:00 AM - 11:00 AM
+                        </option>
+                        <option value="11:30 AM - 12:30 PM">
+                          11:30 AM - 12:30 PM
+                        </option>
+                        <option value="02:00 PM - 03:00 PM">
+                          02:00 PM - 03:00 PM
+                        </option>
+                        <option value="03:30 PM - 04:30 PM">
+                          03:30 PM - 04:30 PM
+                        </option>
+                        <option value="05:00 PM - 06:00 PM">
+                          05:00 PM - 06:00 PM
+                        </option>
+                      </select>
+                    </Field>
+
+                    <Field label="Meeting Platform" required>
+                      <select name="meetingPlatform" required defaultValue="">
+                        <option value="" disabled>
+                          Select platform
+                        </option>
+                        <option value="Google Meet">Google Meet</option>
+                        <option value="Microsoft Teams">Microsoft Teams</option>
+                        <option value="Zoom">Zoom</option>
+                      </select>
+                    </Field>
+                  </>
+                ) : (
+                  <Field label="Interested In" required>
+                    <select
+                      name="interestedIn"
+                      required
+                      defaultValue={
+                        modal === "consulting"
+                          ? "Business Consulting"
+                          : modal === "connect"
+                            ? "Business Connect"
+                            : "Business Consulting"
+                      }
+                    >
+                      <option value="" disabled>
+                        Select
+                      </option>
+                      <option value="Business Consulting">
+                        Business Consulting
+                      </option>
+                      <option value="SYN ERP 10">SYN ERP 10</option>
+                      <option value="Business Connect">Business Connect</option>
+                    </select>
+                  </Field>
+                )}
+
+                <Field
+                  label={modal === "demo" ? "Specific Requirements / Focus Areas" : "Requirement"}
+                  className="full-span"
+                >
+                  <textarea
+                    name="requirement"
+                    rows="3"
+                    placeholder={
+                      modal === "demo"
+                        ? "Tell us about specific modules or processes you would like to see in the demo (optional)"
+                        : "Tell us about your requirement"
+                    }
+                  />
+                </Field>
+              </div>
+
+              <div className="form-actions">
+                <button className="blue-btn" type="submit">
+                  {modal === "demo" ? "Schedule Live Demo" : "Submit Enquiry"} <ArrowRight size={16} />
+                </button>
+              </div>
+            </form>
+          </Modal>
+        )}
     </div>
   );
 }
