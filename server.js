@@ -3,6 +3,21 @@ const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+// Force IPv4-only lookup
+fetch("https://api4.ipify.org")
+  .then((res) => res.text())
+  .then((ipv4) => {
+    console.log("==================================================");
+    console.log("👉 GODADDY NODE.JS SERVER IPv4:", ipv4.trim());
+    console.log("==================================================");
+  })
+  .catch((err) => {
+    // Fallback if the first service is unreachable
+    fetch("https://ipv4.icanhazip.com")
+      .then((res) => res.text())
+      .then((ip) => console.log("👉 FALLBACK IPv4:", ip.trim()))
+      .catch((e) => console.error("Could not fetch IPv4:", e.message));
+  });
 const { sql, poolPromise } = require("./db");
 require("dotenv").config();
 
@@ -218,7 +233,7 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
 
 
 // POST /api/demo-request
-// POST /api/demo-request
+
 app.post("/api/demo-request", async (req, res) => {
   try {
     const {
@@ -279,7 +294,7 @@ app.post("/api/demo-request", async (req, res) => {
         TimeSlot,
         MeetingPlatform,
         Requirement,
-        Status,
+        DemoStatus,
         CreatedAt
       )
       OUTPUT INSERTED.Id
@@ -293,7 +308,7 @@ app.post("/api/demo-request", async (req, res) => {
         @TimeSlot,
         @MeetingPlatform,
         @Requirement,
-        'Scheduled',
+        'Pending',
         GETUTCDATE()
       );
     `;
@@ -301,9 +316,9 @@ app.post("/api/demo-request", async (req, res) => {
     const result = await pool
       .request()
       .input("FullName", sql.NVarChar(150), String(fullName).trim())
-      .input("BusinessEmail", sql.NVarChar(150), String(businessEmail).trim().toLowerCase())
+      .input("BusinessEmail", sql.NVarChar(255), String(businessEmail).trim().toLowerCase())
       .input("CompanyName", sql.NVarChar(200), String(companyName).trim())
-      .input("OfficialMobile", sql.NVarChar(50), String(officialMobile).trim())
+      .input("OfficialMobile", sql.NVarChar(20), String(officialMobile).trim())
       .input("PreferredDate", sql.Date, new Date(preferredDate))
       .input("TimeSlot", sql.NVarChar(50), String(timeSlot).trim())
       .input("MeetingPlatform", sql.NVarChar(50), String(meetingPlatform).trim())
@@ -315,7 +330,7 @@ app.post("/api/demo-request", async (req, res) => {
     return res.status(201).json({
       success: true,
       id: insertedId,
-      message: "Demo request confirmed! Our team will send the meeting invitation shortly.",
+      message: "Your demo request has been submitted and is pending review.",
     });
   } catch (error) {
     console.error("❌ Error saving DemoRequest:", error);

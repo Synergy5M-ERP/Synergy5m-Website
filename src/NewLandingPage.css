@@ -1611,11 +1611,15 @@ p,small,b,span,li{
 
 .form-field input,
 .form-field select
+
  {
   width: 100%;
   box-sizing: border-box;
 }
-
+textarea{
+     width: 100%;
+  box-sizing: border-box;
+}
 /* Responsive fallback for smaller screens */
 @media (max-width: 992px) {
   .form-grid.three {
