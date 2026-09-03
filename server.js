@@ -395,41 +395,56 @@ app.post("/api/trial-request", async (req, res) => {
     }
 
     const calculatedStatus = trialStatus || "Active";
+    let dbSaved = false;
 
-    // Insert into DB if connected
-    const pool = await poolPromise;
-    if (pool) {
-      const query = `
-        INSERT INTO dbo.TrialRequests (
-          CompanyName, ContactPerson, MobileNo, Email,
-          Address, GstNo, NumberOfUsers, SubscriptionPlan,
-          TrialStartDate, TrialEndDate, TrialStatus, Remarks
-        )
-        VALUES (
-          @CompanyName, @ContactPerson, @MobileNo, @Email,
-          @Address, @GstNo, @NumberOfUsers, @SubscriptionPlan,
-          @TrialStartDate, @TrialEndDate, @TrialStatus, @Remarks
-        );
-      `;
-
-      await pool
-        .request()
-        .input("CompanyName", sql.NVarChar(250), companyName.trim())
-        .input("ContactPerson", sql.NVarChar(150), contactPerson.trim())
-        .input("MobileNo", sql.NVarChar(20), mobileNo.trim())
-        .input("Email", sql.NVarChar(150), email.trim().toLowerCase())
-        .input("Address", sql.NVarChar(sql.MAX), address ? address.trim() : null)
-        .input("GstNo", sql.NVarChar(20), gstNo ? gstNo.trim() : null)
-        .input("NumberOfUsers", sql.Int, numberOfUsers ? parseInt(numberOfUsers, 10) : null)
-        .input("SubscriptionPlan", sql.NVarChar(50), subscriptionPlan)
-        .input("TrialStartDate", sql.Date, new Date(trialStartDate))
-        .input("TrialEndDate", sql.Date, new Date(trialEndDate))
-        .input("TrialStatus", sql.NVarChar(50), calculatedStatus)
-        .input("Remarks", sql.NVarChar(sql.MAX), remarks ? remarks.trim() : null)
-        .query(query);
+    // 1. Try to save to Azure SQL if pool is available
+    try {
+      const pool = await poolPromise;
+      if (pool) {
+        await pool
+          .request()
+          .input("CompanyName", sql.NVarChar(250), companyName.trim())
+          .input("ContactPerson", sql.NVarChar(150), contactPerson.trim())
+          .input("MobileNo", sql.NVarChar(20), mobileNo.trim())
+          .input("Email", sql.NVarChar(150), email.trim().toLowerCase())
+          .input("Address", sql.NVarChar(sql.MAX), address ? address.trim() : null)
+          .input("GstNo", sql.NVarChar(20), gstNo ? gstNo.trim() : null)
+          .input("NumberOfUsers", sql.Int, numberOfUsers ? parseInt(numberOfUsers, 10) : null)
+          .input("SubscriptionPlan", sql.NVarChar(50), subscriptionPlan)
+          .input("TrialStartDate", sql.Date, new Date(trialStartDate))
+          .input("TrialEndDate", sql.Date, new Date(trialEndDate))
+          .input("TrialStatus", sql.NVarChar(50), calculatedStatus)
+          .input("Remarks", sql.NVarChar(sql.MAX), remarks ? remarks.trim() : null)
+          .query(`
+            INSERT INTO dbo.TrialRequests (
+              CompanyName, ContactPerson, MobileNo, Email,
+              Address, GstNo, NumberOfUsers, SubscriptionPlan,
+              TrialStartDate, TrialEndDate, TrialStatus, Remarks
+            )
+            VALUES (
+              @CompanyName, @ContactPerson, @MobileNo, @Email,
+              @Address, @GstNo, @NumberOfUsers, @SubscriptionPlan,
+              @TrialStartDate, @TrialEndDate, @TrialStatus, @Remarks
+            );
+          `);
+        dbSaved = true;
+      }
+    } catch (dbErr) {
+      console.warn("DB insert bypassed:", dbErr.message);
     }
 
-    // Send email notification
+    // 2. Local fallback if DB is unreachable
+    if (!dbSaved) {
+      const dataDir = path.join(__dirname, "data");
+      if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+      fs.appendFileSync(
+        path.join(dataDir, "trial_requests.jsonl"),
+        JSON.stringify({ ...req.body, submittedAt: new Date().toISOString() }) + "\n",
+        "utf8"
+      );
+    }
+
+    // 3. Always dispatch confirmation email
     const mailHtml = `
       <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
         <h2 style="color: #0b5ed7;">New SYN ERP 10 Trial Request</h2>
@@ -438,14 +453,9 @@ app.post("/api/trial-request", async (req, res) => {
           <tr><td><strong>Contact Person</strong></td><td>${contactPerson}</td></tr>
           <tr><td><strong>Mobile No.</strong></td><td>${mobileNo}</td></tr>
           <tr><td><strong>Email</strong></td><td>${email}</td></tr>
-          <tr><td><strong>Address</strong></td><td>${address || "N/A"}</td></tr>
-          <tr><td><strong>GST No.</strong></td><td>${gstNo || "N/A"}</td></tr>
-          <tr><td><strong>Number of Users</strong></td><td>${numberOfUsers || "N/A"}</td></tr>
           <tr><td><strong>Subscription Plan</strong></td><td><strong>${subscriptionPlan}</strong></td></tr>
-          <tr><td><strong>Trial Start Date</strong></td><td>${trialStartDate}</td></tr>
-          <tr><td><strong>Trial End Date</strong></td><td>${trialEndDate}</td></tr>
+          <tr><td><strong>Trial Dates</strong></td><td>${trialStartDate} to ${trialEndDate}</td></tr>
           <tr><td><strong>Status</strong></td><td>${calculatedStatus}</td></tr>
-          <tr><td><strong>Remarks</strong></td><td>${remarks || "None"}</td></tr>
         </table>
       </div>
     `;
@@ -460,17 +470,16 @@ app.post("/api/trial-request", async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Trial request submitted successfully. Confirmation email sent.",
+      message: "Trial request submitted successfully! Confirmation email has been sent.",
     });
   } catch (error) {
-    console.error("❌ Trial Request Processing Error:", error);
+    console.error("Submission processing error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || "Failed to process trial request.",
+      message: "Internal server error processing trial request.",
     });
   }
 });
-
 // -------------------------------------------------------------
 // Safe Static Files / SPA Fallback (Express 5 Compatible)
 // -------------------------------------------------------------
