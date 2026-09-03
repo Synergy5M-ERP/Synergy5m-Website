@@ -3,7 +3,12 @@ const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-// Force IPv4-only lookup
+const net = require("net");
+const nodemailer = require("nodemailer");
+
+require("dotenv").config();
+
+// 1. Non-blocking IP detection
 fetch("https://api4.ipify.org")
   .then((res) => res.text())
   .then((ipv4) => {
@@ -15,36 +20,55 @@ fetch("https://api4.ipify.org")
     console.error("Could not fetch outbound IPv4:", err.message);
   });
 
-  
 const { sql, poolPromise } = require("./db");
-require("dotenv").config();
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-const net = require("net");
 
+// Email Transporter (Gmail SMTP)
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: "mmm@synergy5m.com",
+    pass: "hflc dqba czoo oeku",
+  },
+});
+
+// Diagnostic route to test if GoDaddy allows outbound port 1433
 app.get("/api/test-port", (req, res) => {
   const socket = new net.Socket();
-  socket.setTimeout(5000);
+  socket.setTimeout(6000);
 
   socket.connect(1433, "synergy5m-product-master.database.windows.net", () => {
     socket.destroy();
-    res.json({ success: true, message: "Port 1433 is OPEN and reachable!" });
+    return res.json({
+      success: true,
+      message: "✅ Port 1433 is OPEN and reachable from this server!",
+    });
   });
 
   socket.on("error", (err) => {
     socket.destroy();
-    res.json({ success: false, message: "Port 1433 blocked or unreachable: " + err.message });
+    return res.json({
+      success: false,
+      message: "❌ Port 1433 connection failed: " + err.message,
+    });
   });
 
   socket.on("timeout", () => {
     socket.destroy();
-    res.json({ success: false, message: "Port 1433 TIMED OUT (likely blocked by GoDaddy firewall)." });
+    return res.json({
+      success: false,
+      message: "❌ Port 1433 TIMED OUT (Outbound port blocked by hosting firewall).",
+    });
   });
 });
+
 // Ensure upload directory exists
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) {
@@ -64,23 +88,6 @@ const upload = multer({ storage });
 // Serve static uploaded files
 app.use("/uploads", express.static(uploadDir));
 
-// Helper to generate sequential code (B-2026-00001 or S-2026-00001)
-const generateCode = async (pool, category) => {
-  const prefix = (category || "").toLowerCase() === "seller" ? "S" : "B";
-  const result = await pool
-    .request()
-    .input("Prefix", sql.NVarChar(5), `${prefix}-%`)
-    .query(`
-      SELECT COUNT(1) AS Total 
-      FROM dbo.BusinessEnquiries WITH (NOLOCK) 
-      WHERE Code LIKE @Prefix
-    `);
-
-  const nextSeq = (result.recordset[0].Total + 1).toString().padStart(5, "0");
-  const year = new Date().getFullYear();
-  return `${prefix}-${year}-${nextSeq}`;
-};
-
 // -------------------------------------------------------------
 // API Endpoints
 // -------------------------------------------------------------
@@ -98,6 +105,10 @@ app.post("/api/inquiries", async (req, res) => {
     } = req.body;
 
     const pool = await poolPromise;
+    if (!pool) {
+      return res.status(503).json({ success: false, message: "Database temporarily unavailable." });
+    }
+
     await pool
       .request()
       .input("FullName", sql.NVarChar(150), String(fullName || "").trim())
@@ -121,7 +132,7 @@ app.post("/api/inquiries", async (req, res) => {
   }
 });
 
-// 2. Unified Buyer & Seller Registration (Single Table: BusinessEnquiries)
+// 2. Unified Buyer & Seller Registration
 const uploadFields = upload.fields([
   { name: "attachment", maxCount: 1 },
   { name: "documents", maxCount: 10 },
@@ -131,11 +142,13 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
   try {
     const d = req.body;
     const pool = await poolPromise;
+    if (!pool) {
+      return res.status(503).json({ success: false, message: "Database temporarily unavailable." });
+    }
 
     const category = (d.category || "").toLowerCase() === "seller" ? "Seller" : "Buyer";
     const prefix = category === "Seller" ? "S" : "B";
 
-    // Handle file uploads
     let attachmentPaths = [];
     if (req.files) {
       if (req.files.attachment) {
@@ -151,12 +164,10 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
     const paymentTerms = d.paymentTermsExpected || d.paymentTerms || null;
 
     const query = `
-      -- 1. Auto-generate next integer Id
       DECLARE @NextId INT;
       SELECT @NextId = ISNULL(MAX(Id), 0) + 1 
       FROM dbo.BusinessEnquiries WITH (TABLOCKX, HOLDLOCK);
 
-      -- 2. Auto-generate next alphanumeric Code (e.g., B00001, S00001)
       DECLARE @NextNum INT;
       DECLARE @PrefixPattern NVARCHAR(10) = '${prefix}%';
 
@@ -167,7 +178,6 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
 
       DECLARE @GeneratedCode NVARCHAR(50) = '${prefix}' + RIGHT('00000' + CAST(@NextNum AS NVARCHAR(10)), 5);
 
-      -- 3. Insert both computed Id and Code
       INSERT INTO dbo.BusinessEnquiries (
         Id, Code, Category,
         CompanyName, GSTIN, CIN, Address, Website, CompanyEmail, Mobile, Industry, CompanyType, YearsInBusiness,
@@ -248,10 +258,7 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
   }
 });
 
-
-
-// POST /api/demo-request
-
+// 3. Demo Request Endpoint
 app.post("/api/demo-request", async (req, res) => {
   try {
     const {
@@ -265,7 +272,6 @@ app.post("/api/demo-request", async (req, res) => {
       requirement,
     } = req.body;
 
-    // 1. Validation checks
     if (
       !fullName ||
       !businessEmail ||
@@ -281,7 +287,6 @@ app.post("/api/demo-request", async (req, res) => {
       });
     }
 
-    // 2. Prevent past dates
     const selectedDate = new Date(preferredDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -293,11 +298,12 @@ app.post("/api/demo-request", async (req, res) => {
       });
     }
 
-    // 3. Connect to pool & insert into DemoRequests table
     const pool = await poolPromise;
+    if (!pool) {
+      return res.status(503).json({ success: false, message: "Database temporarily unavailable." });
+    }
 
     const query = `
-      -- Auto-generate next integer Id if identity is not set
       DECLARE @NextId INT;
       SELECT @NextId = ISNULL(MAX(Id), 0) + 1 
       FROM dbo.DemoRequests WITH (TABLOCKX, HOLDLOCK);
@@ -358,6 +364,109 @@ app.post("/api/demo-request", async (req, res) => {
     });
   }
 });
+
+// 4. Trial Request Endpoint with Email Notification
+app.post("/api/trial-request", async (req, res) => {
+  try {
+    const {
+      companyName,
+      contactPerson,
+      mobileNo,
+      email,
+      address,
+      gstNo,
+      numberOfUsers,
+      subscriptionPlan,
+      trialStartDate,
+      trialEndDate,
+      trialStatus,
+      remarks,
+    } = req.body;
+
+    if (!companyName || !contactPerson || !mobileNo || !email || !subscriptionPlan || !trialStartDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Please fill all mandatory fields marked with *",
+      });
+    }
+
+    const calculatedStatus = trialStatus || "Active";
+
+    // Insert into DB if connected
+    const pool = await poolPromise;
+    if (pool) {
+      const query = `
+        INSERT INTO dbo.TrialRequests (
+          CompanyName, ContactPerson, MobileNo, Email,
+          Address, GstNo, NumberOfUsers, SubscriptionPlan,
+          TrialStartDate, TrialEndDate, TrialStatus, Remarks
+        )
+        VALUES (
+          @CompanyName, @ContactPerson, @MobileNo, @Email,
+          @Address, @GstNo, @NumberOfUsers, @SubscriptionPlan,
+          @TrialStartDate, @TrialEndDate, @TrialStatus, @Remarks
+        );
+      `;
+
+      await pool
+        .request()
+        .input("CompanyName", sql.NVarChar(250), companyName.trim())
+        .input("ContactPerson", sql.NVarChar(150), contactPerson.trim())
+        .input("MobileNo", sql.NVarChar(20), mobileNo.trim())
+        .input("Email", sql.NVarChar(150), email.trim().toLowerCase())
+        .input("Address", sql.NVarChar(sql.MAX), address ? address.trim() : null)
+        .input("GstNo", sql.NVarChar(20), gstNo ? gstNo.trim() : null)
+        .input("NumberOfUsers", sql.Int, numberOfUsers ? parseInt(numberOfUsers, 10) : null)
+        .input("SubscriptionPlan", sql.NVarChar(50), subscriptionPlan)
+        .input("TrialStartDate", sql.Date, new Date(trialStartDate))
+        .input("TrialEndDate", sql.Date, new Date(trialEndDate))
+        .input("TrialStatus", sql.NVarChar(50), calculatedStatus)
+        .input("Remarks", sql.NVarChar(sql.MAX), remarks ? remarks.trim() : null)
+        .query(query);
+    }
+
+    // Send email notification
+    const mailHtml = `
+      <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+        <h2 style="color: #0b5ed7;">New SYN ERP 10 Trial Request</h2>
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; max-width: 600px; border-color: #ddd;">
+          <tr><td><strong>Company Name</strong></td><td>${companyName}</td></tr>
+          <tr><td><strong>Contact Person</strong></td><td>${contactPerson}</td></tr>
+          <tr><td><strong>Mobile No.</strong></td><td>${mobileNo}</td></tr>
+          <tr><td><strong>Email</strong></td><td>${email}</td></tr>
+          <tr><td><strong>Address</strong></td><td>${address || "N/A"}</td></tr>
+          <tr><td><strong>GST No.</strong></td><td>${gstNo || "N/A"}</td></tr>
+          <tr><td><strong>Number of Users</strong></td><td>${numberOfUsers || "N/A"}</td></tr>
+          <tr><td><strong>Subscription Plan</strong></td><td><strong>${subscriptionPlan}</strong></td></tr>
+          <tr><td><strong>Trial Start Date</strong></td><td>${trialStartDate}</td></tr>
+          <tr><td><strong>Trial End Date</strong></td><td>${trialEndDate}</td></tr>
+          <tr><td><strong>Status</strong></td><td>${calculatedStatus}</td></tr>
+          <tr><td><strong>Remarks</strong></td><td>${remarks || "None"}</td></tr>
+        </table>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: '"Synergy5M ERP System" <mmm@synergy5m.com>',
+      to: email.trim(),
+      cc: ["sales@synergy5m.com", "accounts@synergy5m.com"],
+      subject: `New SYN ERP Trial Request: ${companyName}`,
+      html: mailHtml,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Trial request submitted successfully. Confirmation email sent.",
+    });
+  } catch (error) {
+    console.error("❌ Trial Request Processing Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to process trial request.",
+    });
+  }
+});
+
 // -------------------------------------------------------------
 // Safe Static Files / SPA Fallback (Express 5 Compatible)
 // -------------------------------------------------------------
@@ -366,13 +475,12 @@ const indexHtmlPath = path.join(buildPath, "index.html");
 
 if (fs.existsSync(indexHtmlPath)) {
   app.use(express.static(buildPath));
-  // Express 5 named wildcard syntax
   app.get("{*path}", (req, res) => {
     res.sendFile(indexHtmlPath);
   });
 } else {
   app.get("/", (req, res) => {
-    res.send("Synergy5M Backend API is running. Access the frontend app via React dev server on port 3001.");
+    res.send("Synergy5M Backend API is running.");
   });
 }
 
@@ -380,7 +488,6 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Express Server running on http://localhost:${PORT}`);
 });
-
 
 
 
