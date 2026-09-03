@@ -39,16 +39,18 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Diagnostic route to test if GoDaddy allows outbound port 1433
 app.get("/api/test-port", (req, res) => {
+  const targetPort = parseInt(req.query.port, 10) || 443;
+  const host = "synergy5m-product-master.database.windows.net";
   const socket = new net.Socket();
   socket.setTimeout(6000);
 
-  socket.connect(1433, "synergy5m-product-master.database.windows.net", () => {
+  socket.connect(targetPort, host, () => {
     socket.destroy();
     return res.json({
       success: true,
-      message: "✅ Port 1433 is OPEN and reachable from this server!",
+      portTested: targetPort,
+      message: `✅ Port ${targetPort} is OPEN and reachable from this GoDaddy server!`
     });
   });
 
@@ -56,7 +58,8 @@ app.get("/api/test-port", (req, res) => {
     socket.destroy();
     return res.json({
       success: false,
-      message: "❌ Port 1433 connection failed: " + err.message,
+      portTested: targetPort,
+      message: `❌ Port ${targetPort} connection failed: ${err.message}`
     });
   });
 
@@ -64,7 +67,8 @@ app.get("/api/test-port", (req, res) => {
     socket.destroy();
     return res.json({
       success: false,
-      message: "❌ Port 1433 TIMED OUT (Outbound port blocked by hosting firewall).",
+      portTested: targetPort,
+      message: `❌ Port ${targetPort} TIMED OUT.`
     });
   });
 });
