@@ -1499,7 +1499,7 @@ p,small,b,span,li{
     border: 1px solid #e5eaf0;
     border-radius: 6px;
     padding: 8px;
-    font-size: 9px;
+    font-size: 13px;
     color: #334155;
     display: flex;
     gap: 6px;
@@ -1698,5 +1698,83 @@ textarea{
   .main-nav.open .registered-user-btn {
     position: static;
     margin: 8px 0 4px;
+  }
+}
+
+/* 4-column layout for the modal form */
+.trial-form-grid-four {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px 14px;
+  align-items: start;
+}
+
+/* Span utilities */
+.span-two {
+  grid-column: span 2;
+}
+
+.span-four,
+.full-span {
+  grid-column: span 4;
+}
+
+/* Uniform sizing and alignment */
+.trial-form-grid-four .form-field {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  width: 100%;
+}
+
+.trial-form-grid-four input,
+.trial-form-grid-four select,
+.trial-form-grid-four textarea {
+  width: 100%;
+  height: 40px;
+  padding: 8px 12px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #1e293b;
+  font-size: 13.5px;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+/* Keep textareas equal height and balanced */
+.trial-form-grid-four textarea {
+  height: 72px;
+  resize: vertical;
+}
+
+.trial-form-grid-four input:focus,
+.trial-form-grid-four select:focus,
+.trial-form-grid-four textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.trial-form-grid-four .readonly-input {
+  background-color: #f1f5f9 !important;
+  color: #64748b !important;
+  cursor: not-allowed;
+  font-weight: 600;
+}
+
+/* Responsive fallback */
+@media (max-width: 900px) {
+  .trial-form-grid-four {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 580px) {
+  .trial-form-grid-four {
+    grid-template-columns: 1fr;
+  }
+  .span-two {
+    grid-column: span 1;
   }
 }

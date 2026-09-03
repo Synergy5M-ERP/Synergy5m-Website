@@ -884,7 +884,7 @@ function NewLandingPage() {
 
   const closeModal = () => setModal(null);
 
-  const submitForm = async (e, formType) => {
+const submitForm = async (e, formType) => {
     e.preventDefault();
     const formElement = e.target;
     const formData = new FormData(formElement);
@@ -898,6 +898,8 @@ function NewLandingPage() {
       formData.append("category", formType === "buyer" ? "Buyer" : "Seller");
     } else if (formType === "demo") {
       endpoint = "/api/demo-request";
+    } else if (formType === "trial") {
+      endpoint = "/api/trial-request";
     }
 
     try {
@@ -936,6 +938,20 @@ function NewLandingPage() {
     }
   };
 
+  const [trialStartDate, setTrialStartDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [trialPlan, setTrialPlan] = useState("7 Days Trial");
+
+  const getTrialEndDate = (startDate, plan) => {
+    if (!startDate) return "";
+    const start = new Date(startDate);
+    let days = 7;
+    if (plan === "15 Days Trial") days = 15;
+    if (plan === "Paid Plan") days = 365;
+    start.setDate(start.getDate() + days);
+    return start.toISOString().split("T")[0];
+  };
   const openERP = (module) => setActiveERP(module);
 
   return (
@@ -1006,7 +1022,7 @@ function NewLandingPage() {
           <div className="hero-copy">
             <div className="eyebrow">SYNERGY5M LLP BUSINESS SOLUTIONS</div>
             <h1>One Partner.</h1>
-            <h3>Three Powerful Solutions.</h3>
+            <h3 className="text-danger">Three Powerful Solutions.</h3>
             <h2>Unlimited Possibilities.</h2>
             <p>
               Empowering businesses with <b>Consulting Excellence</b>,{" "}
@@ -1058,12 +1074,12 @@ function NewLandingPage() {
                 operations through our proven 5M approach — for stronger
                 performance, higher productivity and sustainable growth.
               </p>
-              <button
+              {/* <button
                 className="white-btn"
                 onClick={() => setModal("consulting")}
               >
                 Explore Consulting <ArrowRight size={17} />
-              </button>
+              </button> */}
             </div>
             <img src="/consulting-dart.png" alt="Business target" />
           </div>
@@ -1167,6 +1183,7 @@ function NewLandingPage() {
                       <span className="view-details">
                         View details <ArrowRight size={12} />
                       </span>
+                      
                     </button>
                   );
                 })}
@@ -1187,8 +1204,8 @@ function NewLandingPage() {
                   {x}
                 </p>
               ))}
-              <button className="blue-btn" onClick={() => setModal("demo")}>
-                Request a Demo
+              <button className="blue-btn" onClick={() => setModal("TRail")}>
+                Request a Trail
               </button>
             </aside>
           </div>
@@ -1541,6 +1558,136 @@ function NewLandingPage() {
           </form>
         </Modal>
       )}
+{modal === "TRail" && (
+  <Modal
+    close={closeModal}
+    title="Request SYN ERP 10 Trial"
+    subtitle="Fill in your company details to start your trial access."
+    wide
+  >
+    <form onSubmit={(e) => submitForm(e, "trial")}>
+      <div className="trial-form-grid-four">
+        {/* Row 1: 4 fields in a single line */}
+        <Field label="Company Name" required>
+          <input name="companyName" required placeholder="Company Name" />
+        </Field>
+
+        <Field label="Contact Person" required>
+          <input
+            name="contactPerson"
+            required
+            placeholder="Contact Person Name"
+          />
+        </Field>
+
+        <Field label="Mobile No." required>
+          <input
+            name="mobileNo"
+            required
+            type="tel"
+            placeholder="Mobile Number"
+          />
+        </Field>
+
+        <Field label="Email" required>
+          <input
+            name="email"
+            required
+            type="email"
+            placeholder="Official Email"
+          />
+        </Field>
+
+        {/* Row 2: 4 fields in a single line */}
+        <Field label="GST No.">
+          <input name="gstNo" placeholder="GSTIN (Optional)" />
+        </Field>
+
+        <Field label="Number of Users">
+          <input
+            name="numberOfUsers"
+            type="number"
+            min="1"
+            placeholder="No. of Users"
+          />
+        </Field>
+
+        <Field label="Subscription Plan" required>
+          <select
+            name="subscriptionPlan"
+            required
+            value={trialPlan}
+            onChange={(e) => setTrialPlan(e.target.value)}
+          >
+            <option value="7 Days Trial">7 Days Trial</option>
+            <option value="15 Days Trial">15 Days Trial</option>
+            <option value="Paid Plan">Paid Plan</option>
+          </select>
+        </Field>
+
+        <Field label="Trial Status">
+          <select name="trialStatus" defaultValue="Active">
+            <option value="Active">Active</option>
+            <option value="Expired">Expired</option>
+            <option value="Converted">Converted</option>
+          </select>
+        </Field>
+
+        {/* Row 3: 2 date fields side-by-side occupying 2 columns each (1 full line) */}
+        <div className="span-two">
+          <Field label="Trial Start Date" required>
+            <input
+              type="date"
+              name="trialStartDate"
+              required
+              value={trialStartDate}
+              onChange={(e) => setTrialStartDate(e.target.value)}
+            />
+          </Field>
+        </div>
+
+        <div className="span-two">
+          <Field label="Trial End Date (Auto Calculate)">
+            <input
+              type="date"
+              name="trialEndDate"
+              readOnly
+              value={getTrialEndDate(trialStartDate, trialPlan)}
+              className="readonly-input"
+            />
+          </Field>
+        </div>
+
+        {/* Row 4: Registered Address & Remarks textareas (equal size, 2 columns each on 1 line) */}
+        <div className="span-two">
+          <Field label="Registered Address">
+            <textarea
+              name="address"
+              rows="3"
+              placeholder="Registered business address"
+            />
+          </Field>
+        </div>
+
+        <div className="span-two">
+          <Field label="Remarks">
+            <textarea
+              name="remarks"
+              rows="3"
+              placeholder="Any specific comments or requirements"
+            />
+          </Field>
+        </div>
+      </div>
+
+      <div className="form-actions">
+        <button className="blue-btn" type="submit">
+          Submit Trial Request <ArrowRight size={16} />
+        </button>
+      </div>
+    </form>
+  </Modal>
+)}
 
       {modal &&
         ["expert", "consulting", "connect", "demo", "meeting"].includes(
