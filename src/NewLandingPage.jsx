@@ -1159,6 +1159,7 @@ const submitForm = async (e, formType) => {
               <Boxes />
               <b>Cloud Based</b>
               <small>Secure, reliable access</small>
+              
             </div>
           </div>
           <div className="erp-module-box">
