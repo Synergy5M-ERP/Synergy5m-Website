@@ -10,6 +10,7 @@
     "@testing-library/user-event": "^13.5.0",
     "bootstrap": "^5.3.8",
     "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "lucide-react": "^0.563.0",
     "mssql": "^12.7.0",
