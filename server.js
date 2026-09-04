@@ -497,7 +497,7 @@ if (fs.existsSync(indexHtmlPath)) {
   app.get("/", (req, res) => {
     res.send("Synergy5M Backend API is running.");
   });
-  
+
 }
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
