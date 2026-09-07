@@ -23,17 +23,17 @@ app.use(express.urlencoded({ extended: true, limit: "15mb" }));
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
   port: parseInt(process.env.SMTP_PORT, 10) || 587,
-  secure: false, // true for 465, false for other ports
+  secure: false,
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
   tls: {
-    rejectUnauthorized: false, // Prevents certificate chain validation failures on cloud proxies
+    rejectUnauthorized: false,
   },
 });
 
-// Storage and upload folders setup (persisted under persistent home if available on Azure)
+// Storage and upload folders setup
 const baseDir = process.env.HOME ? path.join(process.env.HOME, "site", "wwwroot") : __dirname;
 const uploadDir = path.join(baseDir, "uploads");
 const dataDir = path.join(baseDir, "data");
@@ -104,20 +104,23 @@ app.get("/api/test-port", (req, res) => {
     return res.json({
       success: false,
       portTested: targetPort,
-      message: `Connection to ${host} timed out. Ensure Azure SQL allows access from Azure services.`,
+      message: `Connection to ${host} timed out. Host or firewall is blocking traffic.`,
     });
   });
 });
 
 // -------------------------------------------------------------
-// Dropdown Data Endpoints
+// Dropdown Data Endpoints (With UI Offline Fallbacks)
 // -------------------------------------------------------------
 
 // 1. Categories
 app.get("/api/categories", async (req, res) => {
   try {
     const pool = await poolPromise;
-    if (!pool) return res.status(503).json({ error: "Database not ready" });
+    if (!pool) {
+      // Fallback data allows UI dropdowns to render during offline/no-DB state
+      return res.json(["BUY", "SELL", "TRADING", "SEMIFINISH", "SERVICES", "JOBWORK"]);
+    }
 
     const result = await pool.request().query(`
       SELECT DISTINCT [VendorCategory] 
@@ -128,8 +131,8 @@ app.get("/api/categories", async (req, res) => {
 
     return res.json(result.recordset.map((row) => row.VendorCategory));
   } catch (err) {
-    console.error("SQL Error /api/categories:", err.message);
-    return res.status(500).json({ error: err.message });
+    console.warn("Categories fetch fallback:", err.message);
+    return res.json(["BUY", "SELL", "TRADING", "SEMIFINISH", "SERVICES", "JOBWORK"]);
   }
 });
 
@@ -138,7 +141,9 @@ app.get("/api/products", async (req, res) => {
   try {
     const { category } = req.query;
     const pool = await poolPromise;
-    if (!pool) return res.status(503).json({ error: "Database not ready" });
+    if (!pool) {
+      return res.json(["Standard Product A", "Standard Product B"]);
+    }
 
     const request = pool.request();
     let query = `
@@ -157,8 +162,8 @@ app.get("/api/products", async (req, res) => {
     const result = await request.query(query);
     return res.json(result.recordset.map((row) => row.Item_Name));
   } catch (err) {
-    console.error("SQL Error /api/products:", err.message);
-    return res.status(500).json({ error: err.message });
+    console.warn("Products fetch fallback:", err.message);
+    return res.json(["Standard Product A", "Standard Product B"]);
   }
 });
 
@@ -166,7 +171,9 @@ app.get("/api/products", async (req, res) => {
 app.get("/api/units", async (req, res) => {
   try {
     const pool = await poolPromise;
-    if (!pool) return res.status(503).json({ error: "Database not ready" });
+    if (!pool) {
+      return res.json(["Kg", "Meters", "MT", "Nos", "Pieces", "Bags", "Liters"]);
+    }
 
     const result = await pool.request().query(`
       SELECT DISTINCT [Unit_Of_Measurement] 
@@ -177,8 +184,8 @@ app.get("/api/units", async (req, res) => {
 
     return res.json(result.recordset.map((row) => row.Unit_Of_Measurement));
   } catch (err) {
-    console.error("SQL Error /api/units:", err.message);
-    return res.status(500).json({ error: err.message });
+    console.warn("Units fetch fallback:", err.message);
+    return res.json(["Kg", "Meters", "MT", "Nos", "Pieces", "Bags"]);
   }
 });
 
@@ -186,7 +193,9 @@ app.get("/api/units", async (req, res) => {
 app.get("/api/currencies", async (req, res) => {
   try {
     const pool = await poolPromise;
-    if (!pool) return res.status(503).json({ error: "Database not ready" });
+    if (!pool) {
+      return res.json(["INR", "USD", "EUR", "AED", "GBP"]);
+    }
 
     const result = await pool.request().query(`
       SELECT DISTINCT [Currency_Code] 
@@ -197,8 +206,8 @@ app.get("/api/currencies", async (req, res) => {
 
     return res.json(result.recordset.map((row) => row.Currency_Code));
   } catch (err) {
-    console.error("SQL Error /api/currencies:", err.message);
-    return res.status(500).json({ error: err.message });
+    console.warn("Currencies fetch fallback:", err.message);
+    return res.json(["INR", "USD", "EUR", "AED"]);
   }
 });
 
@@ -206,7 +215,18 @@ app.get("/api/currencies", async (req, res) => {
 app.get("/api/industries", async (req, res) => {
   try {
     const pool = await poolPromise;
-    if (!pool) return res.status(503).json({ error: "Database not ready" });
+    if (!pool) {
+      return res.json([
+        "Automotive",
+        "Chemicals",
+        "Engineering",
+        "Manufacturing",
+        "Packaging",
+        "Pharmaceuticals",
+        "Plastics & Polymers",
+        "Textiles",
+      ]);
+    }
 
     const result = await pool.request().query(`
       SELECT DISTINCT [IndustryName] 
@@ -217,8 +237,8 @@ app.get("/api/industries", async (req, res) => {
 
     return res.json(result.recordset.map((row) => row.IndustryName));
   } catch (err) {
-    console.error("SQL Error /api/industries:", err.message);
-    return res.status(500).json({ error: err.message });
+    console.warn("Industries fetch fallback:", err.message);
+    return res.json(["Manufacturing", "Automotive", "Chemicals", "Engineering", "Packaging"]);
   }
 });
 
@@ -634,13 +654,13 @@ app.post("/api/trial-request", async (req, res) => {
 });
 
 // -------------------------------------------------------------
-// React Build / SPA Routing (Express 4 & Express 5 Azure Compatible)
+// React Build / SPA Routing (Express 4 & Express 5 Safe)
 // -------------------------------------------------------------
 const buildPath = path.join(__dirname, "build");
 const indexHtmlPath = path.join(buildPath, "index.html");
 
 if (fs.existsSync(indexHtmlPath)) {
-  // Serve static assets with 1-day caching for non-HTML files
+  // Serve static assets
   app.use(
     express.static(buildPath, {
       maxAge: "1d",
@@ -652,17 +672,16 @@ if (fs.existsSync(indexHtmlPath)) {
     })
   );
 
-  // Catch-all middleware: Route unmatched traffic to React
+  // Catch-all: Route all frontend navigation to index.html
   app.use((req, res) => {
-    // If request was meant for an API endpoint that doesn't exist, return JSON 404
     if (req.path.startsWith("/api/")) {
       return res.status(404).json({ error: `API endpoint ${req.path} not found` });
     }
     res.sendFile(indexHtmlPath);
   });
 } else {
-  // If the build folder was omitted during deployment
-  app.get("*", (req, res) => {
+  // Safe catch-all middleware without bare '*' to prevent path-to-regexp errors
+  app.use((req, res) => {
     if (req.path.startsWith("/api/")) {
       return res.status(404).json({ error: `API endpoint ${req.path} not found` });
     }
@@ -676,7 +695,7 @@ if (fs.existsSync(indexHtmlPath)) {
   });
 }
 
-// Azure App Service provides process.env.PORT automatically (usually 8080)
+// Azure App Service provides process.env.PORT automatically (usually 8080 or a named pipe)
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Production server successfully listening on port ${PORT}`);

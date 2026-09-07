@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://synergy5m.com/sitemap.xml

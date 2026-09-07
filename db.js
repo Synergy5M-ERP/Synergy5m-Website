@@ -5,8 +5,12 @@ const fs = require("fs");
 
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
-// 1. Resolve connection string from process.env or GoDaddy's /alloc/config.json
-let connectionString = process.env.DB_CONNECTION_STRING;
+// 1. Resolve connection string from process.env, Azure App Service defaults, or /alloc/config.json
+let connectionString =
+  process.env.DB_CONNECTION_STRING ||
+  process.env.SQLAZURECONNSTR_defaultConnection ||
+  process.env.SQLAZURECONNSTR_DB_CONNECTION_STRING ||
+  process.env.CUSTOMCONNSTR_DB_CONNECTION_STRING;
 
 if (!connectionString) {
   const allocConfigPath = "/alloc/config.json";
@@ -26,9 +30,10 @@ if (!connectionString) {
 // 2. Initialize connection
 const poolPromise = (async () => {
   if (!connectionString) {
-    console.error("==================================================");
-    console.error("❌ CRITICAL: DB_CONNECTION_STRING is missing in environment variables!");
-    console.error("==================================================");
+    console.warn("==================================================");
+    console.warn("⚠️ NOTICE: DB_CONNECTION_STRING is missing in environment variables.");
+    console.warn("⚠️ Server will continue running in UI-Only / Fallback mode.");
+    console.warn("==================================================");
     return null;
   }
 
@@ -37,24 +42,16 @@ const poolPromise = (async () => {
     console.log("✅ Successfully connected to Azure SQL Database via Connection String.");
     return pool;
   } catch (err) {
-    console.error("==================== AZURE SQL ERROR TRACE ====================");
-    console.error("❌ Error Name:    ", err.name);
-    console.error("❌ Error Code:    ", err.code || "N/A");
-    console.error("❌ Error Message: ", err.message);
+    console.warn("==================== AZURE SQL WARNING ====================");
+    console.warn("⚠️ Database connection failed. Running in UI-Only mode.");
+    console.warn("⚠️ Message:", err.message);
 
     if (err.originalError) {
-      console.error("🔍 Driver Error:   ", err.originalError.message);
-      console.error("🔍 Driver Code:    ", err.originalError.code || "N/A");
-
-      if (err.originalError.info) {
-        console.error("🔍 SQL Server ErrNo: ", err.originalError.info.number);
-        console.error("🔍 SQL State:        ", err.originalError.info.state);
-      }
+      console.warn("🔍 Driver Error:", err.originalError.message);
     }
-    console.error("===============================================================");
+    console.warn("===========================================================");
     return null;
   }
-  
 })();
 
 module.exports = {
