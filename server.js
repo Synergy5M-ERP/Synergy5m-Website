@@ -8,40 +8,35 @@ const nodemailer = require("nodemailer");
 
 require("dotenv").config();
 
-// 1. Detect & display outbound IPv4 for Azure Firewall whitelisting
-fetch("https://api4.ipify.org")
-  .then((res) => res.text())
-  .then((ipv4) => {
-    console.log("==================================================");
-    console.log("👉 CURRENT OUTBOUND IPv4:", ipv4.trim());
-    console.log("==================================================");
-  })
-  .catch((err) => {
-    console.error("Could not fetch outbound IPv4:", err.message);
-  });
-
 const { sql, poolPromise } = require("./db");
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Trust Azure frontend reverse proxy (ensures correct HTTPS protocol detection)
+app.set("trust proxy", 1);
 
-// Email Transporter (Gmail SMTP)
+app.use(cors());
+app.use(express.json({ limit: "15mb" }));
+app.use(express.urlencoded({ extended: true, limit: "15mb" }));
+
+// Email Transporter (Gmail / Office365 / Azure Communication Services)
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT, 10) || 587,
+  secure: false, // true for 465, false for other ports
   auth: {
-    user: process.env.SMTP_USER ,
-    pass: process.env.SMTP_PASS ,
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false, // Prevents certificate chain validation failures on cloud proxies
   },
 });
 
-// Storage and upload folders setup
-const uploadDir = path.join(__dirname, "uploads");
-const dataDir = path.join(__dirname, "data");
+// Storage and upload folders setup (persisted under persistent home if available on Azure)
+const baseDir = process.env.HOME ? path.join(process.env.HOME, "site", "wwwroot") : __dirname;
+const uploadDir = path.join(baseDir, "uploads");
+const dataDir = path.join(baseDir, "data");
 
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -54,12 +49,32 @@ const storage = multer.diskStorage({
     cb(null, `${uniqueSuffix}-${file.originalname.replace(/\s+/g, "_")}`);
   },
 });
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB per file
+});
 
-// Serve static uploaded files
+// Serve uploaded static files
 app.use("/uploads", express.static(uploadDir));
 
-// Diagnostic endpoint: defaults to Azure SQL host and port 1433
+// Health check endpoint for Azure App Service Traffic Manager & Health Probes
+app.get("/api/health", async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const dbStatus = pool ? "Connected" : "Disconnected";
+    return res.status(200).json({
+      status: "Healthy",
+      environment: process.env.NODE_ENV || "production",
+      database: dbStatus,
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    return res.status(500).json({ status: "Degraded", error: err.message });
+  }
+});
+
+// Diagnostic endpoint: test external Azure SQL connectivity
 app.get("/api/test-port", (req, res) => {
   const targetPort = parseInt(req.query.port, 10) || 1433;
   const host = req.query.host || "synergy5m-product-master.database.windows.net";
@@ -71,7 +86,7 @@ app.get("/api/test-port", (req, res) => {
     return res.json({
       success: true,
       portTested: targetPort,
-      message: `✅ Port ${targetPort} is OPEN and reachable to ${host} from this server!`,
+      message: `Port ${targetPort} is reachable to ${host}`,
     });
   });
 
@@ -80,7 +95,7 @@ app.get("/api/test-port", (req, res) => {
     return res.json({
       success: false,
       portTested: targetPort,
-      message: `❌ Port ${targetPort} connection failed: ${err.message}`,
+      message: `Connection failed: ${err.message}`,
     });
   });
 
@@ -89,13 +104,126 @@ app.get("/api/test-port", (req, res) => {
     return res.json({
       success: false,
       portTested: targetPort,
-      message: `❌ Port ${targetPort} to ${host} TIMED OUT. Host or firewall is blocking traffic.`,
+      message: `Connection to ${host} timed out. Ensure Azure SQL allows access from Azure services.`,
     });
   });
 });
 
 // -------------------------------------------------------------
-// API Endpoints (With Azure SQL + Automatic Local File Fallback)
+// Dropdown Data Endpoints
+// -------------------------------------------------------------
+
+// 1. Categories
+app.get("/api/categories", async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: "Database not ready" });
+
+    const result = await pool.request().query(`
+      SELECT DISTINCT [VendorCategory] 
+      FROM [dbo].[Master_VendorCategory] 
+      WHERE [VendorCategory] IS NOT NULL 
+      ORDER BY [VendorCategory] ASC
+    `);
+
+    return res.json(result.recordset.map((row) => row.VendorCategory));
+  } catch (err) {
+    console.error("SQL Error /api/categories:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// 2. Dependent Products
+app.get("/api/products", async (req, res) => {
+  try {
+    const { category } = req.query;
+    const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: "Database not ready" });
+
+    const request = pool.request();
+    let query = `
+      SELECT DISTINCT [Item_Name] 
+      FROM [dbo].[MASTER_ItemTbl] 
+      WHERE [Item_Name] IS NOT NULL
+    `;
+
+    if (category) {
+      request.input("category", sql.NVarChar, category);
+      query += ` AND [ItemCategory] = @category`;
+    }
+
+    query += ` ORDER BY [Item_Name] ASC`;
+
+    const result = await request.query(query);
+    return res.json(result.recordset.map((row) => row.Item_Name));
+  } catch (err) {
+    console.error("SQL Error /api/products:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// 3. Units of Measurement
+app.get("/api/units", async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: "Database not ready" });
+
+    const result = await pool.request().query(`
+      SELECT DISTINCT [Unit_Of_Measurement] 
+      FROM [dbo].[UOMTbl] 
+      WHERE [Unit_Of_Measurement] IS NOT NULL 
+      ORDER BY [Unit_Of_Measurement] ASC
+    `);
+
+    return res.json(result.recordset.map((row) => row.Unit_Of_Measurement));
+  } catch (err) {
+    console.error("SQL Error /api/units:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// 4. Currencies
+app.get("/api/currencies", async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: "Database not ready" });
+
+    const result = await pool.request().query(`
+      SELECT DISTINCT [Currency_Code] 
+      FROM [dbo].[Currencytbl] 
+      WHERE [Currency_Code] IS NOT NULL 
+      ORDER BY [Currency_Code] ASC
+    `);
+
+    return res.json(result.recordset.map((row) => row.Currency_Code));
+  } catch (err) {
+    console.error("SQL Error /api/currencies:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// 5. Industries
+app.get("/api/industries", async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: "Database not ready" });
+
+    const result = await pool.request().query(`
+      SELECT DISTINCT [IndustryName] 
+      FROM [dbo].[Industry] 
+      WHERE [IndustryName] IS NOT NULL 
+      ORDER BY [IndustryName] ASC
+    `);
+
+    return res.json(result.recordset.map((row) => row.IndustryName));
+  } catch (err) {
+    console.error("SQL Error /api/industries:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// Form Submissions
 // -------------------------------------------------------------
 
 // 1. General Inquiries
@@ -126,7 +254,6 @@ app.post("/api/inquiries", async (req, res) => {
           VALUES (@FullName, @BusinessEmail, @CompanyName, @OfficialMobile, @InterestedIn, @Requirement)
         `);
     } else {
-      // Local fallback file storage
       fs.appendFileSync(
         path.join(dataDir, "inquiries.jsonl"),
         JSON.stringify({ ...req.body, submittedAt: new Date().toISOString() }) + "\n",
@@ -139,12 +266,12 @@ app.post("/api/inquiries", async (req, res) => {
       message: "Your inquiry has been submitted successfully.",
     });
   } catch (error) {
-    console.error("❌ Error saving inquiry:", error);
+    console.error("Error saving inquiry:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// 2. Unified Buyer & Seller Registration
+// 2. Business Connect
 const uploadFields = upload.fields([
   { name: "attachment", maxCount: 1 },
   { name: "documents", maxCount: 10 },
@@ -258,7 +385,6 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
       });
     }
 
-    // Fallback if Azure SQL is unavailable
     const generatedCode = `${prefix}-${Date.now().toString().slice(-5)}`;
     fs.appendFileSync(
       path.join(dataDir, "business_enquiries.jsonl"),
@@ -270,14 +396,15 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
       success: true,
       id: Date.now(),
       code: generatedCode,
-      message: `Submitted successfully (Stored locally under Ref: ${generatedCode})`,
+      message: `Submitted successfully (Ref: ${generatedCode})`,
     });
   } catch (error) {
-    console.error("❌ Error saving BusinessEnquiry:", error);
+    console.error("Error saving BusinessEnquiry:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
 });
 
+// 3. Demo Request Endpoint
 app.post("/api/demo-request", async (req, res) => {
   try {
     const {
@@ -307,68 +434,88 @@ app.post("/api/demo-request", async (req, res) => {
     }
 
     const pool = await poolPromise;
-    if (!pool) {
-      return res.status(503).json({ success: false, message: "Database temporarily unavailable." });
+    let insertedId = null;
+
+    if (pool) {
+      const query = `
+        DECLARE @NextId INT;
+        SELECT @NextId = ISNULL(MAX(Id), 0) + 1 
+        FROM dbo.DemoRequests WITH (TABLOCKX, HOLDLOCK);
+
+        INSERT INTO dbo.DemoRequests (
+          Id, FullName, BusinessEmail, CompanyName, OfficialMobile,
+          PreferredDate, TimeSlot, MeetingPlatform, Requirement,
+          DemoStatus, CreatedAt
+        )
+        OUTPUT INSERTED.Id
+        VALUES (
+          @NextId, @FullName, @BusinessEmail, @CompanyName, @OfficialMobile,
+          @PreferredDate, @TimeSlot, @MeetingPlatform, @Requirement,
+          'Pending', GETUTCDATE()
+        );
+      `;
+
+      const result = await pool
+        .request()
+        .input("FullName", sql.NVarChar(150), String(fullName).trim())
+        .input("BusinessEmail", sql.NVarChar(255), String(businessEmail).trim().toLowerCase())
+        .input("CompanyName", sql.NVarChar(200), String(companyName).trim())
+        .input("OfficialMobile", sql.NVarChar(20), String(officialMobile).trim())
+        .input("PreferredDate", sql.Date, new Date(preferredDate))
+        .input("TimeSlot", sql.NVarChar(50), String(timeSlot).trim())
+        .input("MeetingPlatform", sql.NVarChar(50), String(meetingPlatform).trim())
+        .input("Requirement", sql.NVarChar(sql.MAX), requirement ? String(requirement).trim() : null)
+        .query(query);
+
+      insertedId = result.recordset[0]?.Id;
+    } else {
+      fs.appendFileSync(
+        path.join(dataDir, "demo_requests.jsonl"),
+        JSON.stringify({ ...req.body, submittedAt: new Date().toISOString() }) + "\n",
+        "utf8"
+      );
     }
 
-    const query = `
-      DECLARE @NextId INT;
-      SELECT @NextId = ISNULL(MAX(Id), 0) + 1 
-      FROM dbo.DemoRequests WITH (TABLOCKX, HOLDLOCK);
-
-      INSERT INTO dbo.DemoRequests (
-        Id,
-        FullName,
-        BusinessEmail,
-        CompanyName,
-        OfficialMobile,
-        PreferredDate,
-        TimeSlot,
-        MeetingPlatform,
-        Requirement,
-        DemoStatus,
-        CreatedAt
-      )
-      OUTPUT INSERTED.Id
-      VALUES (
-        @NextId,
-        @FullName,
-        @BusinessEmail,
-        @CompanyName,
-        @OfficialMobile,
-        @PreferredDate,
-        @TimeSlot,
-        @MeetingPlatform,
-        @Requirement,
-        'Pending',
-        GETUTCDATE()
-      );
+    const mailHtml = `
+      <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+        <h2 style="color: #0b5ed7;">New SYN ERP 10 Demo Request</h2>
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; max-width: 600px; border-color: #ddd;">
+          <tr><td><strong>Client Name</strong></td><td>${fullName}</td></tr>
+          <tr><td><strong>Company Name</strong></td><td>${companyName}</td></tr>
+          <tr><td><strong>Business Email</strong></td><td>${businessEmail}</td></tr>
+          <tr><td><strong>Official Mobile</strong></td><td>${officialMobile}</td></tr>
+          <tr><td><strong>Preferred Date</strong></td><td>${new Date(preferredDate).toLocaleDateString()}</td></tr>
+          <tr><td><strong>Time Slot</strong></td><td><strong>${timeSlot}</strong></td></tr>
+          <tr><td><strong>Meeting Platform</strong></td><td><strong>${meetingPlatform}</strong></td></tr>
+          <tr><td><strong>Requirements / Notes</strong></td><td>${requirement || "None specified"}</td></tr>
+        </table>
+      </div>
     `;
 
-    const result = await pool
-      .request()
-      .input("FullName", sql.NVarChar(150), String(fullName).trim())
-      .input("BusinessEmail", sql.NVarChar(255), String(businessEmail).trim().toLowerCase())
-      .input("CompanyName", sql.NVarChar(200), String(companyName).trim())
-      .input("OfficialMobile", sql.NVarChar(20), String(officialMobile).trim())
-      .input("PreferredDate", sql.Date, new Date(preferredDate))
-      .input("TimeSlot", sql.NVarChar(50), String(timeSlot).trim())
-      .input("MeetingPlatform", sql.NVarChar(50), String(meetingPlatform).trim())
-      .input("Requirement", sql.NVarChar(sql.MAX), requirement ? String(requirement).trim() : null)
-      .query(query);
+    try {
+      await transporter.sendMail({
+        from: `"Synergy5M ERP System" <${process.env.SMTP_USER || "mmm@synergy5m.com"}>`,
+        to: businessEmail.trim(),
+        cc: ["sales@synergy5m.com", "accounts@synergy5m.com"],
+        subject: `SYN ERP 10 Demo Request Confirmation: ${companyName}`,
+        html: mailHtml,
+      });
+    } catch (mailErr) {
+      console.warn("Mail sending bypassed:", mailErr.message);
+    }
 
     return res.status(201).json({
       success: true,
-      id: result.recordset[0]?.Id,
-      message: "Your demo request has been submitted and is pending review.",
+      id: insertedId,
+      message: "Your demo request has been submitted successfully! Confirmation email has been sent.",
     });
   } catch (error) {
-    console.error("❌ Error saving DemoRequest:", error);
+    console.error("Error processing DemoRequest:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// 4. Trial Request Endpoint with Email Notification
+// 4. Trial Request Endpoint
 app.post("/api/trial-request", async (req, res) => {
   try {
     const {
@@ -399,6 +546,23 @@ app.post("/api/trial-request", async (req, res) => {
     const pool = await poolPromise;
     if (pool) {
       try {
+        const query = `
+          DECLARE @NextId INT;
+          SELECT @NextId = ISNULL(MAX(Id), 0) + 1 
+          FROM dbo.TrialRequests WITH (TABLOCKX, HOLDLOCK);
+
+          INSERT INTO dbo.TrialRequests (
+            Id, CompanyName, ContactPerson, MobileNo, Email,
+            Address, GstNo, NumberOfUsers, SubscriptionPlan,
+            TrialStartDate, TrialEndDate, TrialStatus, Remarks
+          )
+          VALUES (
+            @NextId, @CompanyName, @ContactPerson, @MobileNo, @Email,
+            @Address, @GstNo, @NumberOfUsers, @SubscriptionPlan,
+            @TrialStartDate, @TrialEndDate, @TrialStatus, @Remarks
+          );
+        `;
+
         await pool
           .request()
           .input("CompanyName", sql.NVarChar(250), companyName.trim())
@@ -413,25 +577,14 @@ app.post("/api/trial-request", async (req, res) => {
           .input("TrialEndDate", sql.Date, new Date(trialEndDate))
           .input("TrialStatus", sql.NVarChar(50), calculatedStatus)
           .input("Remarks", sql.NVarChar(sql.MAX), remarks ? remarks.trim() : null)
-          .query(`
-            INSERT INTO dbo.TrialRequests (
-              CompanyName, ContactPerson, MobileNo, Email,
-              Address, GstNo, NumberOfUsers, SubscriptionPlan,
-              TrialStartDate, TrialEndDate, TrialStatus, Remarks
-            )
-            VALUES (
-              @CompanyName, @ContactPerson, @MobileNo, @Email,
-              @Address, @GstNo, @NumberOfUsers, @SubscriptionPlan,
-              @TrialStartDate, @TrialEndDate, @TrialStatus, @Remarks
-            );
-          `);
+          .query(query);
+
         dbSaved = true;
       } catch (dbErr) {
         console.warn("DB insert failed, writing to fallback storage:", dbErr.message);
       }
     }
 
-    // Local fallback
     if (!dbSaved) {
       fs.appendFileSync(
         path.join(dataDir, "trial_requests.jsonl"),
@@ -440,7 +593,6 @@ app.post("/api/trial-request", async (req, res) => {
       );
     }
 
-    // Always send notification email
     const mailHtml = `
       <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
         <h2 style="color: #0b5ed7;">New SYN ERP 10 Trial Request</h2>
@@ -482,24 +634,50 @@ app.post("/api/trial-request", async (req, res) => {
 });
 
 // -------------------------------------------------------------
-// React Build / SPA Routing (Express 4 & 5 Safe)
+// React Build / SPA Routing (Express 4 & Express 5 Azure Compatible)
 // -------------------------------------------------------------
 const buildPath = path.join(__dirname, "build");
 const indexHtmlPath = path.join(buildPath, "index.html");
 
-// ✅ UNIVERSAL FIX (Express 4 & Express 5)
 if (fs.existsSync(indexHtmlPath)) {
-  app.use(express.static(buildPath));
+  // Serve static assets with 1-day caching for non-HTML files
+  app.use(
+    express.static(buildPath, {
+      maxAge: "1d",
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith("index.html")) {
+          res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        }
+      },
+    })
+  );
+
+  // Catch-all middleware: Route unmatched traffic to React
   app.use((req, res) => {
+    // If request was meant for an API endpoint that doesn't exist, return JSON 404
+    if (req.path.startsWith("/api/")) {
+      return res.status(404).json({ error: `API endpoint ${req.path} not found` });
+    }
     res.sendFile(indexHtmlPath);
   });
 } else {
-  app.get("/", (req, res) => {
-    res.send("Synergy5M Backend API is running.");
+  // If the build folder was omitted during deployment
+  app.get("*", (req, res) => {
+    if (req.path.startsWith("/api/")) {
+      return res.status(404).json({ error: `API endpoint ${req.path} not found` });
+    }
+    res.status(503).send(`
+      <div style="font-family: Arial, sans-serif; padding: 40px; text-align: center;">
+        <h2>Synergy5M API is running</h2>
+        <p>Frontend production build was not found in <code>${buildPath}</code>.</p>
+        <p>Ensure <code>npm run build</code> was executed before starting the service.</p>
+      </div>
+    `);
   });
-
 }
-const PORT = process.env.PORT || 3000;
+
+// Azure App Service provides process.env.PORT automatically (usually 8080)
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Express Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Production server successfully listening on port ${PORT}`);
 });

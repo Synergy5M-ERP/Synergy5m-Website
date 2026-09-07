@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   ArrowRight,
   Boxes,
@@ -26,6 +26,16 @@ import {
 } from "lucide-react";
 import Logo from "./logo (1).png";
 import "./NewLandingPage.css";
+
+const defaultItemCategories = [
+  "BUY",
+  "SELL",
+  "TRADING",
+  "SEMIFINISH",
+  "SERVICES",
+  "JOBWORK",
+  "Other / Add New",
+];
 
 const consulting = {
   Marketing: {
@@ -370,7 +380,143 @@ function Field({ label, children, required = false, hint, className = "" }) {
   );
 }
 
-function CompanyVerificationFields() {
+function SearchableDropdown({
+  label,
+  name,
+  options = [],
+  required = false,
+  value,
+  onChange,
+  disabled = false,
+  placeholder = "--- SELECT ---",
+  hint,
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredOptions = options.filter((opt) =>
+    String(opt).toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleSelect = (option) => {
+    if (onChange) {
+      onChange({ target: { name, value: option } });
+    }
+    setIsOpen(false);
+    setSearchTerm("");
+  };
+
+  return (
+    <div className="form-field" ref={dropdownRef} style={{ position: "relative" }}>
+      <span>
+        {label}
+        {required && <em> *</em>}
+      </span>
+
+      <input type="hidden" name={name} value={value || ""} required={required} />
+
+      <div
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "10px 14px",
+          border: "1px solid #c9d2db",
+          borderRadius: "8px",
+          backgroundColor: disabled ? "#f1f3f5" : "#fff",
+          cursor: disabled ? "not-allowed" : "pointer",
+          fontWeight: value ? "600" : "400",
+          color: value ? "#1f2937" : "#6b7280",
+          userSelect: "none",
+        }}
+      >
+        <span>{value || placeholder}</span>
+        <span style={{ fontSize: "10px", color: "#6b7280" }}>▼</span>
+      </div>
+
+      {isOpen && !disabled && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            zIndex: 999,
+            backgroundColor: "#fff",
+            border: "1px solid #0b5ed7",
+            borderRadius: "8px",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+            marginTop: "4px",
+            overflow: "hidden",
+          }}
+        >
+          <div style={{ padding: "8px", borderBottom: "1px solid #eee" }}>
+            <input
+              type="text"
+              autoFocus
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                border: "1px solid #d1d5db",
+                borderRadius: "6px",
+                fontSize: "0.85rem",
+                outline: "none",
+              }}
+            />
+          </div>
+
+          <div style={{ maxHeight: "200px", overflowY: "auto" }}>
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((opt) => (
+                <div
+                  key={opt}
+                  onClick={() => handleSelect(opt)}
+                  style={{
+                    padding: "9px 14px",
+                    cursor: "pointer",
+                    fontSize: "0.9rem",
+                    backgroundColor: value === opt ? "#e8f0fe" : "transparent",
+                    color: value === opt ? "#0b5ed7" : "#1f2937",
+                    fontWeight: value === opt ? "600" : "400",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f3f4f6")}
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.backgroundColor = value === opt ? "#e8f0fe" : "transparent")
+                  }
+                >
+                  {opt}
+                </div>
+              ))
+            ) : (
+              <div style={{ padding: "10px", fontSize: "0.85rem", color: "#888", textAlign: "center" }}>
+                No matches found
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {hint && <small>{hint}</small>}
+    </div>
+  );
+}
+
+function CompanyVerificationFields({ industries = [], selectedIndustry, onIndustryChange }) {
   return (
     <>
       <div className="form-section-title">
@@ -378,17 +524,9 @@ function CompanyVerificationFields() {
       </div>
       <div className="form-grid three">
         <Field label="Company Name" required>
-          <input
-            required
-            name="companyName"
-            placeholder="Registered company name"
-          />
+          <input required name="companyName" placeholder="Registered company name" />
         </Field>
-        <Field
-          label="GSTIN"
-          required
-          hint="Required for registration eligibility"
-        >
+        <Field label="GSTIN" required hint="Required for registration eligibility">
           <input
             required
             name="gstin"
@@ -398,12 +536,7 @@ function CompanyVerificationFields() {
           />
         </Field>
         <Field label="CIN / LLPIN">
-          <input
-            name="cin"
-            pattern="[A-Za-z0-9-]{6,30}"
-            title="Enter your CIN or LLPIN"
-            placeholder="CIN or LLPIN"
-          />
+          <input name="cin" pattern="[A-Za-z0-9-]{6,30}" title="Enter your CIN or LLPIN" placeholder="CIN or LLPIN" />
         </Field>
         <Field label="Registered Address" required>
           <input required name="address" placeholder="Registered address" />
@@ -412,30 +545,25 @@ function CompanyVerificationFields() {
           <input name="website" type="url" placeholder="https://" />
         </Field>
         <Field label="Company Email" required>
-          <input
-            required
-            name="companyEmail"
-            type="email"
-            placeholder="official@company.com"
-          />
+          <input required name="companyEmail" type="email" placeholder="official@company.com" />
         </Field>
         <Field label="Official Mobile Number" required>
-          <input
-            required
-            name="mobile"
-            type="tel"
-            pattern="[0-9+() -]{10,16}"
-            placeholder="Official business number"
-          />
+          <input required name="mobile" type="tel" pattern="[0-9+() -]{10,16}" placeholder="Official business number" />
         </Field>
-        <Field label="Industry" required>
-          <input required name="industry" placeholder="Industry / sector" />
-        </Field>
+
+        <SearchableDropdown
+          label="Industry"
+          name="industry"
+          required
+          value={selectedIndustry}
+          options={industries}
+          placeholder="Select Industry"
+          onChange={(e) => onIndustryChange && onIndustryChange(e.target.value)}
+        />
+
         <Field label="Company Type" required>
           <select required name="companyType" defaultValue="">
-            <option value="" disabled>
-              Select company type
-            </option>
+            <option value="" disabled>Select company type</option>
             <option>Private Limited</option>
             <option>Public Limited</option>
             <option>LLP</option>
@@ -454,8 +582,7 @@ function CompanyVerificationFields() {
           <b>Business verification</b>
           <span>
             Registration is intended for eligible registered businesses. GSTIN
-            and CIN / LLPIN are mandatory fields; final verification should be
-            completed by Synergy5M before a lead is activated.
+            and CIN / LLPIN are mandatory fields.
           </span>
         </div>
       </div>
@@ -463,47 +590,35 @@ function CompanyVerificationFields() {
   );
 }
 
-function RegistrationBlock({ type }) {
+function RegistrationBlock({ type, industries = [], selectedIndustry, onIndustryChange }) {
   const roles = type === "buyer" ? buyerRoles : sellerRoles;
   return (
     <>
-      <CompanyVerificationFields />
+      <CompanyVerificationFields
+        industries={industries}
+        selectedIndustry={selectedIndustry}
+        onIndustryChange={onIndustryChange}
+      />
       <div className="form-section-title">
         <UserCheck size={18} /> Authorised Representative
       </div>
       <div className="form-grid three">
         <Field label="Full Name" required>
-          <input
-            required
-            name="representativeName"
-            placeholder="Authorised person's name"
-          />
+          <input required name="representativeName" placeholder="Authorised person's name" />
         </Field>
         <Field label="Designation / Business Role" required>
           <select required name="role" defaultValue="">
-            <option value="" disabled>
-              Select your role
-            </option>
+            <option value="" disabled>Select your role</option>
             {roles.map((role) => (
               <option key={role}>{role}</option>
             ))}
           </select>
         </Field>
         <Field label="Representative Email" required>
-          <input
-            required
-            name="representativeEmail"
-            type="email"
-            placeholder="Work email"
-          />
+          <input required name="representativeEmail" type="email" placeholder="Work email" />
         </Field>
         <Field label="Representative Mobile" required>
-          <input
-            required
-            name="representativeMobile"
-            type="tel"
-            placeholder="Work mobile"
-          />
+          <input required name="representativeMobile" type="tel" placeholder="Work mobile" />
         </Field>
       </div>
       <label className="authority-check">
@@ -530,9 +645,7 @@ function CommissionBlock() {
       <div className="form-grid three">
         <Field label="Commission Type">
           <select name="commissionType" defaultValue="">
-            <option value="" disabled>
-              Select
-            </option>
+            <option value="" disabled>Select</option>
             <option>Percentage of Purchase Order Value</option>
             <option>Fixed Amount</option>
             <option>Per Unit</option>
@@ -544,9 +657,7 @@ function CommissionBlock() {
         </Field>
         <Field label="Commission Applicable On">
           <select name="commissionApplicableOn" defaultValue="">
-            <option value="" disabled>
-              Select
-            </option>
+            <option value="" disabled>Select</option>
             <option>First Purchase Order</option>
             <option>Every Purchase Order for agreed period</option>
             <option>Entire business relationship for agreed period</option>
@@ -562,26 +673,115 @@ function CommissionBlock() {
   );
 }
 
-function BuyerForm() {
+function BuyerForm({ units = [], currencies = [], industries = [] }) {
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [customCategory, setCustomCategory] = useState("");
+  const [products, setProducts] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState("");
+  const [customProduct, setCustomProduct] = useState("");
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
+  const [selectedUnit, setSelectedUnit] = useState("");
+  const [selectedCurrency, setSelectedCurrency] = useState("");
+  const [selectedIndustry, setSelectedIndustry] = useState("");
+
+  useEffect(() => {
+    if (!selectedCategory || selectedCategory === "Other / Add New") {
+      setProducts([]);
+      setSelectedProduct("");
+      return;
+    }
+    setLoadingProducts(true);
+    fetch(`/api/products?category=${encodeURIComponent(selectedCategory)}`)
+      .then((res) => res.json())
+      .then((data) => setProducts(Array.isArray(data) ? data : []))
+      .catch((err) => {
+        console.error("Failed to fetch products:", err);
+        setProducts([]);
+      })
+      .finally(() => setLoadingProducts(false));
+  }, [selectedCategory]);
+
   return (
     <>
-      <RegistrationBlock type="buyer" />
+      <RegistrationBlock
+        type="buyer"
+        industries={industries}
+        selectedIndustry={selectedIndustry}
+        onIndustryChange={setSelectedIndustry}
+      />
+
       <div className="form-section-title">
         <ClipboardCheck size={18} /> Post a Buying Requirement
       </div>
+
       <div className="form-grid three">
-        <Field label="Product Category" required>
-          <input name="productCategory" required placeholder="Category" />
-        </Field>
-        <Field label="Product Name" required>
-          <input name="productName" required placeholder="Product name" />
-        </Field>
-        <Field label="Application / End Use" required>
-          <input
-            name="application"
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <SearchableDropdown
+            label="ITEM CATEGORY"
+            name={selectedCategory === "Other / Add New" ? "categorySelect" : "productCategory"}
             required
-            placeholder="Application / end use"
+            value={selectedCategory}
+            options={defaultItemCategories}
+            placeholder="--- SELECT ---"
+            onChange={(e) => {
+              setSelectedCategory(e.target.value);
+              setSelectedProduct("");
+              setCustomCategory("");
+            }}
           />
+          {selectedCategory === "Other / Add New" && (
+            <Field label="Enter New Category" required>
+              <input
+                name="productCategory"
+                required
+                placeholder="Type new category name"
+                value={customCategory}
+                onChange={(e) => setCustomCategory(e.target.value)}
+              />
+            </Field>
+          )}
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <SearchableDropdown
+            label="Product Name"
+            name={selectedProduct === "Other / Add New" ? "productSelect" : "productName"}
+            required
+            value={selectedProduct}
+            options={
+              selectedCategory === "Other / Add New"
+                ? ["Other / Add New"]
+                : [...products, "Other / Add New"]
+            }
+            disabled={!selectedCategory || loadingProducts}
+            placeholder={
+              !selectedCategory
+                ? "Select Category First"
+                : loadingProducts
+                ? "Loading..."
+                : "Select Product"
+            }
+            onChange={(e) => {
+              setSelectedProduct(e.target.value);
+              setCustomProduct("");
+            }}
+          />
+          {(selectedProduct === "Other / Add New" || selectedCategory === "Other / Add New") && (
+            <Field label="Enter New Product Name" required>
+              <input
+                name="productName"
+                required
+                placeholder="Type new product name"
+                value={customProduct}
+                onChange={(e) => setCustomProduct(e.target.value)}
+              />
+            </Field>
+          )}
+        </div>
+
+        <Field label="Application / End Use" required>
+          <input name="application" required placeholder="Application / end use" />
         </Field>
         <Field label="Grade / Model">
           <input name="gradeModel" placeholder="Grade or model" />
@@ -593,22 +793,25 @@ function BuyerForm() {
           <input name="hsnCode" placeholder="HSN code" />
         </Field>
         <Field label="Required Certification / Standard">
-          <input
-            name="requiredCertification"
-            placeholder="Certification / standard"
-          />
+          <input name="requiredCertification" placeholder="Certification / standard" />
         </Field>
         <Field label="Required Quantity" required>
           <input name="requiredQuantity" required placeholder="Quantity" />
         </Field>
-        <Field label="Unit" required>
-          <input name="unit" required placeholder="MT / Nos / Kg / etc." />
-        </Field>
+
+        <SearchableDropdown
+          label="Unit"
+          name="unit"
+          required
+          value={selectedUnit}
+          options={units}
+          placeholder="Select Unit"
+          onChange={(e) => setSelectedUnit(e.target.value)}
+        />
+
         <Field label="Requirement Frequency">
           <select name="requirementFrequency" defaultValue="">
-            <option value="" disabled>
-              Select
-            </option>
+            <option value="" disabled>Select</option>
             <option>One-Time</option>
             <option>Recurring</option>
             <option>Monthly</option>
@@ -622,9 +825,16 @@ function BuyerForm() {
         <Field label="Target Price">
           <input name="targetPrice" placeholder="Target price" />
         </Field>
-        <Field label="Currency">
-          <input name="currency" placeholder="INR / USD / etc." />
-        </Field>
+
+        <SearchableDropdown
+          label="Currency"
+          name="currency"
+          value={selectedCurrency}
+          options={currencies}
+          placeholder="Select Currency"
+          onChange={(e) => setSelectedCurrency(e.target.value)}
+        />
+
         <Field label="Payment Terms Expected">
           <input name="paymentTermsExpected" placeholder="Payment terms" />
         </Field>
@@ -632,11 +842,7 @@ function BuyerForm() {
           <input name="creditPeriod" placeholder="Credit period" />
         </Field>
         <Field label="Delivery Location" required>
-          <input
-            name="deliveryLocation"
-            required
-            placeholder="City / State / Country"
-          />
+          <input name="deliveryLocation" required placeholder="City / State / Country" />
         </Field>
         <Field label="Required Delivery Date" required>
           <input name="requiredDeliveryDate" required type="date" />
@@ -646,9 +852,7 @@ function BuyerForm() {
         </Field>
         <Field label="Domestic / Import Requirement">
           <select name="domesticOrImport" defaultValue="">
-            <option value="" disabled>
-              Select
-            </option>
+            <option value="" disabled>Select</option>
             <option>Domestic</option>
             <option>Import</option>
             <option>Either</option>
@@ -656,9 +860,7 @@ function BuyerForm() {
         </Field>
         <Field label="Supplier Preference">
           <select name="supplierPreference" defaultValue="">
-            <option value="" disabled>
-              Select
-            </option>
+            <option value="" disabled>Select</option>
             <option>Manufacturer</option>
             <option>Authorised Distributor</option>
             <option>Exporter</option>
@@ -671,16 +873,10 @@ function BuyerForm() {
           <input name="preferredOrigin" placeholder="Preferred origin" />
         </Field>
         <Field label="Certifications Required">
-          <input
-            name="certificationsRequired"
-            placeholder="Required supplier certifications"
-          />
+          <input name="certificationsRequired" placeholder="Required supplier certifications" />
         </Field>
         <Field label="Minimum Supplier Experience">
-          <input
-            name="minSupplierExperience"
-            placeholder="Years / experience"
-          />
+          <input name="minSupplierExperience" placeholder="Years / experience" />
         </Field>
         <Field label="Specification / RFQ / Drawing / BOQ">
           <input name="attachment" type="file" />
@@ -709,26 +905,112 @@ function BuyerForm() {
   );
 }
 
-function SellerForm() {
+function SellerForm({ units = [], currencies = [], industries = [] }) {
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [customCategory, setCustomCategory] = useState("");
+  const [products, setProducts] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState("");
+  const [customProduct, setCustomProduct] = useState("");
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
+  const [selectedCurrency, setSelectedCurrency] = useState("");
+  const [selectedIndustry, setSelectedIndustry] = useState("");
+
+  useEffect(() => {
+    if (!selectedCategory || selectedCategory === "Other / Add New") {
+      setProducts([]);
+      setSelectedProduct("");
+      return;
+    }
+    setLoadingProducts(true);
+    fetch(`/api/products?category=${encodeURIComponent(selectedCategory)}`)
+      .then((res) => res.json())
+      .then((data) => setProducts(Array.isArray(data) ? data : []))
+      .catch((err) => {
+        console.error("Failed to fetch products:", err);
+        setProducts([]);
+      })
+      .finally(() => setLoadingProducts(false));
+  }, [selectedCategory]);
+
   return (
     <>
-      <RegistrationBlock type="seller" />
+      <RegistrationBlock
+        type="seller"
+        industries={industries}
+        selectedIndustry={selectedIndustry}
+        onIndustryChange={setSelectedIndustry}
+      />
       <div className="form-section-title">
         <Factory size={18} /> List Your Product / Selling Opportunity
       </div>
       <div className="form-grid three">
-        <Field label="Product Name" required>
-          <input name="productName" required placeholder="Product name" />
-        </Field>
-        <Field label="Product Category" required>
-          <input name="productCategory" required placeholder="Category" />
-        </Field>
-        <Field label="Manufacturer / Supplier" required>
-          <input
-            name="manufacturerSupplier"
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <SearchableDropdown
+            label="ITEM CATEGORY"
+            name={selectedCategory === "Other / Add New" ? "categorySelect" : "productCategory"}
             required
-            placeholder="Manufacturer / supplier"
+            value={selectedCategory}
+            options={defaultItemCategories}
+            placeholder="--- SELECT ---"
+            onChange={(e) => {
+              setSelectedCategory(e.target.value);
+              setSelectedProduct("");
+              setCustomCategory("");
+            }}
           />
+          {selectedCategory === "Other / Add New" && (
+            <Field label="Enter New Category" required>
+              <input
+                name="productCategory"
+                required
+                placeholder="Type new category name"
+                value={customCategory}
+                onChange={(e) => setCustomCategory(e.target.value)}
+              />
+            </Field>
+          )}
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <SearchableDropdown
+            label="Product Name"
+            name={selectedProduct === "Other / Add New" ? "productSelect" : "productName"}
+            required
+            value={selectedProduct}
+            options={
+              selectedCategory === "Other / Add New"
+                ? ["Other / Add New"]
+                : [...products, "Other / Add New"]
+            }
+            disabled={!selectedCategory || loadingProducts}
+            placeholder={
+              !selectedCategory
+                ? "Select Category First"
+                : loadingProducts
+                ? "Loading..."
+                : "Select Product"
+            }
+            onChange={(e) => {
+              setSelectedProduct(e.target.value);
+              setCustomProduct("");
+            }}
+          />
+          {(selectedProduct === "Other / Add New" || selectedCategory === "Other / Add New") && (
+            <Field label="Enter New Product Name" required>
+              <input
+                name="productName"
+                required
+                placeholder="Type new product name"
+                value={customProduct}
+                onChange={(e) => setCustomProduct(e.target.value)}
+              />
+            </Field>
+          )}
+        </div>
+
+        <Field label="Manufacturer / Supplier" required>
+          <input name="manufacturerSupplier" required placeholder="Manufacturer / supplier" />
         </Field>
         <Field label="Grade / Model" required>
           <input name="gradeModel" required placeholder="Grade / model" />
@@ -742,20 +1024,10 @@ function SellerForm() {
 
         <div className="textarea-row">
           <Field label="Product Description" required>
-            <textarea
-              name="productDescription"
-              required
-              rows="3"
-              placeholder="Product description"
-            />
+            <textarea name="productDescription" required rows="3" placeholder="Product description" />
           </Field>
           <Field label="Technical Specification" required>
-            <textarea
-              name="technicalSpecification"
-              required
-              rows="3"
-              placeholder="Technical specification"
-            />
+            <textarea name="technicalSpecification" required rows="3" placeholder="Technical specification" />
           </Field>
         </div>
 
@@ -780,9 +1052,16 @@ function SellerForm() {
         <Field label="Indicative Price / Price Range">
           <input name="indicativePrice" placeholder="Price / range" />
         </Field>
-        <Field label="Currency">
-          <input name="currency" placeholder="INR / USD / etc." />
-        </Field>
+
+        <SearchableDropdown
+          label="Currency"
+          name="currency"
+          value={selectedCurrency}
+          options={currencies}
+          placeholder="Select Currency"
+          onChange={(e) => setSelectedCurrency(e.target.value)}
+        />
+
         <Field label="Payment Terms">
           <input name="paymentTerms" placeholder="Payment terms" />
         </Field>
@@ -791,9 +1070,7 @@ function SellerForm() {
         </Field>
         <Field label="Domestic / Export">
           <select name="domesticOrExport" defaultValue="">
-            <option value="" disabled>
-              Select
-            </option>
+            <option value="" disabled>Select</option>
             <option>Domestic</option>
             <option>Export</option>
             <option>Both</option>
@@ -809,10 +1086,7 @@ function SellerForm() {
           <input name="countriesServed" placeholder="Countries served" />
         </Field>
         <Field label="Preferred Buyer Location">
-          <input
-            name="preferredBuyerLocation"
-            placeholder="Preferred buyer location"
-          />
+          <input name="preferredBuyerLocation" placeholder="Preferred buyer location" />
         </Field>
         <Field label="Years in Business">
           <input name="sellerYearsInBusiness" placeholder="Years" />
@@ -825,18 +1099,14 @@ function SellerForm() {
         </Field>
         <Field label="OEM Capability">
           <select name="oemCapability" defaultValue="">
-            <option value="" disabled>
-              Select
-            </option>
+            <option value="" disabled>Select</option>
             <option>Yes</option>
             <option>No</option>
           </select>
         </Field>
         <Field label="Private Label Capability">
           <select name="privateLabelCapability" defaultValue="">
-            <option value="" disabled>
-              Select
-            </option>
+            <option value="" disabled>Select</option>
             <option>Yes</option>
             <option>No</option>
           </select>
@@ -850,17 +1120,39 @@ function SellerForm() {
   );
 }
 
-function Modal({ close, children, title, subtitle, wide = false }) {
+function Modal({ close, children, title, subtitle, wide = false, onBookDemo }) {
   return (
     <div className="modal-backdrop" onClick={close}>
-      <div
-        className={`modal ${wide ? "modal-wide" : ""}`}
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className={`modal ${wide ? "modal-wide" : ""}`} onClick={(e) => e.stopPropagation()}>
         <button className="modal-close" onClick={close} type="button">
           <X />
         </button>
-        <span className="section-kicker orange">SYNERGY5M LLP</span>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "10px",
+            paddingRight: "35px",
+          }}
+        >
+          <span className="section-kicker orange" style={{ margin: 0 }}>
+            SYNERGY5M LLP
+          </span>
+
+          {onBookDemo && (
+            <button
+              className="expert-btn"
+              type="button"
+              onClick={onBookDemo}
+              style={{ padding: "6px 14px", fontSize: "0.85rem", cursor: "pointer" }}
+            >
+              Book a Demo for ERP <ArrowRight size={15} />
+            </button>
+          )}
+        </div>
+
         <h2>{title}</h2>
         {subtitle && <p>{subtitle}</p>}
         {children}
@@ -875,16 +1167,44 @@ function NewLandingPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [modal, setModal] = useState(null);
 
+  const [units, setUnits] = useState([]);
+  const [currencies, setCurrencies] = useState([]);
+  const [industries, setIndustries] = useState([]);
+
+  useEffect(() => {
+    fetch("/api/units")
+      .then((res) => res.json())
+      .then((data) => setUnits(Array.isArray(data) ? data : []))
+      .catch((err) => {
+        console.error("Units fetch failed:", err);
+        setUnits([]);
+      });
+
+    fetch("/api/currencies")
+      .then((res) => res.json())
+      .then((data) => setCurrencies(Array.isArray(data) ? data : []))
+      .catch((err) => {
+        console.error("Currencies fetch failed:", err);
+        setCurrencies([]);
+      });
+
+    fetch("/api/industries")
+      .then((res) => res.json())
+      .then((data) => setIndustries(Array.isArray(data) ? data : []))
+      .catch((err) => {
+        console.error("Industries fetch failed:", err);
+        setIndustries([]);
+      });
+  }, []);
+
   const scrollTo = (id) => {
-    document
-      .getElementById(id)
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     setMobileOpen(false);
   };
 
   const closeModal = () => setModal(null);
 
-const submitForm = async (e, formType) => {
+  const submitForm = async (e, formType) => {
     e.preventDefault();
     const formElement = e.target;
     const formData = new FormData(formElement);
@@ -921,26 +1241,19 @@ const submitForm = async (e, formType) => {
       const result = await response.json();
       if (response.ok && result.success) {
         window.alert(
-          result.message ||
-            "Thank you. Your request has been submitted for review by Synergy5M.",
+          result.message || "Thank you. Your request has been submitted for review by Synergy5M."
         );
         closeModal();
       } else {
-        window.alert(
-          "Submission error: " + (result.message || "Failed to submit."),
-        );
+        window.alert("Submission error: " + (result.message || "Failed to submit."));
       }
     } catch (err) {
       console.error("Submission failed:", err);
-      window.alert(
-        "Server error. Please ensure the backend server is reachable.",
-      );
+      window.alert("Server error. Please ensure the backend server is reachable.");
     }
   };
 
-  const [trialStartDate, setTrialStartDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [trialStartDate, setTrialStartDate] = useState(new Date().toISOString().split("T")[0]);
   const [trialPlan, setTrialPlan] = useState("7 Days Trial");
 
   const getTrialEndDate = (startDate, plan) => {
@@ -952,17 +1265,14 @@ const submitForm = async (e, formType) => {
     start.setDate(start.getDate() + days);
     return start.toISOString().split("T")[0];
   };
+
   const openERP = (module) => setActiveERP(module);
 
   return (
     <div className="synergy-site">
       <header className="site-header">
         <div className="header-inner">
-          <button
-            className="brand"
-            onClick={() => scrollTo("home")}
-            aria-label="Synergy5M home"
-          >
+          <button className="brand" onClick={() => scrollTo("home")} aria-label="Synergy5M home">
             <img src={Logo} alt="Synergy5M" />
           </button>
 
@@ -977,11 +1287,8 @@ const submitForm = async (e, formType) => {
           <nav className={mobileOpen ? "main-nav open" : "main-nav"}>
             <button onClick={() => scrollTo("home")}>HOME</button>
 
-            <button onClick={() => scrollTo("consulting")}>
-              MANAGEMENT CONSULTING
-            </button>
+            <button onClick={() => scrollTo("consulting")}>MANAGEMENT CONSULTING</button>
 
-            {/* ERP Software & Registered User Link */}
             <div className="nav-item-dropdown">
               <button onClick={() => scrollTo("erp")}>ERP SOFTWARE</button>
               <a
@@ -990,11 +1297,10 @@ const submitForm = async (e, formType) => {
                 rel="noopener noreferrer"
                 className="registered-user-btn"
               >
-                Registered User
+                Reg User
               </a>
             </div>
 
-            {/* Buying & Selling & Registered User Link */}
             <div className="nav-item-dropdown">
               <button onClick={() => scrollTo("connect")}>BUYING & SELLING</button>
               <a
@@ -1003,7 +1309,7 @@ const submitForm = async (e, formType) => {
                 rel="noopener noreferrer"
                 className="registered-user-btn"
               >
-                Registered User
+                Reg User
               </a>
             </div>
 
@@ -1025,8 +1331,8 @@ const submitForm = async (e, formType) => {
             <h3 className="text-danger">Three Powerful Solutions.</h3>
             <h2>Unlimited Possibilities.</h2>
             <p>
-              Empowering businesses with <b>Consulting Excellence</b>,{" "}
-              <b>Intelligent ERP</b> and <b>Strong Industry Connections.</b>
+              Empowering businesses with <b>Consulting Excellence</b>, <b>Intelligent ERP</b> and{" "}
+              <b>Strong Industry Connections.</b>
             </p>
             <div className="hero-points">
               <div>
@@ -1053,33 +1359,21 @@ const submitForm = async (e, formType) => {
             </div>
           </div>
           <div className="hero-visual">
-            <img
-              src="/hero-business.png"
-              alt="Business, technology and connections"
-            />
+            <img src="/hero-business.png" alt="Business, technology and connections" />
           </div>
         </section>
 
-        <section
-          id="consulting"
-          className="consulting section-wrap dark-anchor"
-        >
+        <section id="consulting" className="consulting section-wrap dark-anchor">
           <div className="section-kicker orange">01</div>
           <div className="consulting-heading">
             <div>
               <h2> MANAGEMENT CONSULTING</h2>
               <h3>The 5M Framework for Business Excellence</h3>
               <p>
-                We help businesses optimise every critical element of their
-                operations through our proven 5M approach — for stronger
-                performance, higher productivity and sustainable growth.
+                We help businesses optimise every critical element of their operations through our
+                proven 5M approach — for stronger performance, higher productivity and sustainable
+                growth.
               </p>
-              {/* <button
-                className="white-btn"
-                onClick={() => setModal("consulting")}
-              >
-                Explore Consulting <ArrowRight size={17} />
-              </button> */}
             </div>
             <img src="/consulting-dart.png" alt="Business target" />
           </div>
@@ -1104,9 +1398,7 @@ const submitForm = async (e, formType) => {
             <div>
               <p className="mini-label">{activeConsulting.toUpperCase()}</p>
               <h3>{consulting[activeConsulting].tagline}</h3>
-              <p className="consulting-intro">
-                {consulting[activeConsulting].intro}
-              </p>
+              <p className="consulting-intro">{consulting[activeConsulting].intro}</p>
               <ul>
                 {consulting[activeConsulting].focus.slice(0, 6).map((x) => (
                   <li key={x}>
@@ -1135,8 +1427,8 @@ const submitForm = async (e, formType) => {
               <h2> ERP SOFTWARE</h2>
               <h3>Your Business. Your ERP. Your Brand.</h3>
               <p>
-                A powerful, integrated ERP software designed for MSMEs to
-                automate operations, improve control and drive growth.
+                A powerful, integrated ERP software designed for MSMEs to automate operations, improve
+                control and drive growth.
               </p>
               <button className="expert-btn" onClick={() => setModal("demo")}>
                 Book a Demo <ArrowRight size={15} />
@@ -1159,8 +1451,6 @@ const submitForm = async (e, formType) => {
               <Boxes />
               <b>Cloud Based</b>
               <small>Secure, reliable access</small>
-
-              
             </div>
           </div>
           <div className="erp-module-box">
@@ -1185,7 +1475,6 @@ const submitForm = async (e, formType) => {
                       <span className="view-details">
                         View details <ArrowRight size={12} />
                       </span>
-                      
                     </button>
                   );
                 })}
@@ -1206,7 +1495,7 @@ const submitForm = async (e, formType) => {
                   {x}
                 </p>
               ))}
-              <button className="blue-btn" onClick={() => setModal("TRail")}>
+              <button className="expert-btn" onClick={() => setModal("TRail")}>
                 Request a Trail
               </button>
             </aside>
@@ -1222,13 +1511,10 @@ const submitForm = async (e, formType) => {
                 <br />
                 BUYERS TO POTENTIAL SELLERS
               </h2>
-              <h3>
-                Bridging Requirements. Building Relationships. Creating Value.
-              </h3>
+              <h3>Bridging Requirements. Building Relationships. Creating Value.</h3>
               <p>
-                We leverage our industry experience and strong connections to
-                help buyers find the right suppliers and help sellers connect
-                with the right buyers.
+                We leverage our industry experience and strong connections to help buyers find the
+                right suppliers and help sellers connect with the right buyers.
               </p>
               <button className="white-btn" onClick={() => setModal("connect")}>
                 Connect with Us <ArrowRight size={17} />
@@ -1241,8 +1527,8 @@ const submitForm = async (e, formType) => {
               <ShoppingCart />
               <h3>For Buyers</h3>
               <p>
-                Access verified suppliers and competitive offers while keeping
-                your requirement confidential during the initial stages.
+                Access verified suppliers and competitive offers while keeping your requirement
+                confidential during the initial stages.
               </p>
               <ul>
                 <li>Access to Pre-verified Suppliers</li>
@@ -1251,16 +1537,14 @@ const submitForm = async (e, formType) => {
                 <li>Reduced Sourcing Time & Effort</li>
                 <li>End-to-End Support</li>
               </ul>
-              <button onClick={() => setModal("buyer")}>
-                Post Your Requirement
-              </button>
+              <button onClick={() => setModal("buyer")}>Post Your Requirement</button>
             </article>
             <article>
               <Truck />
               <h3>For Sellers</h3>
               <p>
-                Connect with genuine buyers and expand your business
-                opportunities through qualified requirements.
+                Connect with genuine buyers and expand your business opportunities through qualified
+                requirements.
               </p>
               <ul>
                 <li>Connect with Genuine Buyers</li>
@@ -1269,16 +1553,14 @@ const submitForm = async (e, formType) => {
                 <li>Build Long-term Relationships</li>
                 <li>Growth With Expert Support</li>
               </ul>
-              <button onClick={() => setModal("seller")}>
-                List Your Products
-              </button>
+              <button onClick={() => setModal("seller")}>List Your Products</button>
             </article>
             <article>
               <Handshake />
               <h3>Our Advantage</h3>
               <p>
-                Not just a directory — industry experience plus technology to
-                qualify and facilitate business.
+                Not just a directory — industry experience plus technology to qualify and facilitate
+                business.
               </p>
               <ul>
                 <li>Deep Industry Experience</li>
@@ -1287,9 +1569,7 @@ const submitForm = async (e, formType) => {
                 <li>Trusted & Transparent Process</li>
                 <li>Win-Win Partnerships</li>
               </ul>
-              <button onClick={() => setModal("expert")}>
-                Know Our Expertise
-              </button>
+              <button onClick={() => setModal("expert")}>Know Our Expertise</button>
             </article>
             <aside>
               <b>1000+</b>
@@ -1313,10 +1593,9 @@ const submitForm = async (e, formType) => {
               <span>An Industry-Experienced Business Connector.</span>
             </h2>
             <p>
-              We don't look at your business in isolation. A new order affects
-              Marketing. The order requires Materials. Materials require
-              Manpower. Production depends on Machines. And the entire cycle
-              ultimately impacts Money.
+              We don't look at your business in isolation. A new order affects Marketing. The order
+              requires Materials. Materials require Manpower. Production depends on Machines. And the
+              entire cycle ultimately impacts Money.
             </p>
           </div>
           <div className="advantage-grid">
@@ -1357,8 +1636,7 @@ const submitForm = async (e, formType) => {
             <strong>We Don't Sell Your Contact Details.</strong>
             <span>We Create Business Opportunities.</span>
             <small>
-              Your requirement remains confidential until there is genuine
-              commercial intent.
+              Your requirement remains confidential until there is genuine commercial intent.
             </small>
           </div>
         </section>
@@ -1369,10 +1647,7 @@ const submitForm = async (e, formType) => {
               <span className="section-kicker teal">BUSINESS CONNECT</span>
               <h2>How Synergy5M Business Connect Works</h2>
             </div>
-            <p>
-              Verified companies. Qualified connections. Confidential business
-              leads.
-            </p>
+            <p>Verified companies. Qualified connections. Confidential business leads.</p>
           </div>
           <div className="process-track">
             {connectSteps.map((step, i) => (
@@ -1385,30 +1660,21 @@ const submitForm = async (e, formType) => {
           </div>
         </section>
 
-        <section
-          className="clients-section section-wrap"
-          aria-label="Our Clients"
-        >
+        <section className="clients-section section-wrap" aria-label="Our Clients">
           <div className="clients-head">
             <div>
               <span className="section-kicker orange">OUR CLIENTS</span>
               <h2>Trusted by Businesses.</h2>
             </div>
             <p>
-              Our existing client list, now carried forward into the new
-              Synergy5M experience.
+              Our existing client list, now carried forward into the new Synergy5M experience.
             </p>
           </div>
           <div className="clients-marquee">
             <div className="clients-track">
               {[...existingClients, ...existingClients].map((client, index) => (
-                <div
-                  className="client-logo-card"
-                  key={`${client.id}-${index}`}
-                  title={client.name}
-                >
+                <div className="client-logo-card" key={`${client.id}-${index}`}>
                   <img src={client.logo} alt={client.name} loading="lazy" />
-                  <span>{client.name}</span>
                 </div>
               ))}
             </div>
@@ -1431,19 +1697,15 @@ const submitForm = async (e, formType) => {
           <div className="footer-brand">
             <img src={Logo} alt="Synergy5M" />
             <p>
-              Technology, consulting expertise and industry connections to help
-              businesses grow faster and connect smarter.
+              Technology, consulting expertise and industry connections to help businesses grow
+              faster and connect smarter.
             </p>
           </div>
           <div>
             <h4>SOLUTIONS</h4>
-            <button onClick={() => scrollTo("consulting")}>
-              Business Consulting
-            </button>
+            <button onClick={() => scrollTo("consulting")}>Business Consulting</button>
             <button onClick={() => scrollTo("erp")}>SYN ERP 10 Software</button>
-            <button onClick={() => scrollTo("connect")}>
-              Indenting & Connect
-            </button>
+            <button onClick={() => scrollTo("connect")}>Indenting & Connect</button>
           </div>
           <div>
             <h4>BUSINESS CONSULTING</h4>
@@ -1492,6 +1754,10 @@ const submitForm = async (e, formType) => {
           title={activeERP.title}
           subtitle={activeERP.tagline}
           wide
+          onBookDemo={() => {
+            setActiveERP(null);
+            setModal("demo");
+          }}
         >
           <div className="erp-detail">
             <div className="erp-detail-top">
@@ -1501,8 +1767,8 @@ const submitForm = async (e, formType) => {
               <div>
                 <b>What SYN ERP 10 covers</b>
                 <p>
-                  Integrated process-driven functionality designed around
-                  business processes, not software limitations.
+                  Integrated process-driven functionality designed around business processes, not
+                  software limitations.
                 </p>
               </div>
             </div>
@@ -1533,7 +1799,11 @@ const submitForm = async (e, formType) => {
           wide
         >
           <form onSubmit={(e) => submitForm(e, "buyer")}>
-            <BuyerForm />
+            <BuyerForm
+              units={units}
+              currencies={currencies}
+              industries={industries}
+            />
             <div className="form-actions">
               <button className="blue-btn" type="submit">
                 Submit for Verification <ArrowRight size={16} />
@@ -1551,7 +1821,11 @@ const submitForm = async (e, formType) => {
           wide
         >
           <form onSubmit={(e) => submitForm(e, "seller")}>
-            <SellerForm />
+            <SellerForm
+              units={units}
+              currencies={currencies}
+              industries={industries}
+            />
             <div className="form-actions">
               <button className="blue-btn" type="submit">
                 Submit for Verification <ArrowRight size={16} />
@@ -1560,153 +1834,125 @@ const submitForm = async (e, formType) => {
           </form>
         </Modal>
       )}
-{modal === "TRail" && (
-  <Modal
-    close={closeModal}
-    title="Request SYN ERP 10 Trial"
-    subtitle="Fill in your company details to start your trial access."
-    wide
-  >
-    <form onSubmit={(e) => submitForm(e, "trial")}>
-      <div className="trial-form-grid-four">
-        {/* Row 1: 4 fields in a single line */}
-        <Field label="Company Name" required>
-          <input name="companyName" required placeholder="Company Name" />
-        </Field>
 
-        <Field label="Contact Person" required>
-          <input
-            name="contactPerson"
-            required
-            placeholder="Contact Person Name"
-          />
-        </Field>
+      {modal === "TRail" && (
+        <Modal
+          close={closeModal}
+          title="Request SYN ERP 10 Trial"
+          subtitle="Fill in your company details to start your trial access."
+          wide
+        >
+          <form onSubmit={(e) => submitForm(e, "trial")}>
+            <div className="trial-form-grid-four">
+              <Field label="Company Name" required>
+                <input name="companyName" required placeholder="Company Name" />
+              </Field>
 
-        <Field label="Mobile No." required>
-          <input
-            name="mobileNo"
-            required
-            type="tel"
-            placeholder="Mobile Number"
-          />
-        </Field>
+              <Field label="Contact Person" required>
+                <input name="contactPerson" required placeholder="Contact Person Name" />
+              </Field>
 
-        <Field label="Email" required>
-          <input
-            name="email"
-            required
-            type="email"
-            placeholder="Official Email"
-          />
-        </Field>
+              <Field label="Mobile No." required>
+                <input name="mobileNo" required type="tel" placeholder="Mobile Number" />
+              </Field>
 
-        {/* Row 2: 4 fields in a single line */}
-        <Field label="GST No.">
-          <input name="gstNo" placeholder="GSTIN (Optional)" />
-        </Field>
+              <Field label="Email" required>
+                <input name="email" required type="email" placeholder="Official Email" />
+              </Field>
 
-        <Field label="Number of Users">
-          <input
-            name="numberOfUsers"
-            type="number"
-            min="1"
-            placeholder="No. of Users"
-          />
-        </Field>
+              <Field label="GST No.">
+                <input name="gstNo" placeholder="GSTIN (Optional)" />
+              </Field>
 
-        <Field label="Subscription Plan" required>
-          <select
-            name="subscriptionPlan"
-            required
-            value={trialPlan}
-            onChange={(e) => setTrialPlan(e.target.value)}
-          >
-            <option value="7 Days Trial">7 Days Trial</option>
-            <option value="15 Days Trial">15 Days Trial</option>
-            <option value="Paid Plan">Paid Plan</option>
-          </select>
-        </Field>
+              <Field label="Number of Users">
+                <input name="numberOfUsers" type="number" min="1" placeholder="No. of Users" />
+              </Field>
 
-        <Field label="Trial Status">
-          <select name="trialStatus" defaultValue="Active">
-            <option value="Active">Active</option>
-            <option value="Expired">Expired</option>
-            <option value="Converted">Converted</option>
-          </select>
-        </Field>
+              <Field label="Subscription Plan" required>
+                <select
+                  name="subscriptionPlan"
+                  required
+                  value={trialPlan}
+                  onChange={(e) => setTrialPlan(e.target.value)}
+                >
+                  <option value="7 Days Trial">7 Days Trial</option>
+                  <option value="15 Days Trial">15 Days Trial</option>
+                  <option value="Paid Plan">Paid Plan</option>
+                </select>
+              </Field>
 
-        {/* Row 3: 2 date fields side-by-side occupying 2 columns each (1 full line) */}
-        <div className="span-two">
-          <Field label="Trial Start Date" required>
-            <input
-              type="date"
-              name="trialStartDate"
-              required
-              value={trialStartDate}
-              onChange={(e) => setTrialStartDate(e.target.value)}
-            />
-          </Field>
-        </div>
+              <Field label="Trial Status">
+                <select name="trialStatus" defaultValue="Active">
+                  <option value="Active">Active</option>
+                  <option value="Expired">Expired</option>
+                  <option value="Converted">Converted</option>
+                </select>
+              </Field>
 
-        <div className="span-two">
-          <Field label="Trial End Date (Auto Calculate)">
-            <input
-              type="date"
-              name="trialEndDate"
-              readOnly
-              value={getTrialEndDate(trialStartDate, trialPlan)}
-              className="readonly-input"
-            />
-          </Field>
-        </div>
+              <div className="span-two">
+                <Field label="Trial Start Date" required>
+                  <input
+                    type="date"
+                    name="trialStartDate"
+                    required
+                    value={trialStartDate}
+                    onChange={(e) => setTrialStartDate(e.target.value)}
+                  />
+                </Field>
+              </div>
 
-        {/* Row 4: Registered Address & Remarks textareas (equal size, 2 columns each on 1 line) */}
-        <div className="span-two">
-          <Field label="Registered Address">
-            <textarea
-              name="address"
-              rows="3"
-              placeholder="Registered business address"
-            />
-          </Field>
-        </div>
+              <div className="span-two">
+                <Field label="Trial End Date (Auto Calculate)">
+                  <input
+                    type="date"
+                    name="trialEndDate"
+                    readOnly
+                    value={getTrialEndDate(trialStartDate, trialPlan)}
+                    className="readonly-input"
+                  />
+                </Field>
+              </div>
 
-        <div className="span-two">
-          <Field label="Remarks">
-            <textarea
-              name="remarks"
-              rows="3"
-              placeholder="Any specific comments or requirements"
-            />
-          </Field>
-        </div>
-      </div>
+              <div className="span-two">
+                <Field label="Registered Address">
+                  <textarea name="address" rows="3" placeholder="Registered business address" />
+                </Field>
+              </div>
 
-      <div className="form-actions">
-        <button className="blue-btn" type="submit">
-          Submit Trial Request <ArrowRight size={16} />
-        </button>
-      </div>
-    </form>
-  </Modal>
-)}
+              <div className="span-two">
+                <Field label="Remarks">
+                  <textarea
+                    name="remarks"
+                    rows="3"
+                    placeholder="Any specific comments or requirements"
+                  />
+                </Field>
+              </div>
+            </div>
+
+            <div className="form-actions">
+              <button className="blue-btn" type="submit">
+                Submit Trial Request <ArrowRight size={16} />
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {modal &&
-        ["expert", "consulting", "connect", "demo", "meeting"].includes(
-          modal,
-        ) && (
+        ["expert", "consulting", "connect", "demo", "meeting"].includes(modal) && (
           <Modal
             close={closeModal}
             title={
               modal === "demo"
                 ? "Request a SYN ERP 10 Demo"
                 : modal === "consulting"
-                  ? "Explore Business Consulting"
-                  : modal === "connect"
-                    ? "Become a Business Connect Partner"
-                    : modal === "meeting"
-                      ? "Schedule a Meeting"
-                      : "Talk to an Expert"
+                ? "Explore Business Consulting"
+                : modal === "connect"
+                ? "Become a Business Connect Partner"
+                : modal === "meeting"
+                ? "Schedule a Meeting"
+                : "Talk to an Expert"
             }
             subtitle={
               modal === "demo"
@@ -1718,9 +1964,9 @@ const submitForm = async (e, formType) => {
               key={modal}
               onSubmit={(e) => submitForm(e, modal === "demo" ? "demo" : "inquiry")}
             >
-              <div className="form-grid two">
+              <div className="form-grid">
                 <Field label="Your Name" required>
-                  <input name="fullName" required placeholder="Your name" />
+                  <input name="fullName" required placeholder="Enter Your name" />
                 </Field>
 
                 <Field label="Business Email" required>
@@ -1733,11 +1979,7 @@ const submitForm = async (e, formType) => {
                 </Field>
 
                 <Field label="Company Name" required>
-                  <input
-                    name="companyName"
-                    required
-                    placeholder="Company name"
-                  />
+                  <input name="companyName" required placeholder="Company name" />
                 </Field>
 
                 <Field label="Official Mobile" required>
@@ -1762,32 +2004,18 @@ const submitForm = async (e, formType) => {
 
                     <Field label="Time Slot" required>
                       <select name="timeSlot" required defaultValue="">
-                        <option value="" disabled>
-                          Select time slot
-                        </option>
-                        <option value="10:00 AM - 11:00 AM">
-                          10:00 AM - 11:00 AM
-                        </option>
-                        <option value="11:30 AM - 12:30 PM">
-                          11:30 AM - 12:30 PM
-                        </option>
-                        <option value="02:00 PM - 03:00 PM">
-                          02:00 PM - 03:00 PM
-                        </option>
-                        <option value="03:30 PM - 04:30 PM">
-                          03:30 PM - 04:30 PM
-                        </option>
-                        <option value="05:00 PM - 06:00 PM">
-                          05:00 PM - 06:00 PM
-                        </option>
+                        <option value="" disabled>Select time slot</option>
+                        <option value="10:00 AM - 11:00 AM">10:00 AM - 11:00 AM</option>
+                        <option value="11:30 AM - 12:30 PM">11:30 AM - 12:30 PM</option>
+                        <option value="02:00 PM - 03:00 PM">02:00 PM - 03:00 PM</option>
+                        <option value="03:30 PM - 04:30 PM">03:30 PM - 04:30 PM</option>
+                        <option value="05:00 PM - 06:00 PM">05:00 PM - 06:00 PM</option>
                       </select>
                     </Field>
 
                     <Field label="Meeting Platform" required>
                       <select name="meetingPlatform" required defaultValue="">
-                        <option value="" disabled>
-                          Select platform
-                        </option>
+                        <option value="" disabled>Select platform</option>
                         <option value="Google Meet">Google Meet</option>
                         <option value="Microsoft Teams">Microsoft Teams</option>
                         <option value="Zoom">Zoom</option>
@@ -1803,16 +2031,12 @@ const submitForm = async (e, formType) => {
                         modal === "consulting"
                           ? "Business Consulting"
                           : modal === "connect"
-                            ? "Business Connect"
-                            : "Business Consulting"
+                          ? "Business Connect"
+                          : "Business Consulting"
                       }
                     >
-                      <option value="" disabled>
-                        Select
-                      </option>
-                      <option value="Business Consulting">
-                        Business Consulting
-                      </option>
+                      <option value="" disabled>Select</option>
+                      <option value="Business Consulting">Business Consulting</option>
                       <option value="SYN ERP 10">SYN ERP 10</option>
                       <option value="Business Connect">Business Connect</option>
                     </select>
@@ -1820,7 +2044,11 @@ const submitForm = async (e, formType) => {
                 )}
 
                 <Field
-                  label={modal === "demo" ? "Specific Requirements / Focus Areas" : "Requirement"}
+                  label={
+                    modal === "demo"
+                      ? "Specific Requirements / Focus Areas"
+                      : "Requirement"
+                  }
                   className="full-span"
                 >
                   <textarea
@@ -1837,7 +2065,8 @@ const submitForm = async (e, formType) => {
 
               <div className="form-actions">
                 <button className="blue-btn" type="submit">
-                  {modal === "demo" ? "Schedule Live Demo" : "Submit Enquiry"} <ArrowRight size={16} />
+                  {modal === "demo" ? "Schedule Live Demo" : "Submit Enquiry"}{" "}
+                  <ArrowRight size={16} />
                 </button>
               </div>
             </form>

@@ -768,10 +768,11 @@
 }
 
 .clients-marquee {
+   overflow: hidden;
+    padding: 11px 0;
     position: relative;
-    overflow: hidden;
-    width: 100%;
-    padding: 8px 0
+    margin-left: 171px;
+    width: 72%;
 }
 
 .clients-marquee:before,
@@ -942,7 +943,7 @@
 .modal {
     background: #fff;
     border-radius: 12px;
-    width: min(520px, 100%);
+    width: min(877px, 100%);
     padding: 28px;
     position: relative;
     box-shadow: 0 20px 70px #0005
@@ -1675,7 +1676,7 @@ textarea{
 .registered-user-btn {
   position: absolute;
      top: calc(41% + 14px);
-  left: -10px;
+  left: 11px;
   background: linear-gradient(90deg, #f7941e, #f26522);
   color: #fff;
   /* font-weight: 600; */
