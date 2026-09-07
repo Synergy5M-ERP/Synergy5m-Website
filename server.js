@@ -13,14 +13,14 @@ const { sql, poolPromise } = require("./db");
 
 const app = express();
 
-// Trust Azure frontend reverse proxy (ensures correct HTTPS protocol detection)
+// Trust Azure frontend reverse proxy for accurate protocol/IP headers
 app.set("trust proxy", 1);
 
 app.use(cors());
 app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: true, limit: "15mb" }));
 
-// Email Transporter (Gmail / Office365 / Azure Communication Services)
+// Email Transporter configuration
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
   port: parseInt(process.env.SMTP_PORT, 10) || 587,
@@ -34,23 +34,25 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Storage and upload folders setup (use writable TEMP directory as safety fallback)
-const fallbackDir = os.tmpdir();
+// Resilient filesystem handling (falls back to temp directory under read-only mounts)
 let uploadDir = path.join(__dirname, "uploads");
 let dataDir = path.join(__dirname, "data");
 
-try {
-  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-} catch (fsErr) {
-  // If Azure package is mounted read-only, switch storage to writable temp folder
-  uploadDir = path.join(fallbackDir, "uploads");
-  dataDir = path.join(fallbackDir, "data");
-  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+function initDirectories() {
+  try {
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  } catch (err) {
+    const tempRoot = os.tmpdir();
+    uploadDir = path.join(tempRoot, "uploads");
+    dataDir = path.join(tempRoot, "data");
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  }
 }
+initDirectories();
 
-// Multer storage configuration
+// Multer storage setup
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
@@ -63,9 +65,10 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+// Serve uploaded assets directly
 app.use("/uploads", express.static(uploadDir));
 
-// Helper: safe file appending that will never throw an unhandled exception
+// Safe append helper that never crashes the worker process
 function safeAppendJson(filename, payload) {
   try {
     const filePath = path.join(dataDir, filename);
@@ -75,7 +78,10 @@ function safeAppendJson(filename, payload) {
   }
 }
 
-// Health check endpoint for Azure App Service Traffic Manager & Health Probes
+// -------------------------------------------------------------
+// Diagnostics & Health Endpoints
+// -------------------------------------------------------------
+
 app.get("/api/health", async (req, res) => {
   try {
     const pool = await poolPromise;
@@ -92,7 +98,6 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-// Diagnostic endpoint: test external Azure SQL connectivity
 app.get("/api/test-port", (req, res) => {
   const targetPort = parseInt(req.query.port, 10) || 1433;
   const host = req.query.host || "synergy5m-product-master.database.windows.net";
@@ -122,13 +127,13 @@ app.get("/api/test-port", (req, res) => {
     return res.json({
       success: false,
       portTested: targetPort,
-      message: `Connection to ${host} timed out. Host or firewall is blocking traffic.`,
+      message: `Connection to ${host} timed out. Ensure Azure SQL allows access from Azure services.`,
     });
   });
 });
 
 // -------------------------------------------------------------
-// Dropdown Data Endpoints (With UI Offline Fallbacks)
+// Dropdown Data Endpoints (With UI Fallbacks)
 // -------------------------------------------------------------
 
 app.get("/api/categories", async (req, res) => {
@@ -255,7 +260,7 @@ app.get("/api/industries", async (req, res) => {
 });
 
 // -------------------------------------------------------------
-// Form Submissions
+// Form Submission Handlers
 // -------------------------------------------------------------
 
 app.post("/api/inquiries", async (req, res) => {
@@ -646,7 +651,7 @@ app.post("/api/trial-request", async (req, res) => {
 });
 
 // -------------------------------------------------------------
-// React Build / SPA Routing (Express 4 & Express 5 Safe)
+// React Build / SPA Fallback Handler
 // -------------------------------------------------------------
 const buildPath = path.join(__dirname, "build");
 const indexHtmlPath = path.join(buildPath, "index.html");
@@ -676,15 +681,15 @@ if (fs.existsSync(indexHtmlPath)) {
     }
     res.status(503).send(`
       <div style="font-family: Arial, sans-serif; padding: 40px; text-align: center;">
-        <h2>Synergy5M API is running</h2>
-        <p>Frontend production build was not found in <code>${buildPath}</code>.</p>
-        <p>Ensure <code>npm run build</code> was executed before starting the service.</p>
+        <h2>Synergy5M Server Running</h2>
+        <p>Frontend production bundle was not detected in <code>${buildPath}</code>.</p>
+        <p>Confirm the <code>build/</code> directory was included in the deployment artifact.</p>
       </div>
     `);
   });
 }
 
-// Azure App Service provides process.env.PORT (Pipe on Windows, integer on Linux)
+// Binds directly to the port integer or Azure Windows named pipe
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`🚀 Production server successfully listening on ${PORT}`);
