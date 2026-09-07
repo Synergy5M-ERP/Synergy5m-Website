@@ -3,6 +3,7 @@ const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
 const net = require("net");
 const nodemailer = require("nodemailer");
 
@@ -33,13 +34,21 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Storage and upload folders setup
-const baseDir = process.env.HOME ? path.join(process.env.HOME, "site", "wwwroot") : __dirname;
-const uploadDir = path.join(baseDir, "uploads");
-const dataDir = path.join(baseDir, "data");
+// Storage and upload folders setup (use writable TEMP directory as safety fallback)
+const fallbackDir = os.tmpdir();
+let uploadDir = path.join(__dirname, "uploads");
+let dataDir = path.join(__dirname, "data");
 
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+try {
+  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+} catch (fsErr) {
+  // If Azure package is mounted read-only, switch storage to writable temp folder
+  uploadDir = path.join(fallbackDir, "uploads");
+  dataDir = path.join(fallbackDir, "data");
+  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+}
 
 // Multer storage configuration
 const storage = multer.diskStorage({
@@ -51,11 +60,20 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB per file
+  limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-// Serve uploaded static files
 app.use("/uploads", express.static(uploadDir));
+
+// Helper: safe file appending that will never throw an unhandled exception
+function safeAppendJson(filename, payload) {
+  try {
+    const filePath = path.join(dataDir, filename);
+    fs.appendFileSync(filePath, JSON.stringify(payload) + "\n", "utf8");
+  } catch (err) {
+    console.warn(`Local fallback write skipped (${filename}):`, err.message);
+  }
+}
 
 // Health check endpoint for Azure App Service Traffic Manager & Health Probes
 app.get("/api/health", async (req, res) => {
@@ -113,12 +131,10 @@ app.get("/api/test-port", (req, res) => {
 // Dropdown Data Endpoints (With UI Offline Fallbacks)
 // -------------------------------------------------------------
 
-// 1. Categories
 app.get("/api/categories", async (req, res) => {
   try {
     const pool = await poolPromise;
     if (!pool) {
-      // Fallback data allows UI dropdowns to render during offline/no-DB state
       return res.json(["BUY", "SELL", "TRADING", "SEMIFINISH", "SERVICES", "JOBWORK"]);
     }
 
@@ -136,7 +152,6 @@ app.get("/api/categories", async (req, res) => {
   }
 });
 
-// 2. Dependent Products
 app.get("/api/products", async (req, res) => {
   try {
     const { category } = req.query;
@@ -167,7 +182,6 @@ app.get("/api/products", async (req, res) => {
   }
 });
 
-// 3. Units of Measurement
 app.get("/api/units", async (req, res) => {
   try {
     const pool = await poolPromise;
@@ -189,7 +203,6 @@ app.get("/api/units", async (req, res) => {
   }
 });
 
-// 4. Currencies
 app.get("/api/currencies", async (req, res) => {
   try {
     const pool = await poolPromise;
@@ -211,7 +224,6 @@ app.get("/api/currencies", async (req, res) => {
   }
 });
 
-// 5. Industries
 app.get("/api/industries", async (req, res) => {
   try {
     const pool = await poolPromise;
@@ -246,7 +258,6 @@ app.get("/api/industries", async (req, res) => {
 // Form Submissions
 // -------------------------------------------------------------
 
-// 1. General Inquiries
 app.post("/api/inquiries", async (req, res) => {
   try {
     const {
@@ -274,11 +285,7 @@ app.post("/api/inquiries", async (req, res) => {
           VALUES (@FullName, @BusinessEmail, @CompanyName, @OfficialMobile, @InterestedIn, @Requirement)
         `);
     } else {
-      fs.appendFileSync(
-        path.join(dataDir, "inquiries.jsonl"),
-        JSON.stringify({ ...req.body, submittedAt: new Date().toISOString() }) + "\n",
-        "utf8"
-      );
+      safeAppendJson("inquiries.jsonl", { ...req.body, submittedAt: new Date().toISOString() });
     }
 
     return res.status(201).json({
@@ -291,7 +298,6 @@ app.post("/api/inquiries", async (req, res) => {
   }
 });
 
-// 2. Business Connect
 const uploadFields = upload.fields([
   { name: "attachment", maxCount: 1 },
   { name: "documents", maxCount: 10 },
@@ -406,11 +412,7 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
     }
 
     const generatedCode = `${prefix}-${Date.now().toString().slice(-5)}`;
-    fs.appendFileSync(
-      path.join(dataDir, "business_enquiries.jsonl"),
-      JSON.stringify({ ...d, code: generatedCode, submittedAt: new Date().toISOString() }) + "\n",
-      "utf8"
-    );
+    safeAppendJson("business_enquiries.jsonl", { ...d, code: generatedCode, submittedAt: new Date().toISOString() });
 
     return res.status(201).json({
       success: true,
@@ -424,7 +426,6 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
   }
 });
 
-// 3. Demo Request Endpoint
 app.post("/api/demo-request", async (req, res) => {
   try {
     const {
@@ -489,11 +490,7 @@ app.post("/api/demo-request", async (req, res) => {
 
       insertedId = result.recordset[0]?.Id;
     } else {
-      fs.appendFileSync(
-        path.join(dataDir, "demo_requests.jsonl"),
-        JSON.stringify({ ...req.body, submittedAt: new Date().toISOString() }) + "\n",
-        "utf8"
-      );
+      safeAppendJson("demo_requests.jsonl", { ...req.body, submittedAt: new Date().toISOString() });
     }
 
     const mailHtml = `
@@ -535,7 +532,6 @@ app.post("/api/demo-request", async (req, res) => {
   }
 });
 
-// 4. Trial Request Endpoint
 app.post("/api/trial-request", async (req, res) => {
   try {
     const {
@@ -606,11 +602,7 @@ app.post("/api/trial-request", async (req, res) => {
     }
 
     if (!dbSaved) {
-      fs.appendFileSync(
-        path.join(dataDir, "trial_requests.jsonl"),
-        JSON.stringify({ ...req.body, submittedAt: new Date().toISOString() }) + "\n",
-        "utf8"
-      );
+      safeAppendJson("trial_requests.jsonl", { ...req.body, submittedAt: new Date().toISOString() });
     }
 
     const mailHtml = `
@@ -660,7 +652,6 @@ const buildPath = path.join(__dirname, "build");
 const indexHtmlPath = path.join(buildPath, "index.html");
 
 if (fs.existsSync(indexHtmlPath)) {
-  // Serve static assets
   app.use(
     express.static(buildPath, {
       maxAge: "1d",
@@ -672,7 +663,6 @@ if (fs.existsSync(indexHtmlPath)) {
     })
   );
 
-  // Catch-all: Route all frontend navigation to index.html
   app.use((req, res) => {
     if (req.path.startsWith("/api/")) {
       return res.status(404).json({ error: `API endpoint ${req.path} not found` });
@@ -680,7 +670,6 @@ if (fs.existsSync(indexHtmlPath)) {
     res.sendFile(indexHtmlPath);
   });
 } else {
-  // Safe catch-all middleware without bare '*' to prevent path-to-regexp errors
   app.use((req, res) => {
     if (req.path.startsWith("/api/")) {
       return res.status(404).json({ error: `API endpoint ${req.path} not found` });
@@ -695,8 +684,8 @@ if (fs.existsSync(indexHtmlPath)) {
   });
 }
 
-// Azure App Service provides process.env.PORT automatically (usually 8080 or a named pipe)
+// Azure App Service provides process.env.PORT (Pipe on Windows, integer on Linux)
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Production server successfully listening on port ${PORT}`);
+app.listen(PORT, () => {
+  console.log(`🚀 Production server successfully listening on ${PORT}`);
 });
