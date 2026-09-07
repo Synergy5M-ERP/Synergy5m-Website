@@ -15,7 +15,6 @@ jobs:
       id-token: write
 
     steps:
-
       - name: Checkout source
         uses: actions/checkout@v4
 
@@ -33,10 +32,11 @@ jobs:
           CI: false
         run: npm run build
 
-      # Install only production dependencies for the Node server
+      # Install production dependencies only
       - name: Install production dependencies
         run: npm ci --omit=dev
 
+      # Prepare package: includes web.config and bundles into a single zip archive
       - name: Prepare deployment package
         run: |
           mkdir deploy
@@ -45,14 +45,14 @@ jobs:
           cp package-lock.json deploy/
           cp server.js deploy/
           cp db.js deploy/
+          cp web.config deploy/
 
           cp -r build deploy/
           cp -r node_modules deploy/
 
-      - name: Show deployment package
-        run: |
-          echo "Deployment package:"
-          find deploy -maxdepth 2 -type f | sort
+          cd deploy
+          zip -r ../release.zip .
+          cd ..
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -61,8 +61,20 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_0A82C597EA0845D4AA6FB5C87AC38DF0 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_D80A6B415A2540FD955D8FC5A7B95289 }}
 
+      # Stop the web app to release file locks on node.exe and IIS
+      - name: Stop Azure Web App
+        run: |
+          az webapp stop --name SYNERGY5M-WEB --resource-group $(az webapp list --query "[?name=='SYNERGY5M-WEB'].resourceGroup" -o tsv)
+
+      # Deploy using the single compressed zip package
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'SYNERGY5M-WEB'
-          package: './deploy'
+          package: 'release.zip'
+
+      # Start the web app back up
+      - name: Start Azure Web App
+        if: always()
+        run: |
+          az webapp start --name SYNERGY5M-WEB --resource-group $(az webapp list --query "[?name=='SYNERGY5M-WEB'].resourceGroup" -o tsv)
