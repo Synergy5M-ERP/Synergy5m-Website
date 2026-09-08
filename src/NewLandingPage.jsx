@@ -673,7 +673,7 @@ function CommissionBlock() {
   );
 }
 
-function BuyerForm({ units = [], currencies = [], industries = [] }) {
+function BuyerForm({ categories = defaultItemCategories, units = [], currencies = [], industries = [] }) {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [customCategory, setCustomCategory] = useState("");
   const [products, setProducts] = useState([]);
@@ -692,7 +692,7 @@ function BuyerForm({ units = [], currencies = [], industries = [] }) {
       return;
     }
     setLoadingProducts(true);
-    fetch(`/api/products?category=${encodeURIComponent(selectedCategory)}`)
+    fetch(`/api/products?category=${encodeURIComponent(selectedCategory.trim())}`)
       .then((res) => res.json())
       .then((data) => setProducts(Array.isArray(data) ? data : []))
       .catch((err) => {
@@ -719,15 +719,17 @@ function BuyerForm({ units = [], currencies = [], industries = [] }) {
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
           <SearchableDropdown
             label="ITEM CATEGORY"
-            name={selectedCategory === "Other / Add New" ? "categorySelect" : "productCategory"}
+            name="productCategory"
             required
             value={selectedCategory}
-            options={defaultItemCategories}
-            placeholder="--- SELECT ---"
+            options={categories}
+            placeholder="--- SELECT CATEGORY ---"
             onChange={(e) => {
-              setSelectedCategory(e.target.value);
+              const val = e.target.value;
+              setSelectedCategory(val);
               setSelectedProduct("");
               setCustomCategory("");
+              setCustomProduct("");
             }}
           />
           {selectedCategory === "Other / Add New" && (
@@ -746,7 +748,7 @@ function BuyerForm({ units = [], currencies = [], industries = [] }) {
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
           <SearchableDropdown
             label="Product Name"
-            name={selectedProduct === "Other / Add New" ? "productSelect" : "productName"}
+            name="productName"
             required
             value={selectedProduct}
             options={
@@ -759,7 +761,9 @@ function BuyerForm({ units = [], currencies = [], industries = [] }) {
               !selectedCategory
                 ? "Select Category First"
                 : loadingProducts
-                ? "Loading..."
+                ? "Loading products..."
+                : products.length === 0
+                ? "No products found (Add New)"
                 : "Select Product"
             }
             onChange={(e) => {
@@ -905,7 +909,7 @@ function BuyerForm({ units = [], currencies = [], industries = [] }) {
   );
 }
 
-function SellerForm({ units = [], currencies = [], industries = [] }) {
+function SellerForm({ categories = defaultItemCategories, units = [], currencies = [], industries = [] }) {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [customCategory, setCustomCategory] = useState("");
   const [products, setProducts] = useState([]);
@@ -923,7 +927,7 @@ function SellerForm({ units = [], currencies = [], industries = [] }) {
       return;
     }
     setLoadingProducts(true);
-    fetch(`/api/products?category=${encodeURIComponent(selectedCategory)}`)
+    fetch(`/api/products?category=${encodeURIComponent(selectedCategory.trim())}`)
       .then((res) => res.json())
       .then((data) => setProducts(Array.isArray(data) ? data : []))
       .catch((err) => {
@@ -948,15 +952,17 @@ function SellerForm({ units = [], currencies = [], industries = [] }) {
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
           <SearchableDropdown
             label="ITEM CATEGORY"
-            name={selectedCategory === "Other / Add New" ? "categorySelect" : "productCategory"}
+            name="productCategory"
             required
             value={selectedCategory}
-            options={defaultItemCategories}
-            placeholder="--- SELECT ---"
+            options={categories}
+            placeholder="--- SELECT CATEGORY ---"
             onChange={(e) => {
-              setSelectedCategory(e.target.value);
+              const val = e.target.value;
+              setSelectedCategory(val);
               setSelectedProduct("");
               setCustomCategory("");
+              setCustomProduct("");
             }}
           />
           {selectedCategory === "Other / Add New" && (
@@ -975,7 +981,7 @@ function SellerForm({ units = [], currencies = [], industries = [] }) {
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
           <SearchableDropdown
             label="Product Name"
-            name={selectedProduct === "Other / Add New" ? "productSelect" : "productName"}
+            name="productName"
             required
             value={selectedProduct}
             options={
@@ -988,7 +994,9 @@ function SellerForm({ units = [], currencies = [], industries = [] }) {
               !selectedCategory
                 ? "Select Category First"
                 : loadingProducts
-                ? "Loading..."
+                ? "Loading products..."
+                : products.length === 0
+                ? "No products found (Add New)"
                 : "Select Product"
             }
             onChange={(e) => {
@@ -1167,6 +1175,8 @@ function NewLandingPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [modal, setModal] = useState(null);
 
+  // Keep static categories so options match BUY, SELL, TRADING, SEMIFINISH, etc.
+  const [categories] = useState(defaultItemCategories);
   const [units, setUnits] = useState([]);
   const [currencies, setCurrencies] = useState([]);
   const [industries, setIndustries] = useState([]);
@@ -1286,7 +1296,6 @@ function NewLandingPage() {
 
           <nav className={mobileOpen ? "main-nav open" : "main-nav"}>
             <button onClick={() => scrollTo("home")}>HOME</button>
-
             <button onClick={() => scrollTo("consulting")}>MANAGEMENT CONSULTING</button>
 
             <div className="nav-item-dropdown">
@@ -1800,6 +1809,7 @@ function NewLandingPage() {
         >
           <form onSubmit={(e) => submitForm(e, "buyer")}>
             <BuyerForm
+              categories={categories}
               units={units}
               currencies={currencies}
               industries={industries}
@@ -1822,6 +1832,7 @@ function NewLandingPage() {
         >
           <form onSubmit={(e) => submitForm(e, "seller")}>
             <SellerForm
+              categories={categories}
               units={units}
               currencies={currencies}
               industries={industries}

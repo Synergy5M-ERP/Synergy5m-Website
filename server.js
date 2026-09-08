@@ -13,7 +13,6 @@ const { sql, poolPromise } = require("./db");
 
 const app = express();
 
-// Trust Azure frontend reverse proxy for accurate protocol/IP headers
 app.set("trust proxy", 1);
 
 app.use(cors());
@@ -34,7 +33,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Resilient filesystem handling (falls back to temp directory under read-only mounts)
+// Resilient filesystem handling
 let uploadDir = path.join(__dirname, "uploads");
 let dataDir = path.join(__dirname, "data");
 
@@ -52,7 +51,6 @@ function initDirectories() {
 }
 initDirectories();
 
-// Multer storage setup
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
@@ -65,10 +63,8 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-// Serve uploaded assets directly
 app.use("/uploads", express.static(uploadDir));
 
-// Safe append helper that never crashes the worker process
 function safeAppendJson(filename, payload) {
   try {
     const filePath = path.join(dataDir, filename);
@@ -98,42 +94,8 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-app.get("/api/test-port", (req, res) => {
-  const targetPort = parseInt(req.query.port, 10) || 1433;
-  const host = req.query.host || "synergy5m-product-master.database.windows.net";
-  const socket = new net.Socket();
-  socket.setTimeout(6000);
-
-  socket.connect(targetPort, host, () => {
-    socket.destroy();
-    return res.json({
-      success: true,
-      portTested: targetPort,
-      message: `Port ${targetPort} is reachable to ${host}`,
-    });
-  });
-
-  socket.on("error", (err) => {
-    socket.destroy();
-    return res.json({
-      success: false,
-      portTested: targetPort,
-      message: `Connection failed: ${err.message}`,
-    });
-  });
-
-  socket.on("timeout", () => {
-    socket.destroy();
-    return res.json({
-      success: false,
-      portTested: targetPort,
-      message: `Connection to ${host} timed out. Ensure Azure SQL allows access from Azure services.`,
-    });
-  });
-});
-
 // -------------------------------------------------------------
-// Dropdown Data Endpoints (With UI Fallbacks)
+// Dropdown Data Endpoints
 // -------------------------------------------------------------
 
 app.get("/api/categories", async (req, res) => {
@@ -144,13 +106,14 @@ app.get("/api/categories", async (req, res) => {
     }
 
     const result = await pool.request().query(`
-      SELECT DISTINCT [VendorCategory] 
-      FROM [dbo].[Master_VendorCategory] 
-      WHERE [VendorCategory] IS NOT NULL 
-      ORDER BY [VendorCategory] ASC
+      SELECT DISTINCT LTRIM(RTRIM([ItemCategory])) AS Category
+      FROM [dbo].[MASTER_ItemTbl]
+      WHERE [ItemCategory] IS NOT NULL AND LTRIM(RTRIM([ItemCategory])) <> ''
+      ORDER BY Category ASC
     `);
 
-    return res.json(result.recordset.map((row) => row.VendorCategory));
+    const categories = result.recordset.map((row) => row.Category).filter(Boolean);
+    return res.json(categories.length > 0 ? categories : ["BUY", "SELL", "TRADING", "SEMIFINISH", "SERVICES", "JOBWORK"]);
   } catch (err) {
     console.warn("Categories fetch fallback:", err.message);
     return res.json(["BUY", "SELL", "TRADING", "SEMIFINISH", "SERVICES", "JOBWORK"]);
@@ -167,22 +130,30 @@ app.get("/api/products", async (req, res) => {
 
     const request = pool.request();
     let query = `
-      SELECT DISTINCT [Item_Name] 
-      FROM [dbo].[MASTER_ItemTbl] 
-      WHERE [Item_Name] IS NOT NULL
+      SELECT DISTINCT LTRIM(RTRIM([Item_Name])) AS Item_Name
+      FROM [dbo].[MASTER_ItemTbl]
+      WHERE [Item_Name] IS NOT NULL 
+        AND LTRIM(RTRIM([Item_Name])) <> ''
     `;
 
-    if (category) {
-      request.input("category", sql.NVarChar, category);
-      query += ` AND [ItemCategory] = @category`;
+    if (category && category !== "Other / Add New") {
+      request.input("category", sql.NVarChar, category.trim());
+
+      // Queries Item_Category with case-insensitive, trimmed matching
+      query += ` AND (
+        UPPER(LTRIM(RTRIM(ISNULL([Item_Category], '')))) = UPPER(@category)
+        OR UPPER(LTRIM(RTRIM(ISNULL([ItemCategory], '')))) = UPPER(@category)
+      )`;
     }
 
-    query += ` ORDER BY [Item_Name] ASC`;
+    query += ` ORDER BY Item_Name ASC`;
 
     const result = await request.query(query);
+    console.log(`[Products API] Category: "${category}" => Found: ${result.recordset.length} items`);
+
     return res.json(result.recordset.map((row) => row.Item_Name));
   } catch (err) {
-    console.warn("Products fetch fallback:", err.message);
+    console.warn("Products fetch error:", err.message);
     return res.json(["Standard Product A", "Standard Product B"]);
   }
 });
@@ -260,7 +231,7 @@ app.get("/api/industries", async (req, res) => {
 });
 
 // -------------------------------------------------------------
-// Form Submission Handlers
+// Form Handlers
 // -------------------------------------------------------------
 
 app.post("/api/inquiries", async (req, res) => {
@@ -461,40 +432,48 @@ app.post("/api/demo-request", async (req, res) => {
 
     const pool = await poolPromise;
     let insertedId = null;
+    let dbSaved = false;
 
     if (pool) {
-      const query = `
-        DECLARE @NextId INT;
-        SELECT @NextId = ISNULL(MAX(Id), 0) + 1 
-        FROM dbo.DemoRequests WITH (TABLOCKX, HOLDLOCK);
+      try {
+        const query = `
+          DECLARE @NextId INT;
+          SELECT @NextId = ISNULL(MAX(Id), 0) + 1 
+          FROM dbo.DemoRequests WITH (TABLOCKX, HOLDLOCK);
 
-        INSERT INTO dbo.DemoRequests (
-          Id, FullName, BusinessEmail, CompanyName, OfficialMobile,
-          PreferredDate, TimeSlot, MeetingPlatform, Requirement,
-          DemoStatus, CreatedAt
-        )
-        OUTPUT INSERTED.Id
-        VALUES (
-          @NextId, @FullName, @BusinessEmail, @CompanyName, @OfficialMobile,
-          @PreferredDate, @TimeSlot, @MeetingPlatform, @Requirement,
-          'Pending', GETUTCDATE()
-        );
-      `;
+          INSERT INTO dbo.DemoRequests (
+            Id, FullName, BusinessEmail, CompanyName, OfficialMobile,
+            PreferredDate, TimeSlot, MeetingPlatform, Requirement,
+            DemoStatus, CreatedAt
+          )
+          OUTPUT INSERTED.Id
+          VALUES (
+            @NextId, @FullName, @BusinessEmail, @CompanyName, @OfficialMobile,
+            @PreferredDate, @TimeSlot, @MeetingPlatform, @Requirement,
+            'Pending', GETUTCDATE()
+          );
+        `;
 
-      const result = await pool
-        .request()
-        .input("FullName", sql.NVarChar(150), String(fullName).trim())
-        .input("BusinessEmail", sql.NVarChar(255), String(businessEmail).trim().toLowerCase())
-        .input("CompanyName", sql.NVarChar(200), String(companyName).trim())
-        .input("OfficialMobile", sql.NVarChar(20), String(officialMobile).trim())
-        .input("PreferredDate", sql.Date, new Date(preferredDate))
-        .input("TimeSlot", sql.NVarChar(50), String(timeSlot).trim())
-        .input("MeetingPlatform", sql.NVarChar(50), String(meetingPlatform).trim())
-        .input("Requirement", sql.NVarChar(sql.MAX), requirement ? String(requirement).trim() : null)
-        .query(query);
+        const result = await pool
+          .request()
+          .input("FullName", sql.NVarChar(150), String(fullName).trim())
+          .input("BusinessEmail", sql.NVarChar(255), String(businessEmail).trim().toLowerCase())
+          .input("CompanyName", sql.NVarChar(200), String(companyName).trim())
+          .input("OfficialMobile", sql.NVarChar(20), String(officialMobile).trim())
+          .input("PreferredDate", sql.Date, new Date(preferredDate))
+          .input("TimeSlot", sql.NVarChar(50), String(timeSlot).trim())
+          .input("MeetingPlatform", sql.NVarChar(50), String(meetingPlatform).trim())
+          .input("Requirement", sql.NVarChar(sql.MAX), requirement ? String(requirement).trim() : null)
+          .query(query);
 
-      insertedId = result.recordset[0]?.Id;
-    } else {
+        insertedId = result.recordset[0]?.Id;
+        dbSaved = true;
+      } catch (dbErr) {
+        console.warn("DB insert failed for DemoRequest, saving to local fallback:", dbErr.message);
+      }
+    }
+
+    if (!dbSaved) {
       safeAppendJson("demo_requests.jsonl", { ...req.body, submittedAt: new Date().toISOString() });
     }
 
@@ -650,9 +629,6 @@ app.post("/api/trial-request", async (req, res) => {
   }
 });
 
-// -------------------------------------------------------------
-// React Build / SPA Fallback Handler
-// -------------------------------------------------------------
 const buildPath = path.join(__dirname, "build");
 const indexHtmlPath = path.join(buildPath, "index.html");
 
@@ -682,14 +658,12 @@ if (fs.existsSync(indexHtmlPath)) {
     res.status(503).send(`
       <div style="font-family: Arial, sans-serif; padding: 40px; text-align: center;">
         <h2>Synergy5M Server Running</h2>
-        <p>Frontend production bundle was not detected in <code>${buildPath}</code>.</p>
-        <p>Confirm the <code>build/</code> directory was included in the deployment artifact.</p>
+        <p>Frontend bundle not detected in <code>${buildPath}</code>.</p>
       </div>
     `);
   });
 }
 
-// Binds directly to the port integer or Azure Windows named pipe
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`🚀 Production server successfully listening on ${PORT}`);
