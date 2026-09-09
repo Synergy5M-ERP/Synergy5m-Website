@@ -1,15 +1,22 @@
 import React from 'react';
-import NewLandingPage from './NewLandingPage';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-next';
-
+import NewLandingPage from './NewLandingPage';
+import AdminPanel from './AdminPanel';
 import './App.css';
 
 function App() {
   return (
     <HelmetProvider>
-      <div className="App">
-        <NewLandingPage />
-      </div>
+      <BrowserRouter>
+        <div className="App">
+          <Routes>
+            <Route path="/" element={<NewLandingPage />} />
+            <Route path="/admin" element={<AdminPanel />} />
+            <Route path="*" element={<NewLandingPage />} />
+          </Routes>
+        </div>
+      </BrowserRouter>
     </HelmetProvider>
   );
 }

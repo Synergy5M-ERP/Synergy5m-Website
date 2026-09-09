@@ -6,6 +6,7 @@ const fs = require("fs");
 const os = require("os");
 const net = require("net");
 const nodemailer = require("nodemailer");
+const crypto = require("crypto");
 
 require("dotenv").config();
 
@@ -74,6 +75,16 @@ function safeAppendJson(filename, payload) {
   }
 }
 
+// Helper: Generate Secure Random Password
+const generatePassword = (length = 10) => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*";
+  let pwd = "";
+  for (let i = 0; i < length; i++) {
+    pwd += chars.charAt(crypto.randomInt(0, chars.length));
+  }
+  return pwd;
+};
+
 // -------------------------------------------------------------
 // Diagnostics & Health Endpoints
 // -------------------------------------------------------------
@@ -138,8 +149,6 @@ app.get("/api/products", async (req, res) => {
 
     if (category && category !== "Other / Add New") {
       request.input("category", sql.NVarChar, category.trim());
-
-      // Queries Item_Category with case-insensitive, trimmed matching
       query += ` AND (
         UPPER(LTRIM(RTRIM(ISNULL([Item_Category], '')))) = UPPER(@category)
         OR UPPER(LTRIM(RTRIM(ISNULL([ItemCategory], '')))) = UPPER(@category)
@@ -149,8 +158,6 @@ app.get("/api/products", async (req, res) => {
     query += ` ORDER BY Item_Name ASC`;
 
     const result = await request.query(query);
-    console.log(`[Products API] Category: "${category}" => Found: ${result.recordset.length} items`);
-
     return res.json(result.recordset.map((row) => row.Item_Name));
   } catch (err) {
     console.warn("Products fetch error:", err.message);
@@ -407,6 +414,7 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 });
+
 app.post("/api/demo-request", async (req, res) => {
   try {
     const {
@@ -499,7 +507,6 @@ app.post("/api/demo-request", async (req, res) => {
     `;
 
     try {
-      // Sent internally only — businessEmail excluded
       await transporter.sendMail({
         from: `"Synergy5M ERP System" <${process.env.SMTP_USER || "mmm@synergy5m.com"}>`,
         to: ["sales@synergy5m.com", "accounts@synergy5m.com"],
@@ -545,7 +552,7 @@ app.post("/api/trial-request", async (req, res) => {
       });
     }
 
-    const calculatedStatus = trialStatus || "Active";
+    const calculatedStatus = trialStatus || "Pending";
     let dbSaved = false;
 
     const pool = await poolPromise;
@@ -559,12 +566,14 @@ app.post("/api/trial-request", async (req, res) => {
           INSERT INTO dbo.TrialRequests (
             Id, CompanyName, ContactPerson, MobileNo, Email,
             Address, GstNo, NumberOfUsers, SubscriptionPlan,
-            TrialStartDate, TrialEndDate, TrialStatus, Remarks
+            TrialStartDate, TrialEndDate, TrialStatus, Remarks,
+            CreatedAt
           )
           VALUES (
             @NextId, @CompanyName, @ContactPerson, @MobileNo, @Email,
             @Address, @GstNo, @NumberOfUsers, @SubscriptionPlan,
-            @TrialStartDate, @TrialEndDate, @TrialStatus, @Remarks
+            @TrialStartDate, @TrialEndDate, @TrialStatus, @Remarks,
+            GETDATE()
           );
         `;
 
@@ -579,7 +588,7 @@ app.post("/api/trial-request", async (req, res) => {
           .input("NumberOfUsers", sql.Int, numberOfUsers ? parseInt(numberOfUsers, 10) : null)
           .input("SubscriptionPlan", sql.NVarChar(50), subscriptionPlan)
           .input("TrialStartDate", sql.Date, new Date(trialStartDate))
-          .input("TrialEndDate", sql.Date, new Date(trialEndDate))
+          .input("TrialEndDate", sql.Date, trialEndDate ? new Date(trialEndDate) : null)
           .input("TrialStatus", sql.NVarChar(50), calculatedStatus)
           .input("Remarks", sql.NVarChar(sql.MAX), remarks ? remarks.trim() : null)
           .query(query);
@@ -603,14 +612,13 @@ app.post("/api/trial-request", async (req, res) => {
           <tr><td><strong>Mobile No.</strong></td><td>${mobileNo}</td></tr>
           <tr><td><strong>Email</strong></td><td>${email}</td></tr>
           <tr><td><strong>Subscription Plan</strong></td><td><strong>${subscriptionPlan}</strong></td></tr>
-          <tr><td><strong>Trial Dates</strong></td><td>${trialStartDate} to ${trialEndDate}</td></tr>
+          <tr><td><strong>Trial Dates</strong></td><td>${trialStartDate} to ${trialEndDate || "Open"}</td></tr>
           <tr><td><strong>Status</strong></td><td>${calculatedStatus}</td></tr>
         </table>
       </div>
     `;
 
     try {
-      // Sent internally only — submitter's email excluded
       await transporter.sendMail({
         from: `"Synergy5M ERP System" <${process.env.SMTP_USER || "mmm@synergy5m.com"}>`,
         to: ["sales@synergy5m.com", "accounts@synergy5m.com"],
@@ -633,6 +641,260 @@ app.post("/api/trial-request", async (req, res) => {
     });
   }
 });
+
+// -------------------------------------------------------------
+// Admin Endpoints (Directly Mounted on app)
+// -------------------------------------------------------------
+
+// 1. Admin Login (No JWT)
+app.post("/api/admin/login", (req, res) => {
+  const { username, password } = req.body || {};
+
+  const inputUser = (username || "").trim();
+  const inputPass = (password || "").trim();
+  const adminUser = (process.env.ADMIN_USER || "admin").trim();
+  const adminPass = (process.env.ADMIN_PASSWORD || "admin123").trim();
+
+  console.log("Admin Login Attempt:", {
+    received: { user: inputUser, pass: inputPass },
+    expected: { user: adminUser, pass: adminPass },
+    match: inputUser === adminUser && inputPass === adminPass,
+  });
+
+  if (inputUser === adminUser && inputPass === adminPass) {
+    return res.json({
+      success: true,
+      message: "Login successful",
+      user: adminUser,
+    });
+  }
+
+  return res.status(401).json({
+    success: false,
+    message: "Invalid credentials",
+  });
+});
+
+// 2. Fetch Data for ERP or Buying/Selling
+app.get("/api/admin/enquiries", async (req, res) => {
+  const type = req.query.type; // 'erp' or 'buyingselling'
+  try {
+    const pool = await poolPromise;
+    let query = "";
+
+    if (type === "erp") {
+      query = `
+        SELECT TOP (2000000) 
+          Id, CompanyName, ContactPerson, MobileNo, Email,
+          Address, GstNo, NumberOfUsers, SubscriptionPlan,
+          TrialStartDate, TrialEndDate, TrialStatus, Remarks, CreatedAt
+        FROM [dbo].[TrialRequests]
+        ORDER BY Id DESC;
+      `;
+    } else if (type === "buyingselling") {
+      query = `
+        SELECT TOP (2000000) 
+          Id, Code, Category, CompanyName, GSTIN, CIN, Address,
+          Website, CompanyEmail, Mobile, Industry, CompanyType,
+          YearsInBusiness, RepresentativeName, Role, RepresentativeEmail,
+          RepresentativeMobile, ProductName, ProductCategory, GradeModel,
+          Application, TechnicalSpecification, HSNCode, RequiredQuantity,
+          Unit, RequirementFrequency, DeliveryLocation, RequiredDeliveryDate,
+          ManufacturerSupplier, ProductionCapacity, MOQ, LeadTime,
+          PriceOrRange, Currency, PaymentTerms, CommissionType,
+          ProposedCommission, CommissionApplicableOn, AttachmentPath,
+          CreatedAt, TargetPrice, IndicativePrice, ExpectedPriceRange,
+          PaymentTermsExpected, MonthlyCapacity, DocumentsPath, Status, UpdatedAt
+        FROM [dbo].[BusinessEnquiries]
+        ORDER BY Id DESC;
+      `;
+    } else {
+      return res.status(400).json({ success: false, message: "Invalid type requested" });
+    }
+
+    const result = await pool.request().query(query);
+    return res.json({ success: true, data: result.recordset });
+  } catch (err) {
+    console.error("Fetch records error:", err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 3. Approve Action
+// --- APPROVE ACTION ---
+app.post("/api/admin/approve", async (req, res) => {
+  const { id, type, email, recipientName } = req.body;
+  if (!id || !type || !email) {
+    return res.status(400).json({ success: false, message: "Missing required approval params" });
+  }
+
+  const generatedPassword = generatePassword(10);
+  const userRole = type === "erp" ? "erp" : "buying-selling";
+  const portalUrl = type === "erp" 
+    ? (process.env.ERP_LOGIN_URL || "https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login")
+    : (process.env.B4P_LOGIN_URL || "https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login");
+
+  try {
+    const pool = await poolPromise;
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    try {
+      // 1. Insert into HRM_UserTbl (Omit [id] so SQL Server auto-generates it)
+      const insertUserQuery = `
+        INSERT INTO [dbo].[HRM_UserTbl] (
+          [username], [password], [AdminApprove], [StartDate],
+          [NoOfDays], [EndDate], [IsSubscribed], [CHIEF_ADMIN], [SUPERADMIN],
+          [DEPUTY_SUPERADMIN], [ADMIN], [DEPUTY_ADMIN], [USER], [UserRole],
+          [MaterialManagement], [SalesAndMarketing], [HRAndAdmin], [AccountAndFinance],
+          [Masters], [Dashboard], [ProductionAndQuality], [External_buyer_seller],
+          [Emp_Code], [Power_Of_Authority], [NewAssignModule], [NOT_APPLICABLE], [IsActive]
+        ) 
+        OUTPUT INSERTED.id
+        VALUES (
+          @Username, @Password, 1, GETDATE(),
+          30, DATEADD(day, 30, GETDATE()), 1, 0, 0,
+          0, 0, 0, 1, @UserRole,
+          0, 0, 0, 0,
+          0, 1, 0, ${type === "buyingselling" ? 1 : 0},
+          'EMP' + CAST(NEXT VALUE FOR dbo.Seq_BusinessEnquiries_Id AS VARCHAR(10)), 'User', 0, 0, 1
+        );
+      `;
+
+      // If you don't have a sequence for Emp_Code, you can simply use:
+      // 'EMP' + RIGHT('0000' + CAST(ABS(CHECKSUM(NEWID())) % 10000 AS VARCHAR(10)), 4)
+      const insertUserSql = `
+        INSERT INTO [dbo].[HRM_UserTbl] (
+          [username], [password], [AdminApprove], [StartDate],
+          [NoOfDays], [EndDate], [IsSubscribed], [CHIEF_ADMIN], [SUPERADMIN],
+          [DEPUTY_SUPERADMIN], [ADMIN], [DEPUTY_ADMIN], [USER], [UserRole],
+          [MaterialManagement], [SalesAndMarketing], [HRAndAdmin], [AccountAndFinance],
+          [Masters], [Dashboard], [ProductionAndQuality], [External_buyer_seller],
+          [Emp_Code], [Power_Of_Authority], [NewAssignModule], [NOT_APPLICABLE], [IsActive]
+        ) 
+        OUTPUT INSERTED.id
+        VALUES (
+          @Username, @Password, 1, GETDATE(),
+          30, DATEADD(day, 30, GETDATE()), 1, 0, 0,
+          0, 0, 0, 1, @UserRole,
+          0, 0, 0, 0,
+          0, 1, 0, ${type === "buyingselling" ? 1 : 0},
+          'EMP' + RIGHT('0000' + CAST(ABS(CHECKSUM(NEWID())) % 10000 AS VARCHAR(10)), 4), 
+          'User', 0, 0, 1
+        );
+      `;
+
+      await transaction.request()
+        .input("Username", sql.NVarChar(150), email.trim().toLowerCase())
+        .input("Password", sql.NVarChar(100), generatedPassword)
+        .input("UserRole", sql.NVarChar(50), userRole)
+        .query(insertUserSql);
+
+      // 2. Update status in source table
+      if (type === "erp") {
+        await transaction.request()
+          .input("Id", sql.Int, id)
+          .query(`UPDATE [dbo].[TrialRequests] SET TrialStatus = 'Approved' WHERE Id = @Id;`);
+      } else {
+        await transaction.request()
+          .input("Id", sql.Int, id)
+          .query(`UPDATE [dbo].[BusinessEnquiries] SET Status = 'Approved', UpdatedAt = GETDATE() WHERE Id = @Id;`);
+      }
+
+      await transaction.commit();
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+
+    // 3. Send Credentials Email
+    const mailHtml = `
+      <div style="font-family: Arial, sans-serif; color: #222; max-width: 600px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 24px;">
+        <h2 style="color: #0b5ed7;">Account Approved - Synergy 5M</h2>
+        <p>Dear <strong>${recipientName || "Valued Partner"}</strong>,</p>
+        <p>Your request for <strong>${type === "erp" ? "SYN ERP 10" : "Business-4-Profit Portal"}</strong> has been officially approved. Your login credentials are created:</p>
+        <div style="background: #f7f9fa; border-left: 4px solid #0b5ed7; padding: 15px; margin: 20px 0;">
+          <p style="margin: 0 0 8px 0;"><strong>Login URL:</strong> <a href="${portalUrl}" target="_blank">${portalUrl}</a></p>
+          <p style="margin: 0 0 8px 0;"><strong>Username / Email:</strong> ${email.trim()}</p>
+          <p style="margin: 0;"><strong>Temporary Password:</strong> <span style="font-family: monospace; font-size: 16px; background: #fff; padding: 2px 6px; border: 1px solid #ccc;">${generatedPassword}</span></p>
+        </div>
+        <p style="color: #666; font-size: 13px;">Please change your password upon your initial login.</p>
+      </div>
+    `;
+
+    try {
+      await transporter.sendMail({
+        from: `"Synergy5M Approvals" <${process.env.SMTP_USER || "mmm@synergy5m.com"}>`,
+        to: email.trim(),
+        subject: `Your Account has been Approved - ${type === "erp" ? "SYN ERP 10" : "Business-4-Profit"}`,
+        html: mailHtml,
+      });
+    } catch (mailErr) {
+      console.warn("Mail dispatch error on approve:", mailErr.message);
+    }
+
+    return res.json({ success: true, message: "Record approved, account created, and email sent successfully!" });
+  } catch (error) {
+    console.error("Approve endpoint error:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+// 4. Reject Action
+app.post("/api/admin/reject", async (req, res) => {
+  const { id, type, email, recipientName, reason } = req.body;
+  if (!id || !type || !email || !reason) {
+    return res.status(400).json({ success: false, message: "Missing required rejection parameters or reason" });
+  }
+
+  try {
+    const pool = await poolPromise;
+
+    if (type === "erp") {
+      await pool.request()
+        .input("Id", sql.Int, id)
+        .input("Reason", sql.NVarChar(sql.MAX), reason)
+        .query(`UPDATE [dbo].[TrialRequests] SET TrialStatus = 'Rejected', Remarks = ISNULL(Remarks + ' | ', '') + 'Rejection Reason: ' + @Reason WHERE Id = @Id;`);
+    } else {
+      await pool.request()
+        .input("Id", sql.Int, id)
+        .query(`UPDATE [dbo].[BusinessEnquiries] SET Status = 'Rejected', UpdatedAt = GETDATE() WHERE Id = @Id;`);
+    }
+
+    const mailHtml = `
+      <div style="font-family: Arial, sans-serif; color: #222; max-width: 600px; border: 1px solid #f1c1c1; border-radius: 8px; padding: 24px;">
+        <h2 style="color: #d9534f;">Request Update - Synergy 5M</h2>
+        <p>Dear <strong>${recipientName || "Valued User"}</strong>,</p>
+        <p>Thank you for your interest in <strong>${type === "erp" ? "SYN ERP 10" : "Synergy Business-4-Profit"}</strong>.</p>
+        <p>After reviewing your submission, your request could not be approved at this moment.</p>
+        <div style="background: #fdf7f7; border-left: 4px solid #d9534f; padding: 15px; margin: 20px 0;">
+          <p style="margin: 0 0 6px 0;"><strong>Reason provided by Verification Team:</strong></p>
+          <p style="margin: 0; color: #555;">${reason}</p>
+        </div>
+        <p>If you believe this was an error or wish to provide updated verification details, please reply directly to this email.</p>
+      </div>
+    `;
+
+    try {
+      await transporter.sendMail({
+        from: `"Synergy5M Verification Desk" <${process.env.SMTP_USER || "mmm@synergy5m.com"}>`,
+        to: email.trim(),
+        subject: `Update Regarding Your Synergy 5M Request: Rejected`,
+        html: mailHtml,
+      });
+    } catch (mailErr) {
+      console.warn("Mail dispatch error on reject:", mailErr.message);
+    }
+
+    return res.json({ success: true, message: "Request rejected and rejection email sent successfully." });
+  } catch (error) {
+    console.error("Reject endpoint error:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// -------------------------------------------------------------
+// Static Frontend Catch-All Handler (MUST BE AT THE VERY BOTTOM)
+// -------------------------------------------------------------
 
 const buildPath = path.join(__dirname, "build");
 const indexHtmlPath = path.join(buildPath, "index.html");
