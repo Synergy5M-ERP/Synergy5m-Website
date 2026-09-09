@@ -302,9 +302,15 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
 
     if (pool) {
       const query = `
+        DECLARE @NextId INT;
         DECLARE @NextNum INT;
         DECLARE @PrefixPattern NVARCHAR(10) = '${prefix}%';
 
+        -- Generate Next Integer ID
+        SELECT @NextId = ISNULL(MAX(Id), 0) + 1
+        FROM dbo.BusinessEnquiries WITH (TABLOCKX, HOLDLOCK);
+
+        -- Generate Next Prefix Number
         SELECT @NextNum = ISNULL(MAX(CAST(SUBSTRING(Code, 2, LEN(Code)) AS INT)), 0) + 1
         FROM dbo.BusinessEnquiries WITH (TABLOCKX, HOLDLOCK)
         WHERE Code LIKE @PrefixPattern
@@ -313,7 +319,7 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
         DECLARE @GeneratedCode NVARCHAR(50) = '${prefix}' + RIGHT('00000' + CAST(@NextNum AS NVARCHAR(10)), 5);
 
         INSERT INTO dbo.BusinessEnquiries (
-          Code, Category,
+          Id, Code, Category,
           CompanyName, GSTIN, CIN, Address, Website, CompanyEmail, Mobile, Industry, CompanyType, YearsInBusiness,
           RepresentativeName, Role, RepresentativeEmail, RepresentativeMobile,
           ProductName, ProductCategory, GradeModel, Application, TechnicalSpecification, HSNCode,
@@ -321,11 +327,11 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
           ManufacturerSupplier, ProductionCapacity, MOQ, LeadTime,
           PriceOrRange, Currency, PaymentTerms,
           CommissionType, ProposedCommission, CommissionApplicableOn,
-          AttachmentPath
+          AttachmentPath, CreatedAt
         ) 
         OUTPUT INSERTED.Id, INSERTED.Code
         VALUES (
-          @GeneratedCode, @Category,
+          @NextId, @GeneratedCode, @Category,
           @CompanyName, @GSTIN, @CIN, @Address, @Website, @CompanyEmail, @Mobile, @Industry, @CompanyType, @YearsInBusiness,
           @RepresentativeName, @Role, @RepresentativeEmail, @RepresentativeMobile,
           @ProductName, @ProductCategory, @GradeModel, @Application, @TechnicalSpecification, @HSNCode,
@@ -333,7 +339,7 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
           @ManufacturerSupplier, @ProductionCapacity, @MOQ, @LeadTime,
           @PriceOrRange, @Currency, @PaymentTerms,
           @CommissionType, @ProposedCommission, @CommissionApplicableOn,
-          @AttachmentPath
+          @AttachmentPath, GETDATE()
         );
       `;
 
@@ -401,7 +407,6 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 });
-
 app.post("/api/demo-request", async (req, res) => {
   try {
     const {
@@ -494,11 +499,11 @@ app.post("/api/demo-request", async (req, res) => {
     `;
 
     try {
+      // Sent internally only — businessEmail excluded
       await transporter.sendMail({
         from: `"Synergy5M ERP System" <${process.env.SMTP_USER || "mmm@synergy5m.com"}>`,
-        to: businessEmail.trim(),
-        cc: ["sales@synergy5m.com", "accounts@synergy5m.com"],
-        subject: `SYN ERP 10 Demo Request Confirmation: ${companyName}`,
+        to: ["sales@synergy5m.com", "accounts@synergy5m.com"],
+        subject: `SYN ERP 10 Demo Request: ${companyName}`,
         html: mailHtml,
       });
     } catch (mailErr) {
@@ -508,7 +513,7 @@ app.post("/api/demo-request", async (req, res) => {
     return res.status(201).json({
       success: true,
       id: insertedId,
-      message: "Your demo request has been submitted successfully! Confirmation email has been sent.",
+      message: "Your demo request has been submitted successfully!",
     });
   } catch (error) {
     console.error("Error processing DemoRequest:", error);
@@ -605,10 +610,10 @@ app.post("/api/trial-request", async (req, res) => {
     `;
 
     try {
+      // Sent internally only — submitter's email excluded
       await transporter.sendMail({
         from: `"Synergy5M ERP System" <${process.env.SMTP_USER || "mmm@synergy5m.com"}>`,
-        to: email.trim(),
-        cc: ["sales@synergy5m.com", "accounts@synergy5m.com"],
+        to: ["sales@synergy5m.com", "accounts@synergy5m.com"],
         subject: `New SYN ERP Trial Request: ${companyName}`,
         html: mailHtml,
       });
@@ -618,7 +623,7 @@ app.post("/api/trial-request", async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Trial request submitted successfully! Confirmation email has been sent.",
+      message: "Trial request submitted successfully!",
     });
   } catch (error) {
     console.error("Submission processing error:", error);
