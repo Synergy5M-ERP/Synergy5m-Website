@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 
 export default function AdminPanel() {
-  const [token, setToken] = useState(localStorage.getItem("admin_token") || "");
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    localStorage.getItem("admin_logged_in") === "true"
+  );
   const [usernameInput, setUsernameInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -15,6 +17,44 @@ export default function AdminPanel() {
   const [rejectItem, setRejectItem] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
 
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem("admin_logged_in");
+    setIsAuthenticated(false);
+    setDataList([]);
+  }, []);
+
+  // Fetch Table Data
+  const fetchData = useCallback(
+    async (type) => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/admin/enquiries?type=${type}`, {
+          credentials: "include",
+        });
+        if (res.status === 401) {
+          handleLogout();
+          return;
+        }
+        const json = await res.json();
+        if (json.success) {
+          setDataList(json.data || []);
+        }
+      } catch (err) {
+        alert("Error fetching data: " + err.message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [handleLogout]
+  );
+
+  // Load data whenever authentication status or active tab changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchData(activeTab);
+    }
+  }, [isAuthenticated, activeTab, fetchData]);
+
   // Handle Login
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -23,12 +63,13 @@ export default function AdminPanel() {
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ username: usernameInput, password: passwordInput }),
       });
       const data = await res.json();
       if (data.success) {
-        setToken(data.token);
-        localStorage.setItem("admin_token", data.token);
+        setIsAuthenticated(true);
+        localStorage.setItem("admin_logged_in", "true");
       } else {
         setLoginError(data.message || "Invalid credentials");
       }
@@ -36,40 +77,6 @@ export default function AdminPanel() {
       setLoginError("Failed to communicate with backend server");
     }
   };
-
-  const handleLogout = () => {
-    localStorage.removeItem("admin_token");
-    setToken("");
-    setDataList([]);
-  };
-
-  // Fetch Table Data
-  const fetchData = async (type) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/enquiries?type=${type}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.status === 401) {
-        handleLogout();
-        return;
-      }
-      const json = await res.json();
-      if (json.success) {
-        setDataList(json.data || []);
-      }
-    } catch (err) {
-      alert("Error fetching data: " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (token) {
-      fetchData(activeTab);
-    }
-  }, [token, activeTab]);
 
   // Approve Record
   const handleApprove = async (row) => {
@@ -82,10 +89,8 @@ export default function AdminPanel() {
     try {
       const res = await fetch("/api/admin/approve", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           id: row.Id,
           type: activeTab,
@@ -122,10 +127,8 @@ export default function AdminPanel() {
     try {
       const res = await fetch("/api/admin/reject", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           id: rejectItem.Id,
           type: activeTab,
@@ -151,7 +154,7 @@ export default function AdminPanel() {
   };
 
   // 1. RENDER LOGIN SCREEN
-  if (!token) {
+  if (!isAuthenticated) {
     return (
       <div style={styles.loginContainer}>
         <div style={styles.loginCard}>
