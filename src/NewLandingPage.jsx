@@ -406,7 +406,7 @@ function SearchableDropdown({
   }, []);
 
   const filteredOptions = options.filter((opt) =>
-    String(opt).toLowerCase().includes(searchTerm.toLowerCase())
+    String(opt).toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const handleSelect = (option) => {
@@ -418,13 +418,22 @@ function SearchableDropdown({
   };
 
   return (
-    <div className="form-field" ref={dropdownRef} style={{ position: "relative" }}>
+    <div
+      className="form-field"
+      ref={dropdownRef}
+      style={{ position: "relative" }}
+    >
       <span>
         {label}
         {required && <em> *</em>}
       </span>
 
-      <input type="hidden" name={name} value={value || ""} required={required} />
+      <input
+        type="hidden"
+        name={name}
+        value={value || ""}
+        required={required}
+      />
 
       <div
         onClick={() => !disabled && setIsOpen(!isOpen)}
@@ -494,16 +503,26 @@ function SearchableDropdown({
                     color: value === opt ? "#0b5ed7" : "#1f2937",
                     fontWeight: value === opt ? "600" : "400",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f3f4f6")}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor = "#f3f4f6")
+                  }
                   onMouseLeave={(e) =>
-                    (e.currentTarget.style.backgroundColor = value === opt ? "#e8f0fe" : "transparent")
+                    (e.currentTarget.style.backgroundColor =
+                      value === opt ? "#e8f0fe" : "transparent")
                   }
                 >
                   {opt}
                 </div>
               ))
             ) : (
-              <div style={{ padding: "10px", fontSize: "0.85rem", color: "#888", textAlign: "center" }}>
+              <div
+                style={{
+                  padding: "10px",
+                  fontSize: "0.85rem",
+                  color: "#888",
+                  textAlign: "center",
+                }}
+              >
                 No matches found
               </div>
             )}
@@ -516,7 +535,11 @@ function SearchableDropdown({
   );
 }
 
-function CompanyVerificationFields({ industries = [], selectedIndustry, onIndustryChange }) {
+function CompanyVerificationFields({
+  industries = [],
+  selectedIndustry,
+  onIndustryChange,
+}) {
   return (
     <>
       <div className="form-section-title">
@@ -524,9 +547,17 @@ function CompanyVerificationFields({ industries = [], selectedIndustry, onIndust
       </div>
       <div className="form-grid three">
         <Field label="Company Name" required>
-          <input required name="companyName" placeholder="Registered company name" />
+          <input
+            required
+            name="companyName"
+            placeholder="Registered company name"
+          />
         </Field>
-        <Field label="GSTIN" required hint="Required for registration eligibility">
+        <Field
+          label="GSTIN"
+          required
+          hint="Required for registration eligibility"
+        >
           <input
             required
             name="gstin"
@@ -536,7 +567,12 @@ function CompanyVerificationFields({ industries = [], selectedIndustry, onIndust
           />
         </Field>
         <Field label="CIN / LLPIN">
-          <input name="cin" pattern="[A-Za-z0-9-]{6,30}" title="Enter your CIN or LLPIN" placeholder="CIN or LLPIN" />
+          <input
+            name="cin"
+            pattern="[A-Za-z0-9-]{6,30}"
+            title="Enter your CIN or LLPIN"
+            placeholder="CIN or LLPIN"
+          />
         </Field>
         <Field label="Registered Address" required>
           <input required name="address" placeholder="Registered address" />
@@ -545,10 +581,21 @@ function CompanyVerificationFields({ industries = [], selectedIndustry, onIndust
           <input name="website" type="url" placeholder="https://" />
         </Field>
         <Field label="Company Email" required>
-          <input required name="companyEmail" type="email" placeholder="official@company.com" />
+          <input
+            required
+            name="companyEmail"
+            type="email"
+            placeholder="official@company.com"
+          />
         </Field>
         <Field label="Official Mobile Number" required>
-          <input required name="mobile" type="tel" pattern="[0-9+() -]{10,16}" placeholder="Official business number" />
+          <input
+            required
+            name="mobile"
+            type="tel"
+            pattern="[0-9+() -]{10,16}"
+            placeholder="Official business number"
+          />
         </Field>
 
         <SearchableDropdown
@@ -563,7 +610,9 @@ function CompanyVerificationFields({ industries = [], selectedIndustry, onIndust
 
         <Field label="Company Type" required>
           <select required name="companyType" defaultValue="">
-            <option value="" disabled>Select company type</option>
+            <option value="" disabled>
+              Select company type
+            </option>
             <option>Private Limited</option>
             <option>Public Limited</option>
             <option>LLP</option>
@@ -590,7 +639,12 @@ function CompanyVerificationFields({ industries = [], selectedIndustry, onIndust
   );
 }
 
-function RegistrationBlock({ type, industries = [], selectedIndustry, onIndustryChange }) {
+function RegistrationBlock({
+  type,
+  industries = [],
+  selectedIndustry,
+  onIndustryChange,
+}) {
   const roles = type === "buyer" ? buyerRoles : sellerRoles;
   return (
     <>
@@ -604,21 +658,37 @@ function RegistrationBlock({ type, industries = [], selectedIndustry, onIndustry
       </div>
       <div className="form-grid three">
         <Field label="Full Name" required>
-          <input required name="representativeName" placeholder="Authorised person's name" />
+          <input
+            required
+            name="representativeName"
+            placeholder="Authorised person's name"
+          />
         </Field>
         <Field label="Designation / Business Role" required>
           <select required name="role" defaultValue="">
-            <option value="" disabled>Select your role</option>
+            <option value="" disabled>
+              Select your role
+            </option>
             {roles.map((role) => (
               <option key={role}>{role}</option>
             ))}
           </select>
         </Field>
         <Field label="Representative Email" required>
-          <input required name="representativeEmail" type="email" placeholder="Work email" />
+          <input
+            required
+            name="representativeEmail"
+            type="email"
+            placeholder="Work email"
+          />
         </Field>
         <Field label="Representative Mobile" required>
-          <input required name="representativeMobile" type="tel" placeholder="Work mobile" />
+          <input
+            required
+            name="representativeMobile"
+            type="tel"
+            placeholder="Work mobile"
+          />
         </Field>
       </div>
       <label className="authority-check">
@@ -645,7 +715,9 @@ function CommissionBlock() {
       <div className="form-grid three">
         <Field label="Commission Type">
           <select name="commissionType" defaultValue="">
-            <option value="" disabled>Select</option>
+            <option value="" disabled>
+              Select
+            </option>
             <option>Percentage of Purchase Order Value</option>
             <option>Fixed Amount</option>
             <option>Per Unit</option>
@@ -657,7 +729,9 @@ function CommissionBlock() {
         </Field>
         <Field label="Commission Applicable On">
           <select name="commissionApplicableOn" defaultValue="">
-            <option value="" disabled>Select</option>
+            <option value="" disabled>
+              Select
+            </option>
             <option>First Purchase Order</option>
             <option>Every Purchase Order for agreed period</option>
             <option>Entire business relationship for agreed period</option>
@@ -673,7 +747,12 @@ function CommissionBlock() {
   );
 }
 
-function BuyerForm({ categories = defaultItemCategories, units = [], currencies = [], industries = [] }) {
+function BuyerForm({
+  categories = defaultItemCategories,
+  units = [],
+  currencies = [],
+  industries = [],
+}) {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [customCategory, setCustomCategory] = useState("");
   const [products, setProducts] = useState([]);
@@ -692,7 +771,9 @@ function BuyerForm({ categories = defaultItemCategories, units = [], currencies 
       return;
     }
     setLoadingProducts(true);
-    fetch(`/api/products?category=${encodeURIComponent(selectedCategory.trim())}`)
+    fetch(
+      `/api/products?category=${encodeURIComponent(selectedCategory.trim())}`,
+    )
       .then((res) => res.json())
       .then((data) => setProducts(Array.isArray(data) ? data : []))
       .catch((err) => {
@@ -761,17 +842,18 @@ function BuyerForm({ categories = defaultItemCategories, units = [], currencies 
               !selectedCategory
                 ? "Select Category First"
                 : loadingProducts
-                ? "Loading products..."
-                : products.length === 0
-                ? "No products found (Add New)"
-                : "Select Product"
+                  ? "Loading products..."
+                  : products.length === 0
+                    ? "No products found (Add New)"
+                    : "Select Product"
             }
             onChange={(e) => {
               setSelectedProduct(e.target.value);
               setCustomProduct("");
             }}
           />
-          {(selectedProduct === "Other / Add New" || selectedCategory === "Other / Add New") && (
+          {(selectedProduct === "Other / Add New" ||
+            selectedCategory === "Other / Add New") && (
             <Field label="Enter New Product Name" required>
               <input
                 name="productName"
@@ -785,7 +867,11 @@ function BuyerForm({ categories = defaultItemCategories, units = [], currencies 
         </div>
 
         <Field label="Application / End Use" required>
-          <input name="application" required placeholder="Application / end use" />
+          <input
+            name="application"
+            required
+            placeholder="Application / end use"
+          />
         </Field>
         <Field label="Grade / Model">
           <input name="gradeModel" placeholder="Grade or model" />
@@ -797,7 +883,10 @@ function BuyerForm({ categories = defaultItemCategories, units = [], currencies 
           <input name="hsnCode" placeholder="HSN code" />
         </Field>
         <Field label="Required Certification / Standard">
-          <input name="requiredCertification" placeholder="Certification / standard" />
+          <input
+            name="requiredCertification"
+            placeholder="Certification / standard"
+          />
         </Field>
         <Field label="Required Quantity" required>
           <input name="requiredQuantity" required placeholder="Quantity" />
@@ -815,7 +904,9 @@ function BuyerForm({ categories = defaultItemCategories, units = [], currencies 
 
         <Field label="Requirement Frequency">
           <select name="requirementFrequency" defaultValue="">
-            <option value="" disabled>Select</option>
+            <option value="" disabled>
+              Select
+            </option>
             <option>One-Time</option>
             <option>Recurring</option>
             <option>Monthly</option>
@@ -846,7 +937,11 @@ function BuyerForm({ categories = defaultItemCategories, units = [], currencies 
           <input name="creditPeriod" placeholder="Credit period" />
         </Field>
         <Field label="Delivery Location" required>
-          <input name="deliveryLocation" required placeholder="City / State / Country" />
+          <input
+            name="deliveryLocation"
+            required
+            placeholder="City / State / Country"
+          />
         </Field>
         <Field label="Required Delivery Date" required>
           <input name="requiredDeliveryDate" required type="date" />
@@ -856,7 +951,9 @@ function BuyerForm({ categories = defaultItemCategories, units = [], currencies 
         </Field>
         <Field label="Domestic / Import Requirement">
           <select name="domesticOrImport" defaultValue="">
-            <option value="" disabled>Select</option>
+            <option value="" disabled>
+              Select
+            </option>
             <option>Domestic</option>
             <option>Import</option>
             <option>Either</option>
@@ -864,7 +961,9 @@ function BuyerForm({ categories = defaultItemCategories, units = [], currencies 
         </Field>
         <Field label="Supplier Preference">
           <select name="supplierPreference" defaultValue="">
-            <option value="" disabled>Select</option>
+            <option value="" disabled>
+              Select
+            </option>
             <option>Manufacturer</option>
             <option>Authorised Distributor</option>
             <option>Exporter</option>
@@ -877,10 +976,16 @@ function BuyerForm({ categories = defaultItemCategories, units = [], currencies 
           <input name="preferredOrigin" placeholder="Preferred origin" />
         </Field>
         <Field label="Certifications Required">
-          <input name="certificationsRequired" placeholder="Required supplier certifications" />
+          <input
+            name="certificationsRequired"
+            placeholder="Required supplier certifications"
+          />
         </Field>
         <Field label="Minimum Supplier Experience">
-          <input name="minSupplierExperience" placeholder="Years / experience" />
+          <input
+            name="minSupplierExperience"
+            placeholder="Years / experience"
+          />
         </Field>
         <Field label="Specification / RFQ / Drawing / BOQ">
           <input name="attachment" type="file" />
@@ -909,7 +1014,12 @@ function BuyerForm({ categories = defaultItemCategories, units = [], currencies 
   );
 }
 
-function SellerForm({ categories = defaultItemCategories, units = [], currencies = [], industries = [] }) {
+function SellerForm({
+  categories = defaultItemCategories,
+  units = [],
+  currencies = [],
+  industries = [],
+}) {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [customCategory, setCustomCategory] = useState("");
   const [products, setProducts] = useState([]);
@@ -927,7 +1037,9 @@ function SellerForm({ categories = defaultItemCategories, units = [], currencies
       return;
     }
     setLoadingProducts(true);
-    fetch(`/api/products?category=${encodeURIComponent(selectedCategory.trim())}`)
+    fetch(
+      `/api/products?category=${encodeURIComponent(selectedCategory.trim())}`,
+    )
       .then((res) => res.json())
       .then((data) => setProducts(Array.isArray(data) ? data : []))
       .catch((err) => {
@@ -994,17 +1106,18 @@ function SellerForm({ categories = defaultItemCategories, units = [], currencies
               !selectedCategory
                 ? "Select Category First"
                 : loadingProducts
-                ? "Loading products..."
-                : products.length === 0
-                ? "No products found (Add New)"
-                : "Select Product"
+                  ? "Loading products..."
+                  : products.length === 0
+                    ? "No products found (Add New)"
+                    : "Select Product"
             }
             onChange={(e) => {
               setSelectedProduct(e.target.value);
               setCustomProduct("");
             }}
           />
-          {(selectedProduct === "Other / Add New" || selectedCategory === "Other / Add New") && (
+          {(selectedProduct === "Other / Add New" ||
+            selectedCategory === "Other / Add New") && (
             <Field label="Enter New Product Name" required>
               <input
                 name="productName"
@@ -1018,7 +1131,11 @@ function SellerForm({ categories = defaultItemCategories, units = [], currencies
         </div>
 
         <Field label="Manufacturer / Supplier" required>
-          <input name="manufacturerSupplier" required placeholder="Manufacturer / supplier" />
+          <input
+            name="manufacturerSupplier"
+            required
+            placeholder="Manufacturer / supplier"
+          />
         </Field>
         <Field label="Grade / Model" required>
           <input name="gradeModel" required placeholder="Grade / model" />
@@ -1032,10 +1149,20 @@ function SellerForm({ categories = defaultItemCategories, units = [], currencies
 
         <div className="textarea-row">
           <Field label="Product Description" required>
-            <textarea name="productDescription" required rows="3" placeholder="Product description" />
+            <textarea
+              name="productDescription"
+              required
+              rows="3"
+              placeholder="Product description"
+            />
           </Field>
           <Field label="Technical Specification" required>
-            <textarea name="technicalSpecification" required rows="3" placeholder="Technical specification" />
+            <textarea
+              name="technicalSpecification"
+              required
+              rows="3"
+              placeholder="Technical specification"
+            />
           </Field>
         </div>
 
@@ -1078,7 +1205,9 @@ function SellerForm({ categories = defaultItemCategories, units = [], currencies
         </Field>
         <Field label="Domestic / Export">
           <select name="domesticOrExport" defaultValue="">
-            <option value="" disabled>Select</option>
+            <option value="" disabled>
+              Select
+            </option>
             <option>Domestic</option>
             <option>Export</option>
             <option>Both</option>
@@ -1094,7 +1223,10 @@ function SellerForm({ categories = defaultItemCategories, units = [], currencies
           <input name="countriesServed" placeholder="Countries served" />
         </Field>
         <Field label="Preferred Buyer Location">
-          <input name="preferredBuyerLocation" placeholder="Preferred buyer location" />
+          <input
+            name="preferredBuyerLocation"
+            placeholder="Preferred buyer location"
+          />
         </Field>
         <Field label="Years in Business">
           <input name="sellerYearsInBusiness" placeholder="Years" />
@@ -1107,14 +1239,18 @@ function SellerForm({ categories = defaultItemCategories, units = [], currencies
         </Field>
         <Field label="OEM Capability">
           <select name="oemCapability" defaultValue="">
-            <option value="" disabled>Select</option>
+            <option value="" disabled>
+              Select
+            </option>
             <option>Yes</option>
             <option>No</option>
           </select>
         </Field>
         <Field label="Private Label Capability">
           <select name="privateLabelCapability" defaultValue="">
-            <option value="" disabled>Select</option>
+            <option value="" disabled>
+              Select
+            </option>
             <option>Yes</option>
             <option>No</option>
           </select>
@@ -1131,7 +1267,10 @@ function SellerForm({ categories = defaultItemCategories, units = [], currencies
 function Modal({ close, children, title, subtitle, wide = false, onBookDemo }) {
   return (
     <div className="modal-backdrop" onClick={close}>
-      <div className={`modal ${wide ? "modal-wide" : ""}`} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`modal ${wide ? "modal-wide" : ""}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <button className="modal-close" onClick={close} type="button">
           <X />
         </button>
@@ -1154,7 +1293,11 @@ function Modal({ close, children, title, subtitle, wide = false, onBookDemo }) {
               className="expert-btn"
               type="button"
               onClick={onBookDemo}
-              style={{ padding: "6px 14px", fontSize: "0.85rem", cursor: "pointer" }}
+              style={{
+                padding: "6px 14px",
+                fontSize: "0.85rem",
+                cursor: "pointer",
+              }}
             >
               Book a Demo for ERP <ArrowRight size={15} />
             </button>
@@ -1208,7 +1351,9 @@ function NewLandingPage() {
   }, []);
 
   const scrollTo = (id) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document
+      .getElementById(id)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
     setMobileOpen(false);
   };
 
@@ -1251,19 +1396,26 @@ function NewLandingPage() {
       const result = await response.json();
       if (response.ok && result.success) {
         window.alert(
-          result.message || "Thank you. Your request has been submitted for review by Synergy5M."
+          result.message ||
+            "Thank you. Your request has been submitted for review by Synergy5M.",
         );
         closeModal();
       } else {
-        window.alert("Submission error: " + (result.message || "Failed to submit."));
+        window.alert(
+          "Submission error: " + (result.message || "Failed to submit."),
+        );
       }
     } catch (err) {
       console.error("Submission failed:", err);
-      window.alert("Server error. Please ensure the backend server is reachable.");
+      window.alert(
+        "Server error. Please ensure the backend server is reachable.",
+      );
     }
   };
 
-  const [trialStartDate, setTrialStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [trialStartDate, setTrialStartDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
   const [trialPlan, setTrialPlan] = useState("7 Days Trial");
 
   const getTrialEndDate = (startDate, plan) => {
@@ -1282,7 +1434,11 @@ function NewLandingPage() {
     <div className="synergy-site">
       <header className="site-header">
         <div className="header-inner">
-          <button className="brand" onClick={() => scrollTo("home")} aria-label="Synergy5M home">
+          <button
+            className="brand"
+            onClick={() => scrollTo("home")}
+            aria-label="Synergy5M home"
+          >
             <img src={Logo} alt="Synergy5M" />
           </button>
 
@@ -1296,7 +1452,9 @@ function NewLandingPage() {
 
           <nav className={mobileOpen ? "main-nav open" : "main-nav"}>
             <button onClick={() => scrollTo("home")}>HOME</button>
-            <button onClick={() => scrollTo("consulting")}>MANAGEMENT CONSULTING</button>
+            <button onClick={() => scrollTo("consulting")}>
+              MANAGEMENT CONSULTING
+            </button>
 
             <div className="nav-item-dropdown">
               <button onClick={() => scrollTo("erp")}>ERP SOFTWARE</button>
@@ -1311,7 +1469,9 @@ function NewLandingPage() {
             </div>
 
             <div className="nav-item-dropdown">
-              <button onClick={() => scrollTo("connect")}>BUYING & SELLING</button>
+              <button onClick={() => scrollTo("connect")}>
+                BUYING & SELLING
+              </button>
               <a
                 href="https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login"
                 target="_blank"
@@ -1340,8 +1500,8 @@ function NewLandingPage() {
             <h3 className="text-danger">Three Powerful Solutions.</h3>
             <h2>Unlimited Possibilities.</h2>
             <p>
-              Empowering businesses with <b>Consulting Excellence</b>, <b>Intelligent ERP</b> and{" "}
-              <b>Strong Industry Connections.</b>
+              Empowering businesses with <b>Consulting Excellence</b>,{" "}
+              <b>Intelligent ERP</b> and <b>Strong Industry Connections.</b>
             </p>
             <div className="hero-points">
               <div>
@@ -1368,20 +1528,26 @@ function NewLandingPage() {
             </div>
           </div>
           <div className="hero-visual">
-            <img src="/hero-business.png" alt="Business, technology and connections" />
+            <img
+              src="/hero-business.png"
+              alt="Business, technology and connections"
+            />
           </div>
         </section>
 
-        <section id="consulting" className="consulting section-wrap dark-anchor">
+        <section
+          id="consulting"
+          className="consulting section-wrap dark-anchor"
+        >
           <div className="section-kicker orange">01</div>
           <div className="consulting-heading">
             <div>
               <h2> MANAGEMENT CONSULTING</h2>
               <h3>The 5M Framework for Business Excellence</h3>
               <p>
-                We help businesses optimise every critical element of their operations through our
-                proven 5M approach — for stronger performance, higher productivity and sustainable
-                growth.
+                We help businesses optimise every critical element of their
+                operations through our proven 5M approach — for stronger
+                performance, higher productivity and sustainable growth.
               </p>
             </div>
             <img src="/consulting-dart.png" alt="Business target" />
@@ -1407,7 +1573,9 @@ function NewLandingPage() {
             <div>
               <p className="mini-label">{activeConsulting.toUpperCase()}</p>
               <h3>{consulting[activeConsulting].tagline}</h3>
-              <p className="consulting-intro">{consulting[activeConsulting].intro}</p>
+              <p className="consulting-intro">
+                {consulting[activeConsulting].intro}
+              </p>
               <ul>
                 {consulting[activeConsulting].focus.slice(0, 6).map((x) => (
                   <li key={x}>
@@ -1436,8 +1604,8 @@ function NewLandingPage() {
               <h2> ERP SOFTWARE</h2>
               <h3>Your Business. Your ERP. Your Brand.</h3>
               <p>
-                A powerful, integrated ERP software designed for MSMEs to automate operations, improve
-                control and drive growth.
+                A powerful, integrated ERP software designed for MSMEs to
+                automate operations, improve control and drive growth.
               </p>
               <button className="expert-btn" onClick={() => setModal("demo")}>
                 Book a Demo <ArrowRight size={15} />
@@ -1505,7 +1673,7 @@ function NewLandingPage() {
                 </p>
               ))}
               <button className="expert-btn" onClick={() => setModal("TRail")}>
-                Request a Trail
+                Request For Trial
               </button>
             </aside>
           </div>
@@ -1520,10 +1688,13 @@ function NewLandingPage() {
                 <br />
                 BUYERS TO POTENTIAL SELLERS
               </h2>
-              <h3>Bridging Requirements. Building Relationships. Creating Value.</h3>
+              <h3>
+                Bridging Requirements. Building Relationships. Creating Value.
+              </h3>
               <p>
-                We leverage our industry experience and strong connections to help buyers find the
-                right suppliers and help sellers connect with the right buyers.
+                We leverage our industry experience and strong connections to
+                help buyers find the right suppliers and help sellers connect
+                with the right buyers.
               </p>
               <button className="white-btn" onClick={() => setModal("connect")}>
                 Connect with Us <ArrowRight size={17} />
@@ -1536,8 +1707,8 @@ function NewLandingPage() {
               <ShoppingCart />
               <h3>For Buyers</h3>
               <p>
-                Access verified suppliers and competitive offers while keeping your requirement
-                confidential during the initial stages.
+                Access verified suppliers and competitive offers while keeping
+                your requirement confidential during the initial stages.
               </p>
               <ul>
                 <li>Access to Pre-verified Suppliers</li>
@@ -1546,14 +1717,16 @@ function NewLandingPage() {
                 <li>Reduced Sourcing Time & Effort</li>
                 <li>End-to-End Support</li>
               </ul>
-              <button onClick={() => setModal("buyer")}>Post Your Requirement</button>
+              <button onClick={() => setModal("buyer")}>
+                Post Your Requirement
+              </button>
             </article>
             <article>
               <Truck />
               <h3>For Sellers</h3>
               <p>
-                Connect with genuine buyers and expand your business opportunities through qualified
-                requirements.
+                Connect with genuine buyers and expand your business
+                opportunities through qualified requirements.
               </p>
               <ul>
                 <li>Connect with Genuine Buyers</li>
@@ -1562,14 +1735,16 @@ function NewLandingPage() {
                 <li>Build Long-term Relationships</li>
                 <li>Growth With Expert Support</li>
               </ul>
-              <button onClick={() => setModal("seller")}>List Your Products</button>
+              <button onClick={() => setModal("seller")}>
+                List Your Products
+              </button>
             </article>
             <article>
               <Handshake />
               <h3>Our Advantage</h3>
               <p>
-                Not just a directory — industry experience plus technology to qualify and facilitate
-                business.
+                Not just a directory — industry experience plus technology to
+                qualify and facilitate business.
               </p>
               <ul>
                 <li>Deep Industry Experience</li>
@@ -1578,7 +1753,9 @@ function NewLandingPage() {
                 <li>Trusted & Transparent Process</li>
                 <li>Win-Win Partnerships</li>
               </ul>
-              <button onClick={() => setModal("expert")}>Know Our Expertise</button>
+              <button onClick={() => setModal("expert")}>
+                Know Our Expertise
+              </button>
             </article>
             <aside>
               <b>1000+</b>
@@ -1602,9 +1779,10 @@ function NewLandingPage() {
               <span>An Industry-Experienced Business Connector.</span>
             </h2>
             <p>
-              We don't look at your business in isolation. A new order affects Marketing. The order
-              requires Materials. Materials require Manpower. Production depends on Machines. And the
-              entire cycle ultimately impacts Money.
+              We don't look at your business in isolation. A new order affects
+              Marketing. The order requires Materials. Materials require
+              Manpower. Production depends on Machines. And the entire cycle
+              ultimately impacts Money.
             </p>
           </div>
           <div className="advantage-grid">
@@ -1645,7 +1823,8 @@ function NewLandingPage() {
             <strong>We Don't Sell Your Contact Details.</strong>
             <span>We Create Business Opportunities.</span>
             <small>
-              Your requirement remains confidential until there is genuine commercial intent.
+              Your requirement remains confidential until there is genuine
+              commercial intent.
             </small>
           </div>
         </section>
@@ -1656,7 +1835,10 @@ function NewLandingPage() {
               <span className="section-kicker teal">BUSINESS CONNECT</span>
               <h2>How Synergy5M Business Connect Works</h2>
             </div>
-            <p>Verified companies. Qualified connections. Confidential business leads.</p>
+            <p>
+              Verified companies. Qualified connections. Confidential business
+              leads.
+            </p>
           </div>
           <div className="process-track">
             {connectSteps.map((step, i) => (
@@ -1669,14 +1851,18 @@ function NewLandingPage() {
           </div>
         </section>
 
-        <section className="clients-section section-wrap" aria-label="Our Clients">
+        <section
+          className="clients-section section-wrap"
+          aria-label="Our Clients"
+        >
           <div className="clients-head">
             <div>
               <span className="section-kicker orange">OUR CLIENTS</span>
               <h2>Trusted by Businesses.</h2>
             </div>
             <p>
-              Our existing client list, now carried forward into the new Synergy5M experience.
+              Our existing client list, now carried forward into the new
+              Synergy5M experience.
             </p>
           </div>
           <div className="clients-marquee">
@@ -1706,15 +1892,19 @@ function NewLandingPage() {
           <div className="footer-brand">
             <img src={Logo} alt="Synergy5M" />
             <p>
-              Technology, consulting expertise and industry connections to help businesses grow
-              faster and connect smarter.
+              Technology, consulting expertise and industry connections to help
+              businesses grow faster and connect smarter.
             </p>
           </div>
           <div>
             <h4>SOLUTIONS</h4>
-            <button onClick={() => scrollTo("consulting")}>Business Consulting</button>
+            <button onClick={() => scrollTo("consulting")}>
+              Business Consulting
+            </button>
             <button onClick={() => scrollTo("erp")}>SYN ERP 10 Software</button>
-            <button onClick={() => scrollTo("connect")}>Indenting & Connect</button>
+            <button onClick={() => scrollTo("connect")}>
+              Indenting & Connect
+            </button>
           </div>
           <div>
             <h4>BUSINESS CONSULTING</h4>
@@ -1751,9 +1941,39 @@ function NewLandingPage() {
             <button onClick={() => setModal("meeting")}>Contact Us</button>
           </div>
         </div>
-        <div className="footer-bottom">
-          © {new Date().getFullYear()} Synergy5M LLP. All Rights Reserved.
-          <span>Privacy Policy &nbsp; | &nbsp; Terms of Use</span>
+        <div
+          className="footer-bottom"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexWrap: "wrap",
+            gap: "8px",
+            color: "#6c757d",
+            fontSize: "13px",
+          }}
+        >
+          <span>
+            © {new Date().getFullYear()}{" "}
+            <span
+              onClick={() =>
+                window.open(
+                  "https://synergy5m.com/admin",
+                  "_blank",
+                  "noopener,noreferrer",
+                )
+              }
+              style={{
+                cursor: "default",
+                userSelect: "none",
+              }}
+            >
+              Synergy5M LLP.
+            </span>{" "}
+            All Rights Reserved.
+          </span>
+          <span>|</span>
+          <span>Privacy Policy &nbsp;|&nbsp; Terms of Use</span>
         </div>
       </footer>
 
@@ -1776,8 +1996,8 @@ function NewLandingPage() {
               <div>
                 <b>What SYN ERP 10 covers</b>
                 <p>
-                  Integrated process-driven functionality designed around business processes, not
-                  software limitations.
+                  Integrated process-driven functionality designed around
+                  business processes, not software limitations.
                 </p>
               </div>
             </div>
@@ -1860,15 +2080,29 @@ function NewLandingPage() {
               </Field>
 
               <Field label="Contact Person" required>
-                <input name="contactPerson" required placeholder="Contact Person Name" />
+                <input
+                  name="contactPerson"
+                  required
+                  placeholder="Contact Person Name"
+                />
               </Field>
 
               <Field label="Mobile No." required>
-                <input name="mobileNo" required type="tel" placeholder="Mobile Number" />
+                <input
+                  name="mobileNo"
+                  required
+                  type="tel"
+                  placeholder="Mobile Number"
+                />
               </Field>
 
               <Field label="Email" required>
-                <input name="email" required type="email" placeholder="Official Email" />
+                <input
+                  name="email"
+                  required
+                  type="email"
+                  placeholder="Official Email"
+                />
               </Field>
 
               <Field label="GST No.">
@@ -1876,7 +2110,12 @@ function NewLandingPage() {
               </Field>
 
               <Field label="Number of Users">
-                <input name="numberOfUsers" type="number" min="1" placeholder="No. of Users" />
+                <input
+                  name="numberOfUsers"
+                  type="number"
+                  min="1"
+                  placeholder="No. of Users"
+                />
               </Field>
 
               <Field label="Subscription Plan" required>
@@ -1926,7 +2165,11 @@ function NewLandingPage() {
 
               <div className="span-two">
                 <Field label="Registered Address">
-                  <textarea name="address" rows="3" placeholder="Registered business address" />
+                  <textarea
+                    name="address"
+                    rows="3"
+                    placeholder="Registered business address"
+                  />
                 </Field>
               </div>
 
@@ -1951,19 +2194,21 @@ function NewLandingPage() {
       )}
 
       {modal &&
-        ["expert", "consulting", "connect", "demo", "meeting"].includes(modal) && (
+        ["expert", "consulting", "connect", "demo", "meeting"].includes(
+          modal,
+        ) && (
           <Modal
             close={closeModal}
             title={
               modal === "demo"
                 ? "Request a SYN ERP 10 Demo"
                 : modal === "consulting"
-                ? "Explore Business Consulting"
-                : modal === "connect"
-                ? "Become a Business Connect Partner"
-                : modal === "meeting"
-                ? "Schedule a Meeting"
-                : "Talk to an Expert"
+                  ? "Explore Business Consulting"
+                  : modal === "connect"
+                    ? "Become a Business Connect Partner"
+                    : modal === "meeting"
+                      ? "Schedule a Meeting"
+                      : "Talk to an Expert"
             }
             subtitle={
               modal === "demo"
@@ -1973,11 +2218,17 @@ function NewLandingPage() {
           >
             <form
               key={modal}
-              onSubmit={(e) => submitForm(e, modal === "demo" ? "demo" : "inquiry")}
+              onSubmit={(e) =>
+                submitForm(e, modal === "demo" ? "demo" : "inquiry")
+              }
             >
               <div className="form-grid">
                 <Field label="Your Name" required>
-                  <input name="fullName" required placeholder="Enter Your name" />
+                  <input
+                    name="fullName"
+                    required
+                    placeholder="Enter Your name"
+                  />
                 </Field>
 
                 <Field label="Business Email" required>
@@ -1990,7 +2241,11 @@ function NewLandingPage() {
                 </Field>
 
                 <Field label="Company Name" required>
-                  <input name="companyName" required placeholder="Company name" />
+                  <input
+                    name="companyName"
+                    required
+                    placeholder="Company name"
+                  />
                 </Field>
 
                 <Field label="Official Mobile" required>
@@ -2015,18 +2270,32 @@ function NewLandingPage() {
 
                     <Field label="Time Slot" required>
                       <select name="timeSlot" required defaultValue="">
-                        <option value="" disabled>Select time slot</option>
-                        <option value="10:00 AM - 11:00 AM">10:00 AM - 11:00 AM</option>
-                        <option value="11:30 AM - 12:30 PM">11:30 AM - 12:30 PM</option>
-                        <option value="02:00 PM - 03:00 PM">02:00 PM - 03:00 PM</option>
-                        <option value="03:30 PM - 04:30 PM">03:30 PM - 04:30 PM</option>
-                        <option value="05:00 PM - 06:00 PM">05:00 PM - 06:00 PM</option>
+                        <option value="" disabled>
+                          Select time slot
+                        </option>
+                        <option value="10:00 AM - 11:00 AM">
+                          10:00 AM - 11:00 AM
+                        </option>
+                        <option value="11:30 AM - 12:30 PM">
+                          11:30 AM - 12:30 PM
+                        </option>
+                        <option value="02:00 PM - 03:00 PM">
+                          02:00 PM - 03:00 PM
+                        </option>
+                        <option value="03:30 PM - 04:30 PM">
+                          03:30 PM - 04:30 PM
+                        </option>
+                        <option value="05:00 PM - 06:00 PM">
+                          05:00 PM - 06:00 PM
+                        </option>
                       </select>
                     </Field>
 
                     <Field label="Meeting Platform" required>
                       <select name="meetingPlatform" required defaultValue="">
-                        <option value="" disabled>Select platform</option>
+                        <option value="" disabled>
+                          Select platform
+                        </option>
                         <option value="Google Meet">Google Meet</option>
                         <option value="Microsoft Teams">Microsoft Teams</option>
                         <option value="Zoom">Zoom</option>
@@ -2042,12 +2311,16 @@ function NewLandingPage() {
                         modal === "consulting"
                           ? "Business Consulting"
                           : modal === "connect"
-                          ? "Business Connect"
-                          : "Business Consulting"
+                            ? "Business Connect"
+                            : "Business Consulting"
                       }
                     >
-                      <option value="" disabled>Select</option>
-                      <option value="Business Consulting">Business Consulting</option>
+                      <option value="" disabled>
+                        Select
+                      </option>
+                      <option value="Business Consulting">
+                        Business Consulting
+                      </option>
                       <option value="SYN ERP 10">SYN ERP 10</option>
                       <option value="Business Connect">Business Connect</option>
                     </select>

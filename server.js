@@ -8,6 +8,7 @@ const net = require("net");
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 
+const axios = require("axios");
 require("dotenv").config();
 
 const { sql, poolPromise } = require("./db");
@@ -731,8 +732,8 @@ app.post("/api/admin/approve", async (req, res) => {
   const generatedPassword = generatePassword(10);
   const userRole = type === "erp" ? "erp" : "buying-selling";
   const portalUrl = type === "erp" 
-    ? (process.env.ERP_LOGIN_URL || "https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login")
-    : (process.env.B4P_LOGIN_URL || "https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login");
+    ? (process.env.ERP_LOGIN_URL || "https://synergy5m-Buyer_Seller_Portal-platform.azurewebsites.net/Login/Login")
+    : (process.env.B4P_LOGIN_URL || "https://synergy5m-Buyer_Seller_Portal-platform.azurewebsites.net/Login/Login");
 
   try {
     const pool = await poolPromise;
@@ -740,29 +741,7 @@ app.post("/api/admin/approve", async (req, res) => {
     await transaction.begin();
 
     try {
-      // 1. Insert into HRM_UserTbl (Omit [id] so SQL Server auto-generates it)
-      const insertUserQuery = `
-        INSERT INTO [dbo].[HRM_UserTbl] (
-          [username], [password], [AdminApprove], [StartDate],
-          [NoOfDays], [EndDate], [IsSubscribed], [CHIEF_ADMIN], [SUPERADMIN],
-          [DEPUTY_SUPERADMIN], [ADMIN], [DEPUTY_ADMIN], [USER], [UserRole],
-          [MaterialManagement], [SalesAndMarketing], [HRAndAdmin], [AccountAndFinance],
-          [Masters], [Dashboard], [ProductionAndQuality], [External_buyer_seller],
-          [Emp_Code], [Power_Of_Authority], [NewAssignModule], [NOT_APPLICABLE], [IsActive]
-        ) 
-        OUTPUT INSERTED.id
-        VALUES (
-          @Username, @Password, 1, GETDATE(),
-          30, DATEADD(day, 30, GETDATE()), 1, 0, 0,
-          0, 0, 0, 1, @UserRole,
-          0, 0, 0, 0,
-          0, 1, 0, ${type === "buyingselling" ? 1 : 0},
-          'EMP' + CAST(NEXT VALUE FOR dbo.Seq_BusinessEnquiries_Id AS VARCHAR(10)), 'User', 0, 0, 1
-        );
-      `;
-
-      // If you don't have a sequence for Emp_Code, you can simply use:
-      // 'EMP' + RIGHT('0000' + CAST(ABS(CHECKSUM(NEWID())) % 10000 AS VARCHAR(10)), 4)
+      // 1. Insert into HRM_UserTbl and retrieve the new ID
       const insertUserSql = `
         INSERT INTO [dbo].[HRM_UserTbl] (
           [username], [password], [AdminApprove], [StartDate],
@@ -778,20 +757,51 @@ app.post("/api/admin/approve", async (req, res) => {
           30, DATEADD(day, 30, GETDATE()), 1, 0, 0,
           0, 0, 0, 1, @UserRole,
           0, 0, 0, 0,
-          0, 1, 0, ${type === "buyingselling" ? 1 : 0},
+          0, 1, 0, ${type === "buyingselling" || type === "buying-selling" ? 1 : 0},
           'EMP' + RIGHT('0000' + CAST(ABS(CHECKSUM(NEWID())) % 10000 AS VARCHAR(10)), 4), 
           'User', 0, 0, 1
         );
       `;
 
-      await transaction.request()
+      const userResult = await transaction.request()
         .input("Username", sql.NVarChar(150), email.trim().toLowerCase())
         .input("Password", sql.NVarChar(100), generatedPassword)
         .input("UserRole", sql.NVarChar(50), userRole)
         .query(insertUserSql);
 
-      // 2. Update status in source table
-      if (type === "erp") {
+      const newUserId = userResult.recordset[0]?.id;
+      if (!newUserId) {
+        throw new Error("Failed to retrieve generated UserId from HRM_UserTbl.");
+      }
+
+      // 2. Insert assigned modules into HRM_UserDetail based on type
+      const isErp = type === "erp";
+      const moduleFilterCondition = isErp 
+        ? "WHERE [ModuleCode] <> 'BuySell' AND [IsActive] = 1" 
+        : "WHERE [ModuleCode] = 'BuySell' AND [IsActive] = 1";
+
+      const insertUserDetailsSql = `
+        INSERT INTO [dbo].[HRM_UserDetail] (
+          [UserId],
+          [ModuleId],
+          [IsTransferred],
+          [IsActive]
+        )
+        SELECT 
+          @UserId,
+          [ModuleId],
+          0,
+          1
+        FROM [dbo].[HRM_ModuleMaster]
+        ${moduleFilterCondition};
+      `;
+
+      await transaction.request()
+        .input("UserId", sql.Int, newUserId)
+        .query(insertUserDetailsSql);
+
+      // 3. Update status in source table
+      if (isErp) {
         await transaction.request()
           .input("Id", sql.Int, id)
           .query(`UPDATE [dbo].[TrialRequests] SET TrialStatus = 'Approved' WHERE Id = @Id;`);
@@ -807,26 +817,75 @@ app.post("/api/admin/approve", async (req, res) => {
       throw err;
     }
 
-    // 3. Send Credentials Email
-    const mailHtml = `
-      <div style="font-family: Arial, sans-serif; color: #222; max-width: 600px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 24px;">
-        <h2 style="color: #0b5ed7;">Account Approved - Synergy 5M</h2>
-        <p>Dear <strong>${recipientName || "Valued Partner"}</strong>,</p>
-        <p>Your request for <strong>${type === "erp" ? "SYN ERP 10" : "Business-4-Profit Portal"}</strong> has been officially approved. Your login credentials are created:</p>
-        <div style="background: #f7f9fa; border-left: 4px solid #0b5ed7; padding: 15px; margin: 20px 0;">
-          <p style="margin: 0 0 8px 0;"><strong>Login URL:</strong> <a href="${portalUrl}" target="_blank">${portalUrl}</a></p>
-          <p style="margin: 0 0 8px 0;"><strong>Username / Email:</strong> ${email.trim()}</p>
-          <p style="margin: 0;"><strong>Temporary Password:</strong> <span style="font-family: monospace; font-size: 16px; background: #fff; padding: 2px 6px; border: 1px solid #ccc;">${generatedPassword}</span></p>
+    // 4. Send Credentials Email
+    const isErp = type === "erp";
+
+const mailHtml = `
+  <div style="font-family: Arial, sans-serif; color: #222; max-width: 600px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 24px; background-color: #ffffff; margin: 0 auto;">
+    <h2 style="color: #0b5ed7; margin-top: 0;">Account Approved - Synergy 5M LLP</h2>
+    
+    <p style="font-size: 14px; line-height: 1.5;">Dear <strong>${recipientName || "Valued Partner"}</strong>,</p>
+    
+    <p style="font-size: 14px; line-height: 1.5;">
+      Your request for <strong>${isErp ? "SYN ERP 10" : "Buyer-Seller Portal"}</strong> has been officially approved. Your login credentials are ready:
+    </p>
+
+    <div style="background: #f7f9fa; border-left: 4px solid #0b5ed7; padding: 16px; margin: 20px 0; border-radius: 0 4px 4px 0;">
+      <p style="margin: 0 0 8px 0; font-size: 13.5px;">
+        <strong>Login URL:</strong> 
+        <a href="${portalUrl}" target="_blank" style="color: #0b5ed7; text-decoration: underline;">${portalUrl}</a>
+      </p>
+      <p style="margin: 0 0 8px 0; font-size: 13.5px;">
+        <strong>Username / Email:</strong> ${email.trim()}
+      </p>
+      <p style="margin: 0; font-size: 13.5px;">
+        <strong>Temporary Password:</strong> 
+        <span style="font-family: monospace; font-size: 15px; background: #ffffff; padding: 3px 8px; border: 1px solid #ccd0d4; border-radius: 4px; font-weight: 600;">${generatedPassword}</span>
+      </p>
+    </div>
+
+    <p style="color: #666; font-size: 13px; margin: 0 0 20px 0;">
+      * Please change your password upon your initial login for security purposes.
+    </p>
+
+    ${
+      isErp
+        ? `
+        <div style="margin-top: 24px; padding: 16px; background-color: #f0f7ff; border: 1px dashed #0b5ed7; border-radius: 6px;">
+          <h4 style="margin: 0 0 6px 0; color: #0b5ed7; font-size: 14px;">Did you know? Synergy 5M also features a Buyer-Seller Portal</h4>
+          <p style="margin: 0 0 10px 0; font-size: 13px; line-height: 1.5; color: #444;">
+            Alongside your ERP suite, you can list raw materials, post product requirements, and connect directly with verified industrial manufacturers across India on our <strong>Buyer-Seller Portal</strong>.
+          </p>
+          <p style="margin: 0; font-size: 12.5px; color: #555;">
+            Trade features can be enabled directly from your user profile or by reaching out to our support team.
+          </p>
         </div>
-        <p style="color: #666; font-size: 13px;">Please change your password upon your initial login.</p>
-      </div>
-    `;
+        `
+        : `
+        <div style="margin-top: 24px; padding: 16px; background-color: #fcf9f2; border: 1px dashed #d97706; border-radius: 6px;">
+          <h4 style="margin: 0 0 6px 0; color: #b45309; font-size: 14px;">Streamline Factory Operations with SYN ERP 10</h4>
+          <p style="margin: 0 0 10px 0; font-size: 13px; line-height: 1.5; color: #444;">
+            In addition to trading, Synergy 5M offers <strong>SYN ERP 10</strong>—an industrial ERP engineered for end-to-end plant operations covering Material Management, Production, Quality, Sales, and Accounting.
+          </p>
+          <p style="margin: 0; font-size: 13px; font-weight: 600; color: #b45309;">
+            Interested in end-to-end plant control? You can activate a <strong>30-Day Free Trial</strong> of SYN ERP 10 anytime by replying to this email.
+          </p>
+        </div>
+        `
+    }
+
+    <p style="margin-top: 24px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 14px;">
+      This is an automated notification from Synergy 5M LLP. If you have questions, reach out to our team at 
+      <a href="mailto:support@synergy5m.com" style="color: #0b5ed7;">support@synergy5m.com</a>.
+    </p>
+  </div>
+`;
 
     try {
       await transporter.sendMail({
         from: `"Synergy5M Approvals" <${process.env.SMTP_USER || "mmm@synergy5m.com"}>`,
         to: email.trim(),
-        subject: `Your Account has been Approved - ${type === "erp" ? "SYN ERP 10" : "Business-4-Profit"}`,
+        subject: `Your Account has been Approved - ${type === "erp" ? "SYN ERP 10" : "Buyer_Seller_Portal"}`,
         html: mailHtml,
       });
     } catch (mailErr) {
@@ -864,7 +923,7 @@ app.post("/api/admin/reject", async (req, res) => {
       <div style="font-family: Arial, sans-serif; color: #222; max-width: 600px; border: 1px solid #f1c1c1; border-radius: 8px; padding: 24px;">
         <h2 style="color: #d9534f;">Request Update - Synergy 5M</h2>
         <p>Dear <strong>${recipientName || "Valued User"}</strong>,</p>
-        <p>Thank you for your interest in <strong>${type === "erp" ? "SYN ERP 10" : "Synergy Business-4-Profit"}</strong>.</p>
+        <p>Thank you for your interest in <strong>${type === "erp" ? "SYN ERP 10" : "Synergy Buyer_Seller_Portal"}</strong>.</p>
         <p>After reviewing your submission, your request could not be approved at this moment.</p>
         <div style="background: #fdf7f7; border-left: 4px solid #d9534f; padding: 15px; margin: 20px 0;">
           <p style="margin: 0 0 6px 0;"><strong>Reason provided by Verification Team:</strong></p>
@@ -930,6 +989,8 @@ if (fs.existsSync(indexHtmlPath)) {
     `);
   });
 }
+
+
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
