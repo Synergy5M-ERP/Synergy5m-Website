@@ -59,10 +59,7 @@ export default function AdminPanel() {
   const [rejectReason, setRejectReason] = useState("");
   const [approveItem, setApproveItem] = useState(null);
 
-  // GST Validation State: keyed by row Id
-  const [gstValidation, setGstValidation] = useState({});
-  // Detailed Modal View State
-  const [selectedGstDetails, setSelectedGstDetails] = useState(null);
+  const [copiedGstId, setCopiedGstId] = useState(null);
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem("admin_logged_in");
@@ -187,33 +184,26 @@ export default function AdminPanel() {
     }
   };
 
-  // Automated GST Validation Method
-const [copiedGstId, setCopiedGstId] = useState(null);
+  const handleOpenGstPortal = (row) => {
+    const gst = (row.GSTIN || row.GSTNo || row.GST || row.GstNo || "").trim();
+    if (!gst || gst === "-") return;
 
-const handleOpenGstPortal = (row) => {
-  const gst = (row.GSTIN || row.GSTNo || row.GST || row.GstNo || "").trim();
-  if (!gst || gst === "-") return;
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(gst);
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = gst;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+    }
 
-  // 1. Copy the GST number to clipboard
-  if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(gst);
-  } else {
-    // Fallback for older browsers / non-HTTPS dev setups
-    const textArea = document.createElement("textarea");
-    textArea.value = gst;
-    document.body.appendChild(textArea);
-    textArea.select();
-    document.execCommand("copy");
-    document.body.removeChild(textArea);
-  }
+    setCopiedGstId(row.Id);
+    setTimeout(() => setCopiedGstId(null), 3000);
 
-  // 2. Show a temporary "Copied!" feedback state on that button
-  setCopiedGstId(row.Id);
-  setTimeout(() => setCopiedGstId(null), 3000);
-
-  // 3. Open IRIS GSTIN search directly in a new tab
-  window.open("https://irismsme.com/msme-tools/", "_blank", "noopener,noreferrer");
-};
+    window.open("https://irismsme.com/msme-tools/", "_blank", "noopener,noreferrer");
+  };
 
   if (!isAuthenticated) {
     return (
@@ -391,23 +381,23 @@ const handleOpenGstPortal = (row) => {
                               </span>
                             </td>
                             <td style={styles.td}><strong style={{ color: "#14181C" }}>{row.CompanyName}</strong></td>
-                           <td style={styles.td}>
-  <div style={styles.gstCell}>
-    <span style={{ fontFamily: "monospace", fontWeight: 600 }}>{gst}</span>
-    {gst !== "-" && (
-      <button
-        type="button"
-        onClick={() => handleOpenGstPortal(row)}
-        className="ap-validate-btn"
-        style={styles.validateBtn}
-        title="Copy GSTIN and open IRIS MSME verification in a new tab"
-      >
-        <IconShieldCheck />
-        {copiedGstId === row.Id ? "Copied! Opening..." : "Verify on IRIS"}
-      </button>
-    )}
-  </div>
-</td>
+                            <td style={styles.td}>
+                              <div style={styles.gstCell}>
+                                <span style={{ fontFamily: "monospace", fontWeight: 600 }}>{gst}</span>
+                                {gst !== "-" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenGstPortal(row)}
+                                    className="ap-validate-btn"
+                                    style={styles.validateBtn}
+                                    title="Copy GSTIN and open IRIS MSME verification in a new tab"
+                                  >
+                                    <IconShieldCheck />
+                                    {copiedGstId === row.Id ? "Copied! Opening..." : "Verify on IRIS"}
+                                  </button>
+                                )}
+                              </div>
+                            </td>
                             <td style={styles.td}>{contactPerson || "-"}</td>
                             <td style={styles.td}>{email || "-"}</td>
                             <td style={styles.td}>{mobile || "-"}</td>
@@ -421,81 +411,6 @@ const handleOpenGstPortal = (row) => {
             )}
           </div>
         </div>
-
-        {/* GST Full Detail Modal */}
-        {selectedGstDetails && (
-          <div style={styles.modalOverlay}>
-            <div className="ap-modal-pop" style={styles.modalContentWide}>
-              <div style={styles.modalHeaderRow}>
-                <div style={styles.modalIconWrapApprove}>
-                  <IconShieldCheck color="#14524A" width={22} height={22} />
-                </div>
-                <div>
-                  <h3 style={{ ...styles.modalTitle, margin: 0 }}>GST Verification Details</h3>
-                  <span style={{ fontSize: "12px", color: "#5B6570" }}>Official Taxpayer Master Record</span>
-                </div>
-              </div>
-
-              <div style={styles.detailGrid}>
-                <div style={styles.detailItem}>
-                  <span style={styles.detailLabel}>Legal Business Name</span>
-                  <span style={styles.detailValue}>{selectedGstDetails.legalName || "Not Available"}</span>
-                </div>
-                <div style={styles.detailItem}>
-                  <span style={styles.detailLabel}>Trade Name</span>
-                  <span style={styles.detailValue}>{selectedGstDetails.tradeName || "Not Available"}</span>
-                </div>
-                <div style={styles.detailItem}>
-                  <span style={styles.detailLabel}>GSTIN</span>
-                  <span style={{ ...styles.detailValue, fontFamily: "monospace", color: "#14524A" }}>
-                    {selectedGstDetails.gstin}
-                  </span>
-                </div>
-                <div style={styles.detailItem}>
-                  <span style={styles.detailLabel}>Registration Status</span>
-                  <span style={{
-                    ...styles.detailValue,
-                    color: (selectedGstDetails.status || "").toLowerCase() === "active" ? "#1E7B45" : "#C4362E",
-                    fontWeight: 700
-                  }}>
-                    {selectedGstDetails.status || "ACTIVE"}
-                  </span>
-                </div>
-                <div style={styles.detailItem}>
-                  <span style={styles.detailLabel}>Constitution of Business</span>
-                  <span style={styles.detailValue}>{selectedGstDetails.businessConstitution || "N/A"}</span>
-                </div>
-                <div style={styles.detailItem}>
-                  <span style={styles.detailLabel}>Taxpayer Classification</span>
-                  <span style={styles.detailValue}>{selectedGstDetails.taxpayerType || "Regular"}</span>
-                </div>
-                <div style={styles.detailItem}>
-                  <span style={styles.detailLabel}>Associated PAN</span>
-                  <span style={{ ...styles.detailValue, fontFamily: "monospace" }}>{selectedGstDetails.pan || "N/A"}</span>
-                </div>
-                <div style={styles.detailItem}>
-                  <span style={styles.detailLabel}>Registration Date</span>
-                  <span style={styles.detailValue}>{selectedGstDetails.dateOfRegistration || "N/A"}</span>
-                </div>
-                <div style={{ ...styles.detailItem, gridColumn: "span 2" }}>
-                  <span style={styles.detailLabel}>Principal Place of Business</span>
-                  <span style={styles.detailValue}>{selectedGstDetails.address || "N/A"}</span>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "24px" }}>
-                <button
-                  type="button"
-                  onClick={() => setSelectedGstDetails(null)}
-                  className="ap-cancel-btn"
-                  style={{ ...styles.cancelBtn, background: "#14524A", color: "#fff" }}
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Approve Confirmation Modal */}
         {approveItem && (
@@ -624,11 +539,6 @@ const styles = {
   processedLabel: { fontSize: "12.5px", color: "#9AA5AF" },
   gstCell: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" },
   validateBtn: { display: "flex", alignItems: "center", gap: "4px", background: "#F2F4F5", color: "#14524A", border: "1px solid #DDE6E4", padding: "3px 8px", borderRadius: "20px", cursor: "pointer", fontSize: "11px", fontWeight: 600 },
-  gstStatusChecking: { display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "11px", color: "#9AA5AF", fontWeight: 600 },
-  gstStatusValidBtn: { display: "inline-flex", alignItems: "center", gap: "4px", background: "#E3F3E8", color: "#1E7B45", border: "1px solid #C4E3D0", padding: "3px 8px", borderRadius: "20px", fontSize: "11px", fontWeight: 600, cursor: "pointer" },
-  gstStatusInvalid: { display: "inline-flex", alignItems: "center", gap: "4px", background: "#FBEAE9", color: "#C4362E", padding: "3px 8px", borderRadius: "20px", fontSize: "11px", fontWeight: 600 },
-  gstStatusRetry: { background: "#FCF1DE", color: "#966214", border: "none", padding: "3px 8px", borderRadius: "20px", fontSize: "11px", fontWeight: 600, cursor: "pointer" },
-  spinnerTiny: { width: "11px", height: "11px", border: "2px solid #E4E7E9", borderTopColor: "#14524A", borderRadius: "50%", display: "inline-block" },
   approveBtn: { display: "flex", alignItems: "center", gap: "5px", background: "#14524A", color: "#fff", border: "none", padding: "7px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12.5px", fontWeight: 600 },
   rejectBtn: { display: "flex", alignItems: "center", gap: "5px", background: "#fff", color: "#C4362E", border: "1px solid #F1C7C4", padding: "7px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12.5px", fontWeight: 600 },
   badgeSuccess: { display: "inline-flex", alignItems: "center", gap: "6px", background: "#E3F3E8", color: "#1E7B45", padding: "4px 10px", borderRadius: "20px", fontSize: "11.5px", fontWeight: 600 },
@@ -642,17 +552,11 @@ const styles = {
   emptySubtitle: { fontSize: "13px", color: "#9AA5AF", marginTop: "4px" },
   modalOverlay: { position: "fixed", top: 0, left: 0, width: "100%", height: "100%", background: "rgba(15,20,23,0.55)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000, padding: "20px" },
   modalContent: { background: "#fff", padding: "28px", borderRadius: "14px", width: "100%", maxWidth: "440px" },
-  modalContentWide: { background: "#fff", padding: "28px", borderRadius: "14px", width: "100%", maxWidth: "620px", boxShadow: "0 20px 50px rgba(15,20,23,0.25)" },
   modalContentApprove: { background: "#fff", padding: "28px", borderRadius: "14px", width: "100%", maxWidth: "440px", borderTop: "4px solid #14524A" },
-  modalHeaderRow: { display: "flex", alignItems: "center", gap: "14px", marginBottom: "20px" },
   modalIconWrap: { width: "40px", height: "40px", borderRadius: "10px", background: "#FBEAE9", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "16px" },
-  modalIconWrapApprove: { width: "40px", height: "40px", borderRadius: "10px", background: "#E4EEEC", display: "flex", alignItems: "center", justifyContent: "center" },
+  modalIconWrapApprove: { width: "40px", height: "40px", borderRadius: "10px", background: "#E4EEEC", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "16px" },
   modalTitle: { fontSize: "18px", fontWeight: 700, color: "#14181C" },
   modalBody: { fontSize: "13.5px", color: "#5B6570", lineHeight: 1.55, margin: "0 0 20px 0" },
-  detailGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", background: "#F7F9F8", border: "1px solid #E4E7E9", borderRadius: "10px", padding: "16px" },
-  detailItem: { display: "flex", flexDirection: "column", gap: "3px" },
-  detailLabel: { fontSize: "11.5px", color: "#6C757D", fontWeight: 500, textTransform: "uppercase" },
-  detailValue: { fontSize: "13.5px", color: "#14181C", fontWeight: 600, wordBreak: "break-word" },
   approveModalBtn: { background: "#14524A", color: "#fff", border: "none", padding: "10px 16px", borderRadius: "7px", cursor: "pointer", fontSize: "13.5px", fontWeight: 600 },
   cancelBtn: { background: "#F2F4F5", color: "#3C4550", border: "none", padding: "10px 16px", borderRadius: "7px", cursor: "pointer", fontSize: "13.5px", fontWeight: 600 },
   rejectModalBtn: { background: "#C4362E", color: "#fff", border: "none", padding: "10px 16px", borderRadius: "7px", cursor: "pointer", fontSize: "13.5px", fontWeight: 600 },
