@@ -290,8 +290,19 @@ const uploadFields = upload.fields([
 app.post("/api/business-connect", uploadFields, async (req, res) => {
   try {
     const d = req.body;
-    const category = (d.category || "").toLowerCase() === "seller" ? "Seller" : "Buyer";
-    const prefix = category === "Seller" ? "S" : "B";
+    
+    // Normalize category to "Seller", "Both", or default to "Buyer"
+    const rawCategory = (d.category || "").trim().toLowerCase();
+    let category = "Buyer";
+    let prefix = "B";
+
+    if (rawCategory === "seller") {
+      category = "Seller";
+      prefix = "S";
+    } else if (rawCategory === "both") {
+      category = "Both";
+      prefix = "BS"; // Code will generate as BS00001, BS00002...
+    }
 
     let attachmentPaths = [];
     if (req.files) {
@@ -309,22 +320,25 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
     const pool = await poolPromise;
 
     if (pool) {
+      const prefixLen = prefix.length;
       const query = `
         DECLARE @NextId INT;
         DECLARE @NextNum INT;
-        DECLARE @PrefixPattern NVARCHAR(10) = '${prefix}%';
+        DECLARE @Prefix NVARCHAR(10) = '${prefix}';
+        DECLARE @PrefixLen INT = ${prefixLen};
+        DECLARE @PrefixPattern NVARCHAR(20) = @Prefix + '%';
 
         -- Generate Next Integer ID
         SELECT @NextId = ISNULL(MAX(Id), 0) + 1
         FROM dbo.BusinessEnquiries WITH (TABLOCKX, HOLDLOCK);
 
-        -- Generate Next Prefix Number
-        SELECT @NextNum = ISNULL(MAX(CAST(SUBSTRING(Code, 2, LEN(Code)) AS INT)), 0) + 1
+        -- Generate Next Prefix Number dynamically using prefix length
+        SELECT @NextNum = ISNULL(MAX(CAST(SUBSTRING(Code, @PrefixLen + 1, LEN(Code)) AS INT)), 0) + 1
         FROM dbo.BusinessEnquiries WITH (TABLOCKX, HOLDLOCK)
         WHERE Code LIKE @PrefixPattern
-          AND ISNUMERIC(SUBSTRING(Code, 2, LEN(Code))) = 1;
+          AND ISNUMERIC(SUBSTRING(Code, @PrefixLen + 1, LEN(Code))) = 1;
 
-        DECLARE @GeneratedCode NVARCHAR(50) = '${prefix}' + RIGHT('00000' + CAST(@NextNum AS NVARCHAR(10)), 5);
+        DECLARE @GeneratedCode NVARCHAR(50) = @Prefix + RIGHT('00000' + CAST(@NextNum AS NVARCHAR(10)), 5);
 
         INSERT INTO dbo.BusinessEnquiries (
           Id, Code, Category,
@@ -402,7 +416,7 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
     }
 
     const generatedCode = `${prefix}-${Date.now().toString().slice(-5)}`;
-    safeAppendJson("business_enquiries.jsonl", { ...d, code: generatedCode, submittedAt: new Date().toISOString() });
+    safeAppendJson("business_enquiries.jsonl", { ...d, category, code: generatedCode, submittedAt: new Date().toISOString() });
 
     return res.status(201).json({
       success: true,
@@ -656,11 +670,11 @@ app.post("/api/admin/login", (req, res) => {
   const adminUser = (process.env.ADMIN_USER || "admin").trim();
   const adminPass = (process.env.ADMIN_PASSWORD || "admin123").trim();
 
-  console.log("Admin Login Attempt:", {
-    received: { user: inputUser, pass: inputPass },
-    expected: { user: adminUser, pass: adminPass },
-    match: inputUser === adminUser && inputPass === adminPass,
-  });
+  // console.log("Admin Login Attempt:", {
+  //   received: { user: inputUser, pass: inputPass },
+  //   expected: { user: adminUser, pass: adminPass },
+  //   match: inputUser === adminUser && inputPass === adminPass,
+  // });
 
   if (inputUser === adminUser && inputPass === adminPass) {
     return res.json({
@@ -676,25 +690,74 @@ app.post("/api/admin/login", (req, res) => {
   });
 });
 
-// 2. Fetch Data for ERP or Buying/Selling
+// 2. Fetch Paginated Data for ERP or Buying/Selling
 app.get("/api/admin/enquiries", async (req, res) => {
   const type = req.query.type; // 'erp' or 'buyingselling'
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const limit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
+  const search = (req.query.search || "").trim();
+  const statusFilter = (req.query.status || "").trim();
+  const offset = (page - 1) * limit;
+
   try {
     const pool = await poolPromise;
     let query = "";
+    const request = pool.request();
+    request.input("Offset", offset);
+    request.input("Limit", limit);
 
     if (type === "erp") {
+      let whereClauses = ["1=1"];
+      if (search) {
+        request.input("SearchTerm", `%${search}%`);
+        whereClauses.push(
+          "(CompanyName LIKE @SearchTerm OR ContactPerson LIKE @SearchTerm OR Email LIKE @SearchTerm OR MobileNo LIKE @SearchTerm OR GstNo LIKE @SearchTerm)"
+        );
+      }
+
+      // Handle Status Filtering for ERP
+      if (statusFilter && statusFilter !== "All") {
+        if (statusFilter === "Pending" || statusFilter === "Pending Verification") {
+          whereClauses.push("(TrialStatus IS NULL OR TrialStatus = '' OR TrialStatus IN ('Pending', 'Pending Verification', 'Active'))");
+        } else {
+          request.input("StatusFilter", statusFilter);
+          whereClauses.push("TrialStatus = @StatusFilter");
+        }
+      }
+
       query = `
-        SELECT TOP (2000000) 
+        SELECT 
           Id, CompanyName, ContactPerson, MobileNo, Email,
           Address, GstNo, NumberOfUsers, SubscriptionPlan,
-          TrialStartDate, TrialEndDate, TrialStatus, Remarks, CreatedAt
+          TrialStartDate, TrialEndDate, TrialStatus, Remarks, CreatedAt,
+          COUNT(*) OVER() AS TotalCount
         FROM [dbo].[TrialRequests]
-        ORDER BY Id DESC;
+        WHERE ${whereClauses.join(" AND ")}
+        ORDER BY Id DESC
+        OFFSET @Offset ROWS
+        FETCH NEXT @Limit ROWS ONLY;
       `;
     } else if (type === "buyingselling") {
+      let whereClauses = ["1=1"];
+      if (search) {
+        request.input("SearchTerm", `%${search}%`);
+        whereClauses.push(
+          "(CompanyName LIKE @SearchTerm OR RepresentativeName LIKE @SearchTerm OR CompanyEmail LIKE @SearchTerm OR RepresentativeEmail LIKE @SearchTerm OR Mobile LIKE @SearchTerm OR GSTIN LIKE @SearchTerm OR Code LIKE @SearchTerm)"
+        );
+      }
+
+      // Handle Status Filtering for Buying/Selling
+      if (statusFilter && statusFilter !== "All") {
+        if (statusFilter === "Pending" || statusFilter === "Pending Verification") {
+          whereClauses.push("(Status IS NULL OR Status = '' OR Status IN ('Pending', 'Pending Verification', 'Active'))");
+        } else {
+          request.input("StatusFilter", statusFilter);
+          whereClauses.push("Status = @StatusFilter");
+        }
+      }
+
       query = `
-        SELECT TOP (2000000) 
+        SELECT 
           Id, Code, Category, CompanyName, GSTIN, CIN, Address,
           Website, CompanyEmail, Mobile, Industry, CompanyType,
           YearsInBusiness, RepresentativeName, Role, RepresentativeEmail,
@@ -705,22 +768,37 @@ app.get("/api/admin/enquiries", async (req, res) => {
           PriceOrRange, Currency, PaymentTerms, CommissionType,
           ProposedCommission, CommissionApplicableOn, AttachmentPath,
           CreatedAt, TargetPrice, IndicativePrice, ExpectedPriceRange,
-          PaymentTermsExpected, MonthlyCapacity, DocumentsPath, Status, UpdatedAt
+          PaymentTermsExpected, MonthlyCapacity, DocumentsPath, Status, UpdatedAt,
+          COUNT(*) OVER() AS TotalCount
         FROM [dbo].[BusinessEnquiries]
-        ORDER BY Id DESC;
+        WHERE ${whereClauses.join(" AND ")}
+        ORDER BY Id DESC
+        OFFSET @Offset ROWS
+        FETCH NEXT @Limit ROWS ONLY;
       `;
     } else {
       return res.status(400).json({ success: false, message: "Invalid type requested" });
     }
 
-    const result = await pool.request().query(query);
-    return res.json({ success: true, data: result.recordset });
+    const result = await request.query(query);
+    const totalRecords = result.recordset.length > 0 ? result.recordset[0].TotalCount : 0;
+    const totalPages = Math.ceil(totalRecords / limit);
+
+    return res.json({
+      success: true,
+      data: result.recordset,
+      pagination: {
+        totalRecords,
+        totalPages,
+        currentPage: page,
+        limit,
+      },
+    });
   } catch (err) {
     console.error("Fetch records error:", err);
     return res.status(500).json({ success: false, message: err.message });
   }
 });
-
 // 3. Approve Action
 // --- APPROVE ACTION ---
 app.post("/api/admin/approve", async (req, res) => {

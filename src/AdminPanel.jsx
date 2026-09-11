@@ -41,6 +41,22 @@ const IconAlertTriangle = (props) => (
     <circle cx="12" cy="16.6" r="0.9" fill="currentColor" />
   </svg>
 );
+const IconSearch = (props) => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" {...props}>
+    <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.7" />
+    <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+  </svg>
+);
+const IconChevronLeft = (props) => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" {...props}>
+    <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const IconChevronRight = (props) => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" {...props}>
+    <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 export default function AdminPanel() {
   const [isAuthenticated, setIsAuthenticated] = useState(
@@ -49,16 +65,28 @@ export default function AdminPanel() {
   const [usernameInput, setUsernameInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const [activeTab, setActiveTab] = useState("erp");
   const [dataList, setDataList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Pagination & Filters
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [paginationInfo, setPaginationInfo] = useState({
+    totalRecords: 0,
+    totalPages: 1,
+    currentPage: 1,
+    limit: 10,
+  });
+
   const [rejectItem, setRejectItem] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
   const [approveItem, setApproveItem] = useState(null);
-
   const [copiedGstId, setCopiedGstId] = useState(null);
 
   const handleLogout = useCallback(() => {
@@ -68,16 +96,28 @@ export default function AdminPanel() {
   }, []);
 
   const fetchData = useCallback(
-    async (type) => {
+    async (type, pageNum, limitNum, searchVal, statusVal) => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/admin/enquiries?type=${type}`, { credentials: "include" });
+        const queryParams = new URLSearchParams({
+          type,
+          page: pageNum,
+          limit: limitNum,
+          search: searchVal,
+          status: statusVal,
+        });
+        const res = await fetch(`/api/admin/enquiries?${queryParams.toString()}`, { credentials: "include" });
         if (res.status === 401) {
           handleLogout();
           return;
         }
         const json = await res.json();
-        if (json.success) setDataList(json.data || []);
+        if (json.success) {
+          setDataList(json.data || []);
+          if (json.pagination) {
+            setPaginationInfo(json.pagination);
+          }
+        }
       } catch (err) {
         alert("Error fetching data: " + err.message);
       } finally {
@@ -88,8 +128,17 @@ export default function AdminPanel() {
   );
 
   useEffect(() => {
-    if (isAuthenticated) fetchData(activeTab);
-  }, [isAuthenticated, activeTab, fetchData]);
+    setPage(1);
+  }, [activeTab, searchTerm, statusFilter, pageSize]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      const delayDebounceFn = setTimeout(() => {
+        fetchData(activeTab, page, pageSize, searchTerm, statusFilter);
+      }, 250);
+      return () => clearTimeout(delayDebounceFn);
+    }
+  }, [isAuthenticated, activeTab, page, pageSize, searchTerm, statusFilter, fetchData]);
 
   useEffect(() => {
     if (document.getElementById("admin-panel-font")) return;
@@ -117,7 +166,7 @@ export default function AdminPanel() {
       } else {
         setLoginError(data.message || "Invalid credentials");
       }
-    } catch (err) {
+    } catch {
       setLoginError("Failed to communicate with backend server");
     }
   };
@@ -140,7 +189,7 @@ export default function AdminPanel() {
       if (result.success) {
         alert(result.message);
         setApproveItem(null);
-        fetchData(activeTab);
+        fetchData(activeTab, page, pageSize, searchTerm, statusFilter);
       } else {
         alert("Approval failed: " + result.message);
       }
@@ -173,7 +222,7 @@ export default function AdminPanel() {
         alert(result.message);
         setRejectItem(null);
         setRejectReason("");
-        fetchData(activeTab);
+        fetchData(activeTab, page, pageSize, searchTerm, statusFilter);
       } else {
         alert("Rejection failed: " + result.message);
       }
@@ -201,62 +250,97 @@ export default function AdminPanel() {
 
     setCopiedGstId(row.Id);
     setTimeout(() => setCopiedGstId(null), 3000);
-
     window.open("https://irismsme.com/msme-tools/", "_blank", "noopener,noreferrer");
   };
 
   if (!isAuthenticated) {
     return (
       <>
-        <GlobalStyle />
-        <div style={styles.loginPage}>
-          <div style={styles.loginBrandPanel}>
-            <div style={styles.brandMark}>S5</div>
-            <h1 style={styles.brandTitle}>Synergy 5M</h1>
-            <p style={styles.brandTagline}>Review incoming ERP trial requests and trade enquiries.</p>
-          </div>
-          <div style={styles.loginFormPanel}>
-            <div style={styles.loginCard}>
-              <div style={styles.loginIconWrap}><IconLock color="#14524A" /></div>
-              <h2 style={styles.loginHeading}>Sign in to the admin panel</h2>
-              <p style={styles.loginSubheading}>Use your administrator credentials to continue.</p>
-              {loginError && (
-                <div style={styles.errorAlert}>
-                  <IconX color="#C4362E" style={{ flexShrink: 0 }} />
-                  <span>{loginError}</span>
-                </div>
+       <GlobalStyle />
+<div className="ap-login-page" style={styles.loginPage}>
+  <div className="ap-login-brand" style={styles.loginBrandPanel}>
+    <div style={styles.brandMark}>S5</div>
+    <h1 style={styles.brandTitle}>Synergy 5M</h1>
+    <p style={styles.brandTagline}>Review incoming ERP trial requests and trade enquiries.</p>
+  </div>
+  <div className="ap-login-form-wrap" style={styles.loginFormPanel}>
+    <div style={styles.loginCard}>
+      <div style={styles.loginIconWrap}><IconLock color="#14524A" /></div>
+      <h2 style={styles.loginHeading}>Sign in to the admin panel</h2>
+      <p style={styles.loginSubheading}>Use your administrator credentials to continue.</p>
+      {loginError && (
+        <div style={styles.errorAlert}>
+          <IconX color="#C4362E" style={{ flexShrink: 0 }} />
+          <span>{loginError}</span>
+        </div>
+      )}
+      <form onSubmit={handleLogin}>
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Admin username</label>
+          <input
+            type="text"
+            required
+            className="ap-input"
+            style={styles.input}
+            value={usernameInput}
+            onChange={(e) => setUsernameInput(e.target.value)}
+          />
+        </div>
+
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Password</label>
+          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+            <input
+              type={showPassword ? "text" : "password"}
+              required
+              className="ap-input"
+              style={{ ...styles.input, paddingRight: "40px" }}
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              style={{
+                position: "absolute",
+                right: "10px",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: "#788693",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "4px",
+              }}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
               )}
-              <form onSubmit={handleLogin}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Admin username</label>
-                  <input
-                    type="text"
-                    required
-                    className="ap-input"
-                    style={styles.input}
-                    value={usernameInput}
-                    onChange={(e) => setUsernameInput(e.target.value)}
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Password</label>
-                  <input
-                    type="password"
-                    required
-                    className="ap-input"
-                    style={styles.input}
-                    value={passwordInput}
-                    onChange={(e) => setPasswordInput(e.target.value)}
-                  />
-                </div>
-                <button type="submit" className="ap-primary-btn" style={styles.primaryBtn}>Sign in</button>
-              </form>
-            </div>
+            </button>
           </div>
         </div>
+
+        <button type="submit" className="ap-primary-btn" style={styles.primaryBtn}>Sign in</button>
+      </form>
+    </div>
+  </div>
+</div>
       </>
     );
   }
+
+  const startRecord = paginationInfo.totalRecords === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endRecord = Math.min(page * pageSize, paginationInfo.totalRecords);
 
   return (
     <>
@@ -277,32 +361,87 @@ export default function AdminPanel() {
         </div>
 
         <div style={styles.pageBody}>
-          {/* Segmented switcher */}
-          <div style={styles.segmentedControl} role="radiogroup">
-            <label style={{ ...styles.segmentOption, ...(activeTab === "erp" ? styles.segmentOptionActive : {}) }}>
-              <input
-                type="radio"
-                name="category"
-                value="erp"
-                checked={activeTab === "erp"}
-                onChange={() => setActiveTab("erp")}
-                style={styles.srOnlyInput}
-              />
-              ERP requests
-              <span style={styles.segmentSubLabel}>TrialRequests</span>
-            </label>
-            <label style={{ ...styles.segmentOption, ...(activeTab === "buyingselling" ? styles.segmentOptionActive : {}) }}>
-              <input
-                type="radio"
-                name="category"
-                value="buyingselling"
-                checked={activeTab === "buyingselling"}
-                onChange={() => setActiveTab("buyingselling")}
-                style={styles.srOnlyInput}
-              />
-              Buying &amp; selling
-              <span style={styles.segmentSubLabel}>BusinessEnquiries</span>
-            </label>
+          {/* Header Controls: Tabs & Filters */}
+          <div style={styles.controlsHeader}>
+            <div style={styles.segmentedControl} role="radiogroup">
+              <label style={{ ...styles.segmentOption, ...(activeTab === "erp" ? styles.segmentOptionActive : {}) }}>
+                <input
+                  type="radio"
+                  name="category"
+                  value="erp"
+                  checked={activeTab === "erp"}
+                  onChange={() => setActiveTab("erp")}
+                  style={styles.srOnlyInput}
+                />
+                ERP requests
+                <span style={styles.segmentSubLabel}>TrialRequests</span>
+              </label>
+              <label style={{ ...styles.segmentOption, ...(activeTab === "buyingselling" ? styles.segmentOptionActive : {}) }}>
+                <input
+                  type="radio"
+                  name="category"
+                  value="buyingselling"
+                  checked={activeTab === "buyingselling"}
+                  onChange={() => setActiveTab("buyingselling")}
+                  style={styles.srOnlyInput}
+                />
+                Buying &amp; selling
+                <span style={styles.segmentSubLabel}>BusinessEnquiries</span>
+              </label>
+            </div>
+
+            {/* Filter Action Row */}
+            <div style={styles.filterBar}>
+              <div style={styles.paginationLeft}>
+                <span>Showing <strong>{startRecord}</strong> - <strong>{endRecord}</strong> of <strong>{paginationInfo.totalRecords}</strong> entries</span>
+                <div style={styles.perPageWrap}>
+                  <label htmlFor="per-page-select" style={{ fontSize: "12.5px", color: "#5B6570" }}>Rows:</label>
+                  <select
+                    id="per-page-select"
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    className="ap-input"
+                    style={styles.perPageSelect}
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={styles.searchWrapper}>
+                <IconSearch color="#788693" style={styles.searchIcon} />
+                <input
+                  type="text"
+                  placeholder="Search company, name, GST, email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="ap-input"
+                  style={styles.searchInput}
+                />
+                {searchTerm && (
+                  <button type="button" onClick={() => setSearchTerm("")} style={styles.clearSearchBtn}>
+                    <IconX color="#788693" />
+                  </button>
+                )}
+              </div>
+
+              <div style={styles.filterDropdownWrap}>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="ap-input"
+                  style={styles.selectInput}
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Pending">Pending Verification</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Table Container */}
@@ -310,7 +449,7 @@ export default function AdminPanel() {
             {loading ? (
               <div style={styles.loadingState}>
                 <div className="ap-spinner" style={styles.spinner} />
-                Loading records from SQL Server…
+                Loading records from database…
               </div>
             ) : (
               <div style={{ overflowX: "auto" }}>
@@ -332,21 +471,43 @@ export default function AdminPanel() {
                         <td colSpan="7">
                           <div style={styles.emptyState}>
                             <IconInbox color="#9AA5AF" />
-                            <div style={styles.emptyTitle}>No records found</div>
-                            <div style={styles.emptySubtitle}>New submissions for this category will show up here.</div>
+                            <div style={styles.emptyTitle}>No matching records</div>
+                            <div style={styles.emptySubtitle}>Try changing your filter criteria or search query.</div>
                           </div>
                         </td>
                       </tr>
                     ) : (
                       dataList.map((row) => {
-                        const status = activeTab === "erp" ? row.TrialStatus : row.Status;
-                        const isPending = !status || status === "Pending" || status === "Pending Verification" || status === "Active";
+                        const rawStatus = (activeTab === "erp" ? row.TrialStatus : row.Status) || "";
+                        const normalizedStatus = rawStatus.trim().toLowerCase();
+
+                        // True if empty, pending, pending verification, or active
+                        const isPending =
+                          !rawStatus ||
+                          normalizedStatus === "pending" ||
+                          normalizedStatus === "pending verification" ||
+                          normalizedStatus === "active";
+
+                        const isApproved = normalizedStatus === "approved";
+                        const isRejected = normalizedStatus === "rejected";
+
+                        // Display badge text
+                        const displayStatus = isApproved
+                          ? "Approved"
+                          : isRejected
+                          ? "Rejected"
+                          : "Pending Verification";
+
+                        const badgeStyle = isApproved
+                          ? styles.badgeSuccess
+                          : isRejected
+                          ? styles.badgeDanger
+                          : styles.badgeWarning;
+
                         const gst = row.GSTIN || row.GSTNo || row.GST || row.GstNo || "-";
                         const contactPerson = activeTab === "erp" ? row.ContactPerson : row.RepresentativeName;
                         const email = activeTab === "erp" ? row.Email : (row.CompanyEmail || row.RepresentativeEmail);
                         const mobile = activeTab === "erp" ? row.MobileNo : (row.Mobile || row.RepresentativeMobile);
-
-                        const badgeStyle = status === "Approved" ? styles.badgeSuccess : status === "Rejected" ? styles.badgeDanger : styles.badgeWarning;
 
                         return (
                           <tr key={row.Id} className="ap-row" style={styles.tr}>
@@ -354,33 +515,39 @@ export default function AdminPanel() {
                               {isPending ? (
                                 <div style={{ display: "flex", gap: "8px" }}>
                                   <button
+                                    type="button"
                                     disabled={actionLoading}
                                     onClick={() => setApproveItem(row)}
                                     className="ap-approve-btn"
                                     style={styles.approveBtn}
                                   >
-                                    <IconCheck /> Approve
+                                    <IconCheck /> 
                                   </button>
                                   <button
+                                    type="button"
                                     disabled={actionLoading}
                                     onClick={() => setRejectItem(row)}
                                     className="ap-reject-btn"
                                     style={styles.rejectBtn}
                                   >
-                                    <IconX /> Reject
+                                    <IconX /> 
                                   </button>
                                 </div>
                               ) : (
-                                <span style={styles.processedLabel}>Processed</span>
+                                <span style={styles.processedLabel}>
+                                  {isApproved ? "Approved" : "Rejected"}
+                                </span>
                               )}
                             </td>
                             <td style={styles.td}>
                               <span style={badgeStyle}>
                                 <span style={styles.badgeDot} />
-                                {status || "Pending"}
+                                {displayStatus}
                               </span>
                             </td>
-                            <td style={styles.td}><strong style={{ color: "#14181C" }}>{row.CompanyName}</strong></td>
+                            <td style={styles.td}>
+                              <strong style={{ color: "#14181C" }}>{row.CompanyName}</strong>
+                            </td>
                             <td style={styles.td}>
                               <div style={styles.gstCell}>
                                 <span style={{ fontFamily: "monospace", fontWeight: 600 }}>{gst}</span>
@@ -409,6 +576,54 @@ export default function AdminPanel() {
                 </table>
               </div>
             )}
+
+            {/* Pagination Controls */}
+            <div style={styles.paginationFooter}>
+              <div style={styles.paginationButtons}>
+                <button
+                  type="button"
+                  disabled={page <= 1 || loading}
+                  onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                  className="ap-page-btn"
+                  style={styles.pageBtn}
+                >
+                  <IconChevronLeft /> Prev
+                </button>
+                
+                <div style={styles.pageNumbers}>
+                  {Array.from({ length: paginationInfo.totalPages || 1 }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === paginationInfo.totalPages || Math.abs(p - page) <= 1)
+                    .map((p, idx, arr) => {
+                      const prevPageNum = arr[idx - 1];
+                      return (
+                        <React.Fragment key={p}>
+                          {prevPageNum && p - prevPageNum > 1 && <span style={styles.pageEllipsis}>…</span>}
+                          <button
+                            type="button"
+                            onClick={() => setPage(p)}
+                            style={{
+                              ...styles.pageNumberBtn,
+                              ...(page === p ? styles.pageNumberBtnActive : {}),
+                            }}
+                          >
+                            {p}
+                          </button>
+                        </React.Fragment>
+                      );
+                    })}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={page >= paginationInfo.totalPages || loading}
+                  onClick={() => setPage((prev) => Math.min(prev + 1, paginationInfo.totalPages))}
+                  className="ap-page-btn"
+                  style={styles.pageBtn}
+                >
+                  Next <IconChevronRight />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -481,19 +696,50 @@ function GlobalStyle() {
   return (
     <style>{`
       * { box-sizing: border-box; }
-      body { font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif; margin: 0; }
-      .ap-input:focus { outline: none; border-color: #14524A !important; box-shadow: 0 0 0 3px rgba(20, 82, 74, 0.15); }
+      body { font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif; margin: 0; background: #F2F4F5; }
+      .ap-input:focus { outline: none; border-color: #14524A !important; box-shadow: 0 0 0 3px rgba(20, 82, 74, 0.12); }
       .ap-primary-btn:hover { background: #0D3A34 !important; }
       .ap-logout-btn:hover { background: rgba(255,255,255,0.12) !important; }
-      .ap-row:hover { background: #F7F9F8 !important; }
-      .ap-approve-btn:hover:not(:disabled) { background: #0D3A34 !important; }
+      .ap-row:hover { background: #F8FAF9 !important; }
+      .ap-approve-btn:hover:not(:disabled) { background: #0D3A34 !important; transform: translateY(-1px); }
       .ap-reject-btn:hover:not(:disabled) { background: #FBEAE9 !important; }
       .ap-approve-btn:disabled, .ap-reject-btn:disabled { opacity: 0.5; cursor: not-allowed; }
       .ap-validate-btn:hover { background: #E4EEEC !important; border-color: #14524A !important; }
+      .ap-page-btn:hover:not(:disabled) { background: #E9EDEF !important; border-color: #BAC2C8 !important; }
       .ap-modal-pop { animation: ap-modal-in 0.16s ease-out; }
       @keyframes ap-modal-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
       .ap-spinner { animation: ap-spin 0.8s linear infinite; }
       @keyframes ap-spin { to { transform: rotate(360deg); } }
+
+      /* Mobile responsiveness for Admin Login */
+      @media (max-width: 768px) {
+        .ap-login-page {
+          flex-direction: column !important;
+          min-height: 100vh !important;
+        }
+        .ap-login-brand {
+          flex: 0 0 auto !important;
+          padding: 36px 24px 28px !important;
+          text-align: center !important;
+          align-items: center !important;
+        }
+        .ap-login-brand h1 {
+          font-size: 24px !important;
+          margin-bottom: 8px !important;
+        }
+        .ap-login-brand p {
+          font-size: 13.5px !important;
+          max-width: 320px;
+        }
+        .ap-login-form-wrap {
+          flex: 1 !important;
+          padding: 24px 20px 40px !important;
+          align-items: flex-start !important;
+        }
+        .ap-login-form-wrap .ap-login-card {
+          max-width: 100% !important;
+        }
+      }
     `}</style>
   );
 }
@@ -524,32 +770,56 @@ const styles = {
   topBarTitle: { fontSize: "15px", fontWeight: 700 },
   topBarSubtitle: { fontSize: "12px", color: "rgba(255,255,255,0.7)" },
   logoutBtn: { display: "flex", alignItems: "center", gap: "7px", background: "transparent", color: "#fff", border: "1px solid rgba(255,255,255,0.35)", padding: "8px 14px", borderRadius: "7px", cursor: "pointer", fontSize: "13px" },
-  pageBody: { padding: "28px", maxWidth: "1250px", margin: "0 auto" },
-  segmentedControl: { display: "inline-flex", gap: "4px", background: "#E7EAEC", padding: "4px", borderRadius: "10px", marginBottom: "20px" },
+  pageBody: { padding: "28px", maxWidth: "1280px", margin: "0 auto" },
+
+  controlsHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px", marginBottom: "18px" },
+  segmentedControl: { display: "inline-flex", gap: "4px", background: "#E7EAEC", padding: "4px", borderRadius: "10px" },
   segmentOption: { display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "8px 18px", borderRadius: "7px", cursor: "pointer", fontSize: "13.5px", fontWeight: 600, color: "#5B6570" },
-  segmentOptionActive: { background: "#FFFFFF", color: "#14181C", boxShadow: "0 1px 2px rgba(20,24,28,0.08)" },
+  segmentOptionActive: { background: "#FFFFFF", color: "#14181C", boxShadow: "0 1px 3px rgba(20,24,28,0.08)" },
   segmentSubLabel: { fontSize: "11px", fontWeight: 400, color: "#9AA5AF", marginTop: "1px" },
   srOnlyInput: { position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)" },
-  tableWrapper: { background: "#fff", borderRadius: "12px", border: "1px solid #E4E7E9", overflow: "hidden" },
+
+  filterBar: { display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" },
+  searchWrapper: { position: "relative", display: "flex", alignItems: "center" },
+  searchIcon: { position: "absolute", left: "12px", pointerEvents: "none" },
+  searchInput: { padding: "9px 34px 9px 34px", borderRadius: "8px", border: "1px solid #D8DCE0", fontSize: "13px", minWidth: "260px", background: "#fff" },
+  clearSearchBtn: { position: "absolute", right: "8px", background: "transparent", border: "none", cursor: "pointer", padding: "4px" },
+  filterDropdownWrap: { display: "flex", alignItems: "center" },
+  selectInput: { padding: "9px 12px", borderRadius: "8px", border: "1px solid #D8DCE0", fontSize: "13px", background: "#fff", cursor: "pointer" },
+
+  tableWrapper: { background: "#fff", borderRadius: "12px", border: "1px solid #E4E7E9", overflow: "hidden", boxShadow: "0 2px 6px rgba(0,0,0,0.03)" },
   table: { width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13.5px" },
   tableHeadRow: { backgroundColor: "#FAFBFB", borderBottom: "1px solid #E4E7E9" },
   th: { padding: "13px 16px", fontWeight: 600, fontSize: "12.5px", color: "#5B6570", whiteSpace: "nowrap" },
   tr: { borderBottom: "1px solid #EEF0F1" },
   td: { padding: "13px 16px", verticalAlign: "middle", color: "#3C4550" },
-  processedLabel: { fontSize: "12.5px", color: "#9AA5AF" },
+  processedLabel: { fontSize: "12px", color: "#9AA5AF", fontStyle: "italic" },
   gstCell: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" },
-  validateBtn: { display: "flex", alignItems: "center", gap: "4px", background: "#F2F4F5", color: "#14524A", border: "1px solid #DDE6E4", padding: "3px 8px", borderRadius: "20px", cursor: "pointer", fontSize: "11px", fontWeight: 600 },
-  approveBtn: { display: "flex", alignItems: "center", gap: "5px", background: "#14524A", color: "#fff", border: "none", padding: "7px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12.5px", fontWeight: 600 },
-  rejectBtn: { display: "flex", alignItems: "center", gap: "5px", background: "#fff", color: "#C4362E", border: "1px solid #F1C7C4", padding: "7px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12.5px", fontWeight: 600 },
+  validateBtn: { display: "flex", alignItems: "center", gap: "4px", background: "#F2F4F5", color: "#14524A", border: "1px solid #DDE6E4", padding: "4px 9px", borderRadius: "6px", cursor: "pointer", fontSize: "11px", fontWeight: 600 },
+  approveBtn: { display: "flex", alignItems: "center", gap: "5px", background: "#14524A", color: "#fff", border: "none", padding: "7px 13px", borderRadius: "6px", cursor: "pointer", fontSize: "12.5px", fontWeight: 600, transition: "all 0.15s ease" },
+  rejectBtn: { display: "flex", alignItems: "center", gap: "5px", background: "#fff", color: "#C4362E", border: "1px solid #F1C7C4", padding: "7px 13px", borderRadius: "6px", cursor: "pointer", fontSize: "12.5px", fontWeight: 600 },
   badgeSuccess: { display: "inline-flex", alignItems: "center", gap: "6px", background: "#E3F3E8", color: "#1E7B45", padding: "4px 10px", borderRadius: "20px", fontSize: "11.5px", fontWeight: 600 },
   badgeDanger: { display: "inline-flex", alignItems: "center", gap: "6px", background: "#FBEAE9", color: "#C4362E", padding: "4px 10px", borderRadius: "20px", fontSize: "11.5px", fontWeight: 600 },
   badgeWarning: { display: "inline-flex", alignItems: "center", gap: "6px", background: "#FCF1DE", color: "#966214", padding: "4px 10px", borderRadius: "20px", fontSize: "11.5px", fontWeight: 600 },
   badgeDot: { width: "6px", height: "6px", borderRadius: "50%", background: "currentColor" },
+
   loadingState: { display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", padding: "60px 20px", color: "#5B6570" },
   spinner: { width: "16px", height: "16px", border: "2px solid #E4E7E9", borderTopColor: "#14524A", borderRadius: "50%" },
   emptyState: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "56px 20px" },
   emptyTitle: { fontSize: "14.5px", fontWeight: 600, color: "#3C4550", marginTop: "12px" },
   emptySubtitle: { fontSize: "13px", color: "#9AA5AF", marginTop: "4px" },
+
+  paginationFooter: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", borderTop: "1px solid #E4E7E9", background: "#FAFBFB", flexWrap: "wrap", gap: "12px" },
+  paginationLeft: { display: "flex", alignItems: "center", gap: "16px", fontSize: "13px", color: "#5B6570" },
+  perPageWrap: { display: "flex", alignItems: "center", gap: "6px" },
+  perPageSelect: { padding: "4px 8px", borderRadius: "6px", border: "1px solid #D8DCE0", fontSize: "12.5px", background: "#fff", cursor: "pointer" },
+  paginationButtons: { display: "flex", alignItems: "center", gap: "8px" },
+  pageBtn: { display: "inline-flex", alignItems: "center", gap: "4px", background: "#fff", border: "1px solid #D8DCE0", color: "#3C4550", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12.5px", fontWeight: 600 },
+  pageNumbers: { display: "flex", alignItems: "center", gap: "4px" },
+  pageNumberBtn: { minWidth: "30px", height: "30px", border: "1px solid #D8DCE0", background: "#fff", color: "#3C4550", borderRadius: "6px", cursor: "pointer", fontSize: "12.5px", fontWeight: 600, display: "inline-flex", alignItems: "center", justifyContent: "center" },
+  pageNumberBtnActive: { background: "#14524A", borderColor: "#14524A", color: "#fff" },
+  pageEllipsis: { padding: "0 4px", color: "#9AA5AF", fontSize: "13px" },
+
   modalOverlay: { position: "fixed", top: 0, left: 0, width: "100%", height: "100%", background: "rgba(15,20,23,0.55)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000, padding: "20px" },
   modalContent: { background: "#fff", padding: "28px", borderRadius: "14px", width: "100%", maxWidth: "440px" },
   modalContentApprove: { background: "#fff", padding: "28px", borderRadius: "14px", width: "100%", maxWidth: "440px", borderTop: "4px solid #14524A" },

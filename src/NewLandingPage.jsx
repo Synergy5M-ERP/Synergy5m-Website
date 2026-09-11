@@ -442,17 +442,19 @@ function SearchableDropdown({
           alignItems: "center",
           justifyContent: "space-between",
           padding: "10px 14px",
-          border: "1px solid #c9d2db",
-          borderRadius: "8px",
+          border: "1px solid #d5dee9",
+          borderRadius: "6px",
           backgroundColor: disabled ? "#f1f3f5" : "#fff",
           cursor: disabled ? "not-allowed" : "pointer",
           fontWeight: value ? "600" : "400",
-          color: value ? "#1f2937" : "#6b7280",
+          color: value ? "#102d50" : "#607089",
           userSelect: "none",
         }}
       >
-        <span>{value || placeholder}</span>
-        <span style={{ fontSize: "10px", color: "#6b7280" }}>▼</span>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {value || placeholder}
+        </span>
+        <span style={{ fontSize: "10px", color: "#607089", marginLeft: "8px" }}>▼</span>
       </div>
 
       {isOpen && !disabled && (
@@ -464,8 +466,8 @@ function SearchableDropdown({
             right: 0,
             zIndex: 999,
             backgroundColor: "#fff",
-            border: "1px solid #0b5ed7",
-            borderRadius: "8px",
+            border: "1px solid #0b438d",
+            borderRadius: "6px",
             boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
             marginTop: "4px",
             overflow: "hidden",
@@ -482,8 +484,8 @@ function SearchableDropdown({
                 width: "100%",
                 padding: "8px 10px",
                 border: "1px solid #d1d5db",
-                borderRadius: "6px",
-                fontSize: "0.85rem",
+                borderRadius: "4px",
+                fontSize: "12px",
                 outline: "none",
               }}
             />
@@ -498,17 +500,17 @@ function SearchableDropdown({
                   style={{
                     padding: "9px 14px",
                     cursor: "pointer",
-                    fontSize: "0.9rem",
-                    backgroundColor: value === opt ? "#e8f0fe" : "transparent",
-                    color: value === opt ? "#0b5ed7" : "#1f2937",
-                    fontWeight: value === opt ? "600" : "400",
+                    fontSize: "12px",
+                    backgroundColor: value === opt ? "#f0f5fb" : "transparent",
+                    color: value === opt ? "#0b438d" : "#102d50",
+                    fontWeight: value === opt ? "700" : "400",
                   }}
                   onMouseEnter={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#f3f4f6")
+                    (e.currentTarget.style.backgroundColor = "#f5f8fc")
                   }
                   onMouseLeave={(e) =>
                     (e.currentTarget.style.backgroundColor =
-                      value === opt ? "#e8f0fe" : "transparent")
+                      value === opt ? "#f0f5fb" : "transparent")
                   }
                 >
                   {opt}
@@ -518,7 +520,7 @@ function SearchableDropdown({
               <div
                 style={{
                   padding: "10px",
-                  fontSize: "0.85rem",
+                  fontSize: "11px",
                   color: "#888",
                   textAlign: "center",
                 }}
@@ -984,12 +986,12 @@ function BuyerForm({
         <Field label="Minimum Supplier Experience">
           <input
             name="minSupplierExperience"
-            placeholder="Years / experience"
+            placeholder="Years/experience"
           />
         </Field>
-        <Field label="Specification / RFQ / Drawing / BOQ">
+        {/* <Field label="Specification/RFQ/Drawing/BOQ">
           <input name="attachment" type="file" />
-        </Field>
+        </Field> */}
 
         <div className="textarea-row">
           <Field label="Technical Specification" required>
@@ -1016,7 +1018,6 @@ function BuyerForm({
 
 function SellerForm({
   categories = defaultItemCategories,
-  units = [],
   currencies = [],
   industries = [],
 }) {
@@ -1265,39 +1266,33 @@ function SellerForm({
 }
 
 function Modal({ close, children, title, subtitle, wide = false, onBookDemo }) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, []);
+
   return (
     <div className="modal-backdrop" onClick={close}>
       <div
         className={`modal ${wide ? "modal-wide" : ""}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <button className="modal-close" onClick={close} type="button">
-          <X />
+        <button className="modal-close" onClick={close} type="button" aria-label="Close modal">
+          <X size={18} />
         </button>
 
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "10px",
-            paddingRight: "35px",
-          }}
-        >
+        <div className="modal-top-bar">
           <span className="section-kicker orange" style={{ margin: 0 }}>
             SYNERGY5M LLP
           </span>
 
           {onBookDemo && (
             <button
-              className="expert-btn"
+              className="expert-btn modal-header-action"
               type="button"
               onClick={onBookDemo}
-              style={{
-                padding: "6px 14px",
-                fontSize: "0.85rem",
-                cursor: "pointer",
-              }}
             >
               Book a Demo for ERP <ArrowRight size={15} />
             </button>
@@ -1317,8 +1312,7 @@ function NewLandingPage() {
   const [activeERP, setActiveERP] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [modal, setModal] = useState(null);
-
-  // Keep static categories so options match BUY, SELL, TRADING, SEMIFINISH, etc.
+const [rolePrompt, setRolePrompt] = useState(null);
   const [categories] = useState(defaultItemCategories);
   const [units, setUnits] = useState([]);
   const [currencies, setCurrencies] = useState([]);
@@ -1350,6 +1344,14 @@ function NewLandingPage() {
       });
   }, []);
 
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+  }, [mobileOpen]);
+
   const scrollTo = (id) => {
     document
       .getElementById(id)
@@ -1359,18 +1361,37 @@ function NewLandingPage() {
 
   const closeModal = () => setModal(null);
 
-  const submitForm = async (e, formType) => {
+const submitForm = (e, formType) => {
     e.preventDefault();
     const formElement = e.target;
     const formData = new FormData(formElement);
 
+    if (formType === "buyer" || formType === "seller") {
+      setRolePrompt({ formType, formData });
+      return;
+    }
+
+    sendFormData(formType, formData);
+  };
+
+  const handleRoleSelection = (registerForBoth) => {
+    if (!rolePrompt) return;
+    const { formType, formData } = rolePrompt;
+    const baseCategory = formType === "buyer" ? "Buyer" : "Seller";
+    const selectedCategory = registerForBoth ? "Both" : baseCategory;
+
+    formData.set("category", selectedCategory);
+    setRolePrompt(null);
+    sendFormData(formType, formData);
+  };
+
+  const sendFormData = async (formType, formData) => {
     let endpoint = "/api/inquiries";
     let isMultipart = false;
 
     if (formType === "buyer" || formType === "seller") {
       endpoint = "/api/business-connect";
       isMultipart = true;
-      formData.append("category", formType === "buyer" ? "Buyer" : "Seller");
     } else if (formType === "demo") {
       endpoint = "/api/demo-request";
     } else if (formType === "trial") {
@@ -1397,18 +1418,18 @@ function NewLandingPage() {
       if (response.ok && result.success) {
         window.alert(
           result.message ||
-            "Thank you. Your request has been submitted for review by Synergy5M.",
+            "Thank you. Your request has been submitted for review by Synergy5M."
         );
         closeModal();
       } else {
         window.alert(
-          "Submission error: " + (result.message || "Failed to submit."),
+          "Submission error: " + (result.message || "Failed to submit.")
         );
       }
     } catch (err) {
       console.error("Submission failed:", err);
       window.alert(
-        "Server error. Please ensure the backend server is reachable.",
+        "Server error. Please ensure the backend server is reachable."
       );
     }
   };
@@ -1444,89 +1465,184 @@ function NewLandingPage() {
 
           <button
             className="mobile-menu"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label="Toggle navigation"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open navigation"
           >
-            {mobileOpen ? <X /> : <Menu />}
+            <Menu size={24} />
           </button>
 
-          <nav className={mobileOpen ? "main-nav open" : "main-nav"}>
-            <button onClick={() => scrollTo("home")}>HOME</button>
-            <button onClick={() => scrollTo("consulting")}>
-              MANAGEMENT CONSULTING
-            </button>
+          <div
+            className={`nav-backdrop ${mobileOpen ? "visible" : ""}`}
+            onClick={() => setMobileOpen(false)}
+          />
 
-            <div className="nav-item-dropdown">
-              <button onClick={() => scrollTo("erp")}>ERP SOFTWARE</button>
-              <a
-                href="https://synergy5m-shripaderp8-bvgth5fuf2a4drgq.centralindia-01.azurewebsites.net/Login/Login"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="registered-user-btn"
+          <nav className={`main-nav ${mobileOpen ? "open" : ""}`}>
+            <div className="mobile-drawer-header">
+              <img src={Logo} alt="Synergy5M" className="drawer-logo" />
+              <button
+                className="close-drawer-btn"
+                onClick={() => setMobileOpen(false)}
+                aria-label="Close navigation"
               >
-                Reg User
-              </a>
-            </div>
-
-            <div className="nav-item-dropdown">
-              <button onClick={() => scrollTo("connect")}>
-                BUYING & SELLING
+                <X size={20} />
               </button>
-              <a
-                href="https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="registered-user-btn"
-              >
-                Reg User
-              </a>
             </div>
 
-            <button onClick={() => scrollTo("about")}>ABOUT US</button>
-            <button onClick={() => scrollTo("contact")}>CONTACT US</button>
+            <div className="nav-links-wrap">
+              <button className="nav-link" onClick={() => scrollTo("home")}>
+                HOME
+              </button>
 
-            <button className="expert-btn" onClick={() => setModal("expert")}>
-              Talk to an Expert <ArrowRight size={15} />
-            </button>
+              <button className="nav-link" onClick={() => scrollTo("consulting")}>
+                MANAGEMENT CONSULTING
+              </button>
+
+              <div className="nav-row-with-badge">
+                <button className="nav-link" onClick={() => scrollTo("erp")}>
+                  ERP SOFTWARE
+                </button>
+                {/* <a
+                  href="https://synergy5m-shripaderp8-bvgth5fuf2a4drgq.centralindia-01.azurewebsites.net/Login/Login"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="registered-user-btn"
+                >
+                  Reg User
+                </a> */}
+              </div>
+
+            {/* <div style={{ position: 'relative', display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
+  <button
+    className="nav-link"
+    onClick={() => scrollTo("connect")}
+    style={{
+      background: 'none',
+      border: 'none',
+      color: '#14263c',
+      fontSize: '14.5px',
+   
+      cursor: 'pointer',
+      whiteSpace: 'nowrap',
+      padding: '10px 0',
+      letterSpacing: '0.02em',
+    }}
+  >
+    BUYING & SELLING
+  </button>
+  <a
+    href="https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login"
+    target="_blank"
+    rel="noopener noreferrer"
+    style={{
+      position: 'absolute',
+      top: '70%',
+      left: '-20%',
+      transform: 'translateX(-50%)',
+      marginTop: '2px',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+      color: '#ffffff',
+      fontSize: '13.5px',
+      fontWeight: 700,
+      textDecoration: 'none',
+      whiteSpace: 'nowrap',
+      padding: '8px 19px',
+      borderRadius: '6px',
+      boxShadow: '0 6px 16px -2px rgba(234, 88, 12, 0.45)',
+      zIndex: 10,
+    }}
+  >
+    Registered User
+  </a>
+</div> */}
+<div className="nav-row-with-badge">
+  <button className="nav-link" onClick={() => scrollTo("connect")}>
+    BUYING & SELLING
+  </button>
+  <a
+    href="https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="registered-user-btn"
+  >
+    Registered User
+  </a>
+</div>
+              {/* <button className="nav-link" onClick={() => scrollTo("about")}>
+                ABOUT US
+              </button>
+
+              <button className="nav-link" onClick={() => scrollTo("contact")}>
+                CONTACT US
+              </button> */}
+            </div>
+
+            <div className="drawer-footer-action">
+              <button
+                className="expert-btn"
+                onClick={() => {
+                  setMobileOpen(false);
+                  setModal("expert");
+                }}
+              >
+                Talk to an Expert <ArrowRight size={15} />
+              </button>
+            </div>
           </nav>
         </div>
       </header>
 
       <main>
-        <section id="home" className="hero section-wrap">
+<section id="home" className="hero section-wrap">
           <div className="hero-copy">
             <div className="eyebrow">SYNERGY5M LLP BUSINESS SOLUTIONS</div>
-            <h1>One Partner.</h1>
-            <h3 className="text-danger">Three Powerful Solutions.</h3>
-            <h2>Unlimited Possibilities.</h2>
-            <p>
-              Empowering businesses with <b>Consulting Excellence</b>,{" "}
-              <b>Intelligent ERP</b> and <b>Strong Industry Connections.</b>
+            
+            <div className="hero-headline-group">
+              <h1 className="hero-title-main">One Partner.</h1>
+              <div className="text-danger h2">Three Powerful Solutions.</div>
+              <div className="hero-title-sub">Unlimited Possibilities.</div>
+            </div>
+
+            <p className="hero-desc">
+              Empowering businesses with <strong>Consulting Excellence</strong>,{" "}
+              <strong>Intelligent ERP</strong> and <strong>Strong Industry Connections.</strong>
             </p>
+
             <div className="hero-points">
-              <div>
-                <span>
-                  <BriefcaseBusiness />
+              <div className="point-item">
+                <span className="point-icon">
+                  <BriefcaseBusiness size={18} />
                 </span>
-                <b>Industry Experience</b>
-                <small>Deep understanding across sectors</small>
+                <div className="point-text">
+                  <b>Industry Experience</b><br/>
+                  <small>Deep understanding across sectors</small>
+                </div>
               </div>
-              <div>
-                <span>
-                  <ShieldCheck />
+
+              <div className="point-item">
+                <span className="point-icon">
+                  <ShieldCheck size={18} />
                 </span>
-                <b>Proven Expertise</b>
-                <small>Solutions that deliver measurable results</small>
+                <div className="point-text">
+                  <b>Proven Expertise</b><br/>
+                  <small>Solutions that deliver measurable results</small>
+                </div>
               </div>
-              <div>
-                <span>
-                  <Target />
+
+              <div className="point-item">
+                <span className="point-icon">
+                  <Target size={18} />
                 </span>
-                <b>Growth Focused</b>
-                <small>Helping businesses grow sustainably</small>
+                <div className="point-text">
+                  <b>Growth Focused</b><br/>
+                  <small>Helping businesses grow sustainably</small>
+                </div>
               </div>
             </div>
           </div>
+
           <div className="hero-visual">
             <img
               src="/hero-business.png"
@@ -1646,7 +1762,7 @@ function NewLandingPage() {
                         <ModuleIcon size={24} />
                       </span>
                       <b>{module.title}</b>
-                      <small className="fw-600">
+                      <small>
                         {module.covers.slice(0, 4).join(" • ")}
                       </small>
                       <span className="view-details">
@@ -2356,6 +2472,51 @@ function NewLandingPage() {
             </form>
           </Modal>
         )}
+   
+   
+   
+   {/* SweetAlert-Style Registration Dialog */}
+      {rolePrompt && (
+        <div className="swal-overlay">
+          <div className="swal-modal">
+            <div className="swal-icon-wrap">
+              <span className="swal-icon-pulse"></span>
+              <Handshake size={32} />
+            </div>
+
+            <h3 className="swal-title">Additional Registration</h3>
+
+            <p className="swal-text">
+              You are applying as a{" "}
+              <strong>
+                {rolePrompt.formType === "buyer" ? "Buyer" : "Seller"}
+              </strong>
+              . Would you also like to register your business as a{" "}
+              <strong>
+                {rolePrompt.formType === "buyer" ? "Seller" : "Buyer"}
+              </strong>{" "}
+              at the same time?
+            </p>
+
+            <div className="swal-actions">
+              <button
+                type="button"
+                className="swal-btn swal-btn-cancel"
+                onClick={() => handleRoleSelection(false)}
+              >
+                No, Just {rolePrompt.formType === "buyer" ? "Buyer" : "Seller"}
+              </button>
+              <button
+                type="button"
+                className="swal-btn swal-btn-confirm"
+                onClick={() => handleRoleSelection(true)}
+              >
+                Yes, Register for Both
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
