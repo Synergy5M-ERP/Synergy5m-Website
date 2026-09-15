@@ -1,4 +1,4 @@
-import React, { useState, useEffect ,useCallback} from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 /* --- SVG Icons --- */
@@ -49,31 +49,22 @@ Thank you for your support and cooperation.`
 
   // Fetch filter dropdown options on mount
   useEffect(() => {
+    const fetchFilterOptions = async () => {
+      try {
+        const res = await fetch('/api/vendor-filters', { credentials: 'include' });
+        const data = await res.json();
+        if (data.success) {
+          setAvailableIndustries(data.industries || []);
+          setAvailableCategories(data.categories || []);
+        }
+      } catch (err) {
+        console.error('Error loading filter options:', err);
+      }
+    };
     fetchFilterOptions();
   }, []);
 
-  // Fetch vendors when search query or dropdown filters change
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchVendors();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search, industryFilter, categoryFilter]);
-
-  const fetchFilterOptions = async () => {
-    try {
-      const res = await fetch('/api/vendor-filters', { credentials: 'include' });
-      const data = await res.json();
-      if (data.success) {
-        setAvailableIndustries(data.industries || []);
-        setAvailableCategories(data.categories || []);
-      }
-    } catch (err) {
-      console.error('Error loading filter options:', err);
-    }
-  };
-
-// Fetch vendors with useCallback to satisfy react-hooks/exhaustive-deps
+  // Memoized fetchVendors using useCallback to satisfy react-hooks/exhaustive-deps
   const fetchVendors = useCallback(async () => {
     setFetching(true);
     try {
@@ -94,7 +85,7 @@ Thank you for your support and cooperation.`
     }
   }, [search, industryFilter, categoryFilter]);
 
-  // Fetch vendors when search query or filters change
+  // Fetch vendors when search query or dropdown filters change
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchVendors();
