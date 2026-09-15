@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect ,useCallback} from 'react';
 import { useNavigate } from 'react-router-dom';
 
 /* --- SVG Icons --- */
@@ -73,7 +73,8 @@ Thank you for your support and cooperation.`
     }
   };
 
-  const fetchVendors = async () => {
+// Fetch vendors with useCallback to satisfy react-hooks/exhaustive-deps
+  const fetchVendors = useCallback(async () => {
     setFetching(true);
     try {
       const queryParams = new URLSearchParams({
@@ -91,7 +92,15 @@ Thank you for your support and cooperation.`
     } finally {
       setFetching(false);
     }
-  };
+  }, [search, industryFilter, categoryFilter]);
+
+  // Fetch vendors when search query or filters change
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchVendors();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, industryFilter, categoryFilter, fetchVendors]);
 
   const toggleSelectVendor = (id) => {
     setSelectedIds(prev => 
