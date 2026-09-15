@@ -1235,6 +1235,10 @@ app.post("/api/admin/reject", async (req, res) => {
   }
 });
 
+
+
+const vendorRoutes = require('./vendorRoutes'); 
+app.use('/', vendorRoutes);
 // -------------------------------------------------------------
 // Static Frontend Catch-All Handler (MUST BE AT THE VERY BOTTOM)
 // -------------------------------------------------------------

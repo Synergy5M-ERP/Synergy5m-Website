@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 
 /* --- SVG Icons --- */
 const IconCheck = (props) => (
@@ -59,6 +60,8 @@ const IconChevronRight = (props) => (
 );
 
 export default function AdminPanel() {
+  const navigate = useNavigate();
+
   const [isAuthenticated, setIsAuthenticated] = useState(
     localStorage.getItem("admin_logged_in") === "true"
   );
@@ -67,7 +70,7 @@ export default function AdminPanel() {
   const [loginError, setLoginError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const [activeTab, setActiveTab] = useState("erp");
+  const [activeTab, setActiveTab] = useState("erp"); // "erp", "buyingselling"
   const [dataList, setDataList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -256,85 +259,85 @@ export default function AdminPanel() {
   if (!isAuthenticated) {
     return (
       <>
-       <GlobalStyle />
-<div className="ap-login-page" style={styles.loginPage}>
-  <div className="ap-login-brand" style={styles.loginBrandPanel}>
-    <div style={styles.brandMark}>S5</div>
-    <h1 style={styles.brandTitle}>Synergy 5M</h1>
-    <p style={styles.brandTagline}>Review incoming ERP trial requests and trade enquiries.</p>
-  </div>
-  <div className="ap-login-form-wrap" style={styles.loginFormPanel}>
-    <div style={styles.loginCard}>
-      <div style={styles.loginIconWrap}><IconLock color="#14524A" /></div>
-      <h2 style={styles.loginHeading}>Sign in to the admin panel</h2>
-      <p style={styles.loginSubheading}>Use your administrator credentials to continue.</p>
-      {loginError && (
-        <div style={styles.errorAlert}>
-          <IconX color="#C4362E" style={{ flexShrink: 0 }} />
-          <span>{loginError}</span>
-        </div>
-      )}
-      <form onSubmit={handleLogin}>
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Admin username</label>
-          <input
-            type="text"
-            required
-            className="ap-input"
-            style={styles.input}
-            value={usernameInput}
-            onChange={(e) => setUsernameInput(e.target.value)}
-          />
-        </div>
-
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Password</label>
-          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-            <input
-              type={showPassword ? "text" : "password"}
-              required
-              className="ap-input"
-              style={{ ...styles.input, paddingRight: "40px" }}
-              value={passwordInput}
-              onChange={(e) => setPasswordInput(e.target.value)}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              style={{
-                position: "absolute",
-                right: "10px",
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                color: "#788693",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "4px",
-              }}
-              aria-label={showPassword ? "Hide password" : "Show password"}
-            >
-              {showPassword ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                  <line x1="1" y1="1" x2="23" y2="23" />
-                </svg>
-              ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
+        <GlobalStyle />
+        <div className="ap-login-page" style={styles.loginPage}>
+          <div className="ap-login-brand" style={styles.loginBrandPanel}>
+            <div style={styles.brandMark}>S5</div>
+            <h1 style={styles.brandTitle}>Synergy 5M</h1>
+            <p style={styles.brandTagline}>Review incoming ERP trial requests and trade enquiries.</p>
+          </div>
+          <div className="ap-login-form-wrap" style={styles.loginFormPanel}>
+            <div style={styles.loginCard}>
+              <div style={styles.loginIconWrap}><IconLock color="#14524A" /></div>
+              <h2 style={styles.loginHeading}>Sign in to the admin panel</h2>
+              <p style={styles.loginSubheading}>Use your administrator credentials to continue.</p>
+              {loginError && (
+                <div style={styles.errorAlert}>
+                  <IconX color="#C4362E" style={{ flexShrink: 0 }} />
+                  <span>{loginError}</span>
+                </div>
               )}
-            </button>
+              <form onSubmit={handleLogin}>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Admin username</label>
+                  <input
+                    type="text"
+                    required
+                    className="ap-input"
+                    style={styles.input}
+                    value={usernameInput}
+                    onChange={(e) => setUsernameInput(e.target.value)}
+                  />
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Password</label>
+                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      className="ap-input"
+                      style={{ ...styles.input, paddingRight: "40px" }}
+                      value={passwordInput}
+                      onChange={(e) => setPasswordInput(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{
+                        position: "absolute",
+                        right: "10px",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "#788693",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "4px",
+                      }}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                          <line x1="1" y1="1" x2="23" y2="23" />
+                        </svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <button type="submit" className="ap-primary-btn" style={styles.primaryBtn}>Sign in</button>
+              </form>
+            </div>
           </div>
         </div>
-
-        <button type="submit" className="ap-primary-btn" style={styles.primaryBtn}>Sign in</button>
-      </form>
-    </div>
-  </div>
-</div>
       </>
     );
   }
@@ -355,9 +358,18 @@ export default function AdminPanel() {
               <div style={styles.topBarSubtitle}>Admin panel</div>
             </div>
           </div>
-          <button onClick={handleLogout} className="ap-logout-btn" style={styles.logoutBtn}>
-            <IconLogout /> Log out
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <button 
+              type="button"
+              onClick={() => navigate('/vendor-emails')} 
+              style={styles.logoutBtn}
+            >
+              ✉️ Email Dispatch
+            </button>
+            <button onClick={handleLogout} className="ap-logout-btn" style={styles.logoutBtn}>
+              <IconLogout /> Log out
+            </button>
+          </div>
         </div>
 
         <div style={styles.pageBody}>
@@ -444,7 +456,7 @@ export default function AdminPanel() {
             </div>
           </div>
 
-          {/* Table Container */}
+          {/* Table Container with max height 500px and vertical scrollbar */}
           <div style={styles.tableWrapper}>
             {loading ? (
               <div style={styles.loadingState}>
@@ -452,9 +464,9 @@ export default function AdminPanel() {
                 Loading records from database…
               </div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
+              <div style={{ maxHeight: "500px", overflowY: "auto", overflowX: "auto" }}>
                 <table style={styles.table}>
-                  <thead>
+                  <thead style={{ position: "sticky", top: 0, zIndex: 1, backgroundColor: "#FAFBFB" }}>
                     <tr style={styles.tableHeadRow}>
                       <th style={styles.th}>Actions</th>
                       <th style={styles.th}>Status</th>
@@ -481,7 +493,6 @@ export default function AdminPanel() {
                         const rawStatus = (activeTab === "erp" ? row.TrialStatus : row.Status) || "";
                         const normalizedStatus = rawStatus.trim().toLowerCase();
 
-                        // True if empty, pending, pending verification, or active
                         const isPending =
                           !rawStatus ||
                           normalizedStatus === "pending" ||
@@ -491,7 +502,6 @@ export default function AdminPanel() {
                         const isApproved = normalizedStatus === "approved";
                         const isRejected = normalizedStatus === "rejected";
 
-                        // Display badge text
                         const displayStatus = isApproved
                           ? "Approved"
                           : isRejected
@@ -579,6 +589,25 @@ export default function AdminPanel() {
 
             {/* Pagination Controls */}
             <div style={styles.paginationFooter}>
+              <div style={styles.paginationLeft}>
+                <span>Showing <strong>{startRecord}</strong> - <strong>{endRecord}</strong> of <strong>{paginationInfo.totalRecords}</strong> entries</span>
+                <div style={styles.perPageWrap}>
+                  <label htmlFor="per-page-select" style={{ fontSize: "12.5px", color: "#5B6570" }}>Rows:</label>
+                  <select
+                    id="per-page-select"
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    className="ap-input"
+                    style={styles.perPageSelect}
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+              </div>
+
               <div style={styles.paginationButtons}>
                 <button
                   type="button"

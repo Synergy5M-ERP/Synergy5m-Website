@@ -1453,7 +1453,7 @@ const submitForm = (e, formType) => {
 
   return (
     <div className="synergy-site">
-      <header className="site-header">
+ <header className="site-header">
         <div className="header-inner">
           <button
             className="brand"
@@ -1476,7 +1476,7 @@ const submitForm = (e, formType) => {
             onClick={() => setMobileOpen(false)}
           />
 
-          <nav className={`main-nav ${mobileOpen ? "open" : ""}`}>
+        <nav className={`main-nav ${mobileOpen ? "open" : ""}`}>
             <div className="mobile-drawer-header">
               <img src={Logo} alt="Synergy5M" className="drawer-logo" />
               <button
@@ -1488,6 +1488,7 @@ const submitForm = (e, formType) => {
               </button>
             </div>
 
+            {/* Regular nav links only */}
             <div className="nav-links-wrap">
               <button className="nav-link" onClick={() => scrollTo("home")}>
                 HOME
@@ -1497,89 +1498,26 @@ const submitForm = (e, formType) => {
                 MANAGEMENT CONSULTING
               </button>
 
-              <div className="nav-row-with-badge">
-                <button className="nav-link" onClick={() => scrollTo("erp")}>
-                  ERP SOFTWARE
-                </button>
-                {/* <a
-                  href="https://synergy5m-shripaderp8-bvgth5fuf2a4drgq.centralindia-01.azurewebsites.net/Login/Login"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="registered-user-btn"
-                >
-                  Reg User
-                </a> */}
-              </div>
-
-            {/* <div style={{ position: 'relative', display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
-  <button
-    className="nav-link"
-    onClick={() => scrollTo("connect")}
-    style={{
-      background: 'none',
-      border: 'none',
-      color: '#14263c',
-      fontSize: '14.5px',
-   
-      cursor: 'pointer',
-      whiteSpace: 'nowrap',
-      padding: '10px 0',
-      letterSpacing: '0.02em',
-    }}
-  >
-    BUYING & SELLING
-  </button>
-  <a
-    href="https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login"
-    target="_blank"
-    rel="noopener noreferrer"
-    style={{
-      position: 'absolute',
-      top: '70%',
-      left: '-20%',
-      transform: 'translateX(-50%)',
-      marginTop: '2px',
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-      color: '#ffffff',
-      fontSize: '13.5px',
-      fontWeight: 700,
-      textDecoration: 'none',
-      whiteSpace: 'nowrap',
-      padding: '8px 19px',
-      borderRadius: '6px',
-      boxShadow: '0 6px 16px -2px rgba(234, 88, 12, 0.45)',
-      zIndex: 10,
-    }}
-  >
-    Registered User
-  </a>
-</div> */}
-<div className="nav-row-with-badge">
-  <button className="nav-link" onClick={() => scrollTo("connect")}>
-    BUYING & SELLING
-  </button>
-  <a
-    href="https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login"
-    target="_blank"
-    rel="noopener noreferrer"
-    className="registered-user-btn"
-  >
-    Registered User
-  </a>
-</div>
-              {/* <button className="nav-link" onClick={() => scrollTo("about")}>
-                ABOUT US
+              <button className="nav-link" onClick={() => scrollTo("erp")}>
+                ERP SOFTWARE
               </button>
-
-              <button className="nav-link" onClick={() => scrollTo("contact")}>
-                CONTACT US
-              </button> */}
+            
+              <button className="nav-link" onClick={() => scrollTo("connect")}>
+                BUYING & SELLING
+              </button>
             </div>
 
-            <div className="drawer-footer-action">
+            {/* Action buttons side-by-side at the bottom/end */}
+            <div className="drawer-footer-action" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <a
+                href="https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="registered-user-btn"
+              >
+                Registered User
+              </a>
+              
               <button
                 className="expert-btn"
                 onClick={() => {
