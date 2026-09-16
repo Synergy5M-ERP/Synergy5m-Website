@@ -97,7 +97,7 @@ html, body {
   cursor: pointer;
   white-space: nowrap;
   padding: 10px 0;
-  letter-spacing: 0.02em;
+
 }
 
 .nav-link:hover {

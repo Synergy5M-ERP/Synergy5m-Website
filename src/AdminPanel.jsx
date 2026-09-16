@@ -366,6 +366,14 @@ export default function AdminPanel() {
             >
               ✉️ Email Dispatch
             </button>
+
+             <button 
+              type="button"
+              onClick={() => navigate('/demo-req')} 
+              style={styles.logoutBtn}
+            >
+              Accept Demo
+            </button>
             <button onClick={handleLogout} className="ap-logout-btn" style={styles.logoutBtn}>
               <IconLogout /> Log out
             </button>

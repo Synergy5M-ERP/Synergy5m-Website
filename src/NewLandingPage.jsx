@@ -30,11 +30,6 @@ import "./NewLandingPage.css";
 const defaultItemCategories = [
   "BUY",
   "SELL",
-  "TRADING",
-  "SEMIFINISH",
-  "SERVICES",
-  "JOBWORK",
-  "Other / Add New",
 ];
 
 const consulting = {
@@ -541,6 +536,10 @@ function CompanyVerificationFields({
   industries = [],
   selectedIndustry,
   onIndustryChange,
+  countryCode,
+  setCountryCode,
+  mobileNumber,
+  setMobileNumber,
 }) {
   return (
     <>
@@ -555,13 +554,8 @@ function CompanyVerificationFields({
             placeholder="Registered company name"
           />
         </Field>
-        <Field
-          label="GSTIN"
-          required
-          hint="Required for registration eligibility"
-        >
+        <Field label="GSTIN">
           <input
-            required
             name="gstin"
             pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]"
             title="Enter a valid 15-character GSTIN"
@@ -590,15 +584,34 @@ function CompanyVerificationFields({
             placeholder="official@company.com"
           />
         </Field>
-        <Field label="Official Mobile Number" required>
-          <input
-            required
-            name="mobile"
-            type="tel"
-            pattern="[0-9+() -]{10,16}"
-            placeholder="Official business number"
-          />
-        </Field>
+        <div className="form-group">
+          <label style={styles.label}>Official Mobile Number <span style={{color: 'red'}}>*</span></label>
+          <div style={{ display: "flex", gap: "8px", width: "100%" }}>
+            <select
+              value={countryCode}
+              onChange={(e) => setCountryCode(e.target.value)}
+              style={{ flex: "0 0 135px", padding: "10px 8px", borderRadius: "8px", border: "1px solid #D8DCE0", fontSize: "13.5px", background: "#fff" }}
+            >
+              <option value="+91">🇮🇳 +91 (India)</option>
+              <option value="+1">🇺🇸 +1 (USA/Canada)</option>
+              <option value="+44">🇬🇧 +44 (UK)</option>
+              <option value="+971">🇦🇪 +971 (UAE)</option>
+              <option value="+61">🇦🇺 +61 (Australia)</option>
+              <option value="+65">🇸🇬 +65 (Singapore)</option>
+              <option value="+49">🇩🇪 +49 (Germany)</option>
+            </select>
+            <input
+              required
+              name="mobile"
+              type="tel"
+              pattern="[0-9]{7,12}"
+              placeholder="Enter mobile number"
+              value={mobileNumber}
+              onChange={(e) => setMobileNumber(e.target.value)}
+              style={{ flex: "1", padding: "10px 12px", borderRadius: "8px", border: "1px solid #D8DCE0", fontSize: "14px", background: "#fff" }}
+            />
+          </div>
+        </div>
 
         <SearchableDropdown
           label="Industry"
@@ -646,6 +659,10 @@ function RegistrationBlock({
   industries = [],
   selectedIndustry,
   onIndustryChange,
+  countryCode,
+  setCountryCode,
+  mobileNumber,
+  setMobileNumber,
 }) {
   const roles = type === "buyer" ? buyerRoles : sellerRoles;
   return (
@@ -654,6 +671,10 @@ function RegistrationBlock({
         industries={industries}
         selectedIndustry={selectedIndustry}
         onIndustryChange={onIndustryChange}
+        countryCode={countryCode}
+        setCountryCode={setCountryCode}
+        mobileNumber={mobileNumber}
+        setMobileNumber={setMobileNumber}
       />
       <div className="form-section-title">
         <UserCheck size={18} /> Authorised Representative
@@ -666,8 +687,8 @@ function RegistrationBlock({
             placeholder="Authorised person's name"
           />
         </Field>
-        <Field label="Designation / Business Role" required>
-          <select required name="role" defaultValue="">
+        <Field label="Designation / Business Role">
+          <select name="role" defaultValue="">
             <option value="" disabled>
               Select your role
             </option>
@@ -694,7 +715,7 @@ function RegistrationBlock({
         </Field>
       </div>
       <label className="authority-check">
-        <input required type="checkbox" name="authority" />
+        <input type="checkbox" name="authority" />
         <span>
           I confirm that I am authorised by the organisation to submit business
           requirements / offers through Synergy5M Business Connect.
@@ -754,6 +775,10 @@ function BuyerForm({
   units = [],
   currencies = [],
   industries = [],
+  countryCode,
+  setCountryCode,
+  mobileNumber,
+  setMobileNumber,
 }) {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [customCategory, setCustomCategory] = useState("");
@@ -792,6 +817,10 @@ function BuyerForm({
         industries={industries}
         selectedIndustry={selectedIndustry}
         onIndustryChange={setSelectedIndustry}
+        countryCode={countryCode}
+        setCountryCode={setCountryCode}
+        mobileNumber={mobileNumber}
+        setMobileNumber={setMobileNumber}
       />
 
       <div className="form-section-title">
@@ -989,9 +1018,6 @@ function BuyerForm({
             placeholder="Years/experience"
           />
         </Field>
-        {/* <Field label="Specification/RFQ/Drawing/BOQ">
-          <input name="attachment" type="file" />
-        </Field> */}
 
         <div className="textarea-row">
           <Field label="Technical Specification" required>
@@ -1020,6 +1046,10 @@ function SellerForm({
   categories = defaultItemCategories,
   currencies = [],
   industries = [],
+  countryCode,
+  setCountryCode,
+  mobileNumber,
+  setMobileNumber,
 }) {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [customCategory, setCustomCategory] = useState("");
@@ -1057,6 +1087,10 @@ function SellerForm({
         industries={industries}
         selectedIndustry={selectedIndustry}
         onIndustryChange={setSelectedIndustry}
+        countryCode={countryCode}
+        setCountryCode={setCountryCode}
+        mobileNumber={mobileNumber}
+        setMobileNumber={setMobileNumber}
       />
       <div className="form-section-title">
         <Factory size={18} /> List Your Product / Selling Opportunity
@@ -1149,18 +1183,18 @@ function SellerForm({
         </Field>
 
         <div className="textarea-row">
-          <Field label="Product Description" required>
+          <Field label="Product Description" >
             <textarea
               name="productDescription"
-              required
+              
               rows="3"
               placeholder="Product description"
             />
           </Field>
-          <Field label="Technical Specification" required>
+          <Field label="Technical Specification" >
             <textarea
               name="technicalSpecification"
-              required
+              
               rows="3"
               placeholder="Technical specification"
             />
@@ -1256,9 +1290,7 @@ function SellerForm({
             <option>No</option>
           </select>
         </Field>
-        <Field label="Upload TDS / Catalogue / Images / Certifications / Company Profile">
-          <input name="documents" type="file" multiple />
-        </Field>
+      
       </div>
       <CommissionBlock />
     </>
@@ -1312,11 +1344,15 @@ function NewLandingPage() {
   const [activeERP, setActiveERP] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [modal, setModal] = useState(null);
-const [rolePrompt, setRolePrompt] = useState(null);
+  const [rolePrompt, setRolePrompt] = useState(null);
   const [categories] = useState(defaultItemCategories);
   const [units, setUnits] = useState([]);
   const [currencies, setCurrencies] = useState([]);
   const [industries, setIndustries] = useState([]);
+
+  // States for country code and mobile number
+  const [countryCode, setCountryCode] = useState("+91");
+  const [mobileNumber, setMobileNumber] = useState("");
 
   useEffect(() => {
     fetch("/api/units")
@@ -1361,10 +1397,15 @@ const [rolePrompt, setRolePrompt] = useState(null);
 
   const closeModal = () => setModal(null);
 
-const submitForm = (e, formType) => {
+  const submitForm = (e, formType) => {
     e.preventDefault();
     const formElement = e.target;
     const formData = new FormData(formElement);
+
+    // Prepend country code to mobile if the mobile field is part of the form data
+    if (formData.has("mobile")) {
+      formData.set("mobile", `${countryCode} ${mobileNumber}`);
+    }
 
     if (formType === "buyer" || formType === "seller") {
       setRolePrompt({ formType, formData });
@@ -1453,7 +1494,7 @@ const submitForm = (e, formType) => {
 
   return (
     <div className="synergy-site">
- <header className="site-header">
+      <header className="site-header">
         <div className="header-inner">
           <button
             className="brand"
@@ -1476,7 +1517,7 @@ const submitForm = (e, formType) => {
             onClick={() => setMobileOpen(false)}
           />
 
-        <nav className={`main-nav ${mobileOpen ? "open" : ""}`}>
+          <nav className={`main-nav ${mobileOpen ? "open" : ""}`}>
             <div className="mobile-drawer-header">
               <img src={Logo} alt="Synergy5M" className="drawer-logo" />
               <button
@@ -1488,7 +1529,6 @@ const submitForm = (e, formType) => {
               </button>
             </div>
 
-            {/* Regular nav links only */}
             <div className="nav-links-wrap">
               <button className="nav-link" onClick={() => scrollTo("home")}>
                 HOME
@@ -1507,7 +1547,6 @@ const submitForm = (e, formType) => {
               </button>
             </div>
 
-            {/* Action buttons side-by-side at the bottom/end */}
             <div className="drawer-footer-action" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <a
                 href="https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login"
@@ -1533,7 +1572,7 @@ const submitForm = (e, formType) => {
       </header>
 
       <main>
-<section id="home" className="hero section-wrap">
+        <section id="home" className="hero section-wrap">
           <div className="hero-copy">
             <div className="eyebrow">SYNERGY5M LLP BUSINESS SOLUTIONS</div>
             
@@ -2087,6 +2126,10 @@ const submitForm = (e, formType) => {
               units={units}
               currencies={currencies}
               industries={industries}
+              countryCode={countryCode}
+              setCountryCode={setCountryCode}
+              mobileNumber={mobileNumber}
+              setMobileNumber={setMobileNumber}
             />
             <div className="form-actions">
               <button className="blue-btn" type="submit">
@@ -2110,6 +2153,10 @@ const submitForm = (e, formType) => {
               units={units}
               currencies={currencies}
               industries={industries}
+              countryCode={countryCode}
+              setCountryCode={setCountryCode}
+              mobileNumber={mobileNumber}
+              setMobileNumber={setMobileNumber}
             />
             <div className="form-actions">
               <button className="blue-btn" type="submit">
@@ -2410,10 +2457,7 @@ const submitForm = (e, formType) => {
             </form>
           </Modal>
         )}
-   
-   
-   
-   {/* SweetAlert-Style Registration Dialog */}
+
       {rolePrompt && (
         <div className="swal-overlay">
           <div className="swal-modal">
@@ -2460,3 +2504,23 @@ const submitForm = (e, formType) => {
 }
 
 export default NewLandingPage;
+
+const FONT = "'Inter', -apple-system, 'Segoe UI', sans-serif";
+const styles = {
+    dashboardContainer: { minHeight: "100vh", backgroundColor: "#F2F4F5", fontFamily: FONT },
+    topBar: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 28px", background: "#14524A", color: "#fff" },
+    topBarLeft: { display: "flex", alignItems: "center", gap: "12px" },
+    brandMarkSmall: { width: "34px", height: "34px", borderRadius: "8px", background: "rgba(255,255,255,0.14)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "13px" },
+    topBarTitle: { fontSize: "15px", fontWeight: 700 },
+    topBarSubtitle: { fontSize: "12px", color: "rgba(255,255,255,0.7)" },
+    logoutBtn: { display: "flex", alignItems: "center", gap: "7px", background: "transparent", color: "#fff", border: "1px solid rgba(255,255,255,0.35)", padding: "8px 14px", borderRadius: "7px", cursor: "pointer", fontSize: "13px" },
+    pageBody: { padding: "28px", maxWidth: "1280px", margin: "0 auto" },
+    label: { display: "block", fontSize: "13px", fontWeight: 600, color: "#3C4550", marginBottom: "7px" },
+    input: { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #D8DCE0", fontSize: "14px", fontFamily: FONT, background: "#FFFFFF" },
+    textarea: { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #D8DCE0", fontSize: "14px", fontFamily: FONT, resize: "vertical", background: "#FFFFFF" },
+    primaryBtn: { padding: "12px", background: "#14524A", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: 600, fontSize: "14.5px", fontFamily: FONT },
+    emailDispatchGrid: { display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: "20px" },
+    emailLeftCard: { background: "#fff", borderRadius: "12px", border: "1px solid #E4E7E9", overflow: "hidden", height: "fit-content" },
+    emailRightCard: { background: "#fff", borderRadius: "12px", border: "1px solid #E4E7E9", overflow: "hidden", height: "fit-content" },
+    tokenBtn: { background: "#F2F4F5", border: "1px solid #D8DCE0", color: "#3C4550", padding: "4px 9px", borderRadius: "5px", fontSize: "11.5px", cursor: "pointer", fontWeight: 500 }
+};

@@ -1235,6 +1235,313 @@ app.post("/api/admin/reject", async (req, res) => {
   }
 });
 
+// -------------------------------------------------------------
+// Demo Request Admin Endpoints (Using shared poolPromise)
+// -------------------------------------------------------------
+
+// GET /api/admin/demo-requests (Paginated & Filtered)
+app.get('/api/admin/demo-requests', async (req, res) => {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
+    const statusFilter = (req.query.status || 'All').trim();
+    const offset = (page - 1) * limit;
+
+    try {
+        const pool = await poolPromise;
+        if (!pool) throw new Error("Database pool not available");
+
+        let request = pool.request()
+            .input('Offset', sql.Int, offset)
+            .input('Limit', sql.Int, limit);
+
+        let whereClause = "WHERE 1=1";
+        if (statusFilter !== 'All') {
+            request.input('StatusFilter', sql.NVarChar, statusFilter);
+            whereClause += " AND [DemoStatus] = @StatusFilter";
+        }
+
+        const result = await request.query(`
+            SELECT [Id], [fullName], [Email], [BusinessEmail], [CompanyName], [OfficialMobile], [PreferredDate], [TimeSlot], [MeetingPlatform], [Requirement], [DemoStatus], [CreatedAt], [UpdatedAt],
+                   COUNT(*) OVER() AS TotalCount
+            FROM [dbo].[DemoRequests]
+            ${whereClause}
+            ORDER BY [CreatedAt] DESC
+            OFFSET @Offset ROWS
+            FETCH NEXT @Limit ROWS ONLY;
+        `);
+
+        const records = result.recordset;
+        const totalRecords = records.length > 0 ? records[0].TotalCount : 0;
+        const totalPages = Math.ceil(totalRecords / limit);
+
+        res.status(200).json({
+            success: true,
+            data: records,
+            pagination: {
+                totalRecords,
+                totalPages,
+                currentPage: page,
+                limit
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching demo requests:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
+// POST /api/admin/demo-requests/:id/approve
+app.post('/api/admin/demo-requests/:id/approve', async (req, res) => {
+    const { id } = req.params;
+    const { meetingDate, meetingTime, meetingLink, hostName, ccEmails } = req.body;
+
+    try {
+        const pool = await poolPromise;
+        if (!pool) throw new Error("Database pool not available");
+
+        // 1. Fetch user details and current DemoStatus
+        const userResult = await pool.request()
+            .input('Id', sql.Int, id)
+            .query('SELECT Email, BusinessEmail, fullName, DemoStatus FROM [dbo].[DemoRequests] WHERE Id = @Id');
+        
+        if (userResult.recordset.length === 0) {
+            return res.status(404).json({ error: 'Demo request not found' });
+        }
+
+        const user = userResult.recordset[0];
+
+        // 🛑 Validation: Check if already submitted or done
+        if (user.DemoStatus === 'Submitted' || user.DemoStatus === 'Done') {
+            return res.status(400).json({ 
+                error: `Meeting email is already submitted. Current status is '${user.DemoStatus}'.` 
+            });
+        }
+
+        const targetEmail = user.BusinessEmail && user.BusinessEmail.trim() !== '' 
+            ? user.BusinessEmail 
+            : user.Email;
+
+        if (!targetEmail) {
+            return res.status(400).json({ error: 'No valid email address found for this user.' });
+        }
+
+        // 2. Update DemoStatus to 'Submitted'
+        await pool.request()
+            .input('Id', sql.Int, id)
+            .query("UPDATE [dbo].[DemoRequests] SET [DemoStatus] = 'Submitted', [UpdatedAt] = GETDATE() WHERE [Id] = @Id");
+
+        // 3. Send Email to User with CC
+        const mailOptions = {
+            from: `"Synergy Support" <${process.env.SMTP_USER || "mmm@synergy5m.com"}>`,
+            to: targetEmail,
+            cc: ccEmails && ccEmails.length > 0 ? ccEmails : ['sales@synergy5m.com', 'accounts@synergy5m.com'],
+            subject: 'Your Demo is Approved - Meeting Details Inside',
+       html: `
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #333333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
+        
+        <!-- Header Banner Area -->
+        <div style="text-align: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 20px;">
+            <h2 style="color: #14524A; margin: 0; font-size: 22px;">Synergy5M LLP</h2>
+            <p style="color: #64748b; font-size: 13px; margin: 5px 0 0 0;">Enterprise Resource Planning & Business Solutions</p>
+        </div>
+
+        <h3 style="color: #1e293b; font-size: 18px;">Hello ${user.fullName},</h3>
+        
+        <p style="font-size: 14px; color: #475569;">
+            Thank you for booking a live software demonstration with Synergy5M! We are thrilled to show you how our platform can streamline your manufacturing and operational workflow.
+        </p>
+
+        <p style="font-size: 14px; color: #475569;">
+            Your demo request has been reviewed and officially approved. Below are your scheduled session credentials:
+        </p>
+
+        <!-- Meeting Details Box -->
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #14524A; padding: 18px; border-radius: 6px; margin: 20px 0;">
+            <ul style="list-style-type: none; padding-left: 0; margin: 0;">
+                <li style="margin-bottom: 10px; font-size: 14px;"><strong>📅 Scheduled Date:</strong> ${meetingDate}</li>
+                <li style="margin-bottom: 10px; font-size: 14px;"><strong>⏰ Time Slot:</strong> ${meetingTime}</li>
+                <li style="margin-bottom: 10px; font-size: 14px;"><strong>👤 Session Host / Presenter:</strong> ${hostName}</li>
+                <li style="font-size: 14px;"><strong>🔗 Access Link:</strong> <a href="${meetingLink}" target="_blank" style="color: #0b5ed7; text-decoration: underline;">Join Virtual Conference</a></li>
+            </ul>
+        </div>
+
+        <!-- Additional Professional Guidance / Next Steps -->
+        <div style="background-color: #fefce8; border: 1px solid #fde047; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 6px 0; color: #854d0e; font-size: 13.5px;">💡 Tips for a Productive Session:</h4>
+            <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #713f12;">
+                <li>Please join 2–3 minutes prior to test your audio and video settings.</li>
+                <li>Feel free to have key stakeholders or department heads join the call.</li>
+                <li>Keep a list of your specific operational requirements or questions handy.</li>
+            </ul>
+        </div>
+
+        <p style="font-size: 14px; color: #475569;">
+            If you need to reschedule or have any immediate queries before the session, simply reply directly to this email or contact our support team.
+        </p>
+
+        <p style="font-size: 14px; color: #475569; margin-bottom: 30px;">
+            We look forward to connecting with you soon!
+        </p>
+
+        <p style="font-size: 14px; color: #1e293b; margin: 0;">Warm regards,</p>
+        <p style="font-size: 14px; font-weight: bold; color: #14524A; margin: 4px 0 0 0;">The Synergy5M Demo & Support Team</p>
+
+        <!-- Footer Note -->
+        <div style="border-top: 1px solid #f1f5f9; margin-top: 25px; padding-top: 15px; text-align: center;">
+            <p style="font-size: 11.5px; color: #94a3b8; margin: 0;">
+                This is an automated administrative notification from Synergy5M LLP. Please do not share personal credentials publicly.
+            </p>
+        </div>
+    </div>
+`
+        };
+
+        await transporter.sendMail(mailOptions);
+        res.status(200).json({ message: 'Demo approved and email sent successfully.' });
+    } catch (error) {
+        console.error('Error approving demo:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST /api/admin/demo-requests/:id/feedback
+app.post('/api/admin/demo-requests/:id/feedback', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const pool = await poolPromise;
+        if (!pool) throw new Error("Database pool not available");
+
+        const userResult = await pool.request()
+            .input('Id', sql.Int, id)
+            .query('SELECT Email, BusinessEmail, fullName, DemoStatus FROM [dbo].[DemoRequests] WHERE Id = @Id');
+
+        if (userResult.recordset.length === 0) {
+            return res.status(404).json({ error: 'Demo request not found' });
+        }
+
+        const user = userResult.recordset[0];
+
+        // 🛑 Validation: Check if demo is already given / done
+        if (user.DemoStatus === 'Done') {
+            return res.status(400).json({ error: 'The demo is already given (marked as Done).' });
+        }
+
+        const targetEmail = user.BusinessEmail || user.Email;
+
+        // Update status to 'Done'
+        await pool.request()
+            .input('Id', sql.Int, id)
+            .query("UPDATE [dbo].[DemoRequests] SET [DemoStatus] = 'Done', [UpdatedAt] = GETDATE() WHERE [Id] = @Id");
+
+        // Send Feedback Form Email
+        const feedbackUrl = `https://docs.google.com/forms/d/e/1FAIpQLSfOjo33zKew6F9sGSm1yjPDX9W48rDCSlDjndpv5C2uNPz2qA/viewform?usp=publish-editor`; 
+        const mailOptions = {
+            from: `"Synergy Support" <${process.env.SMTP_USER || "mmm@synergy5m.com"}>`,
+            to: targetEmail,
+            subject: 'We value your feedback on the demo',
+           html: `
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #333333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
+        
+        <!-- Header Banner Area -->
+        <div style="text-align: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 20px;">
+            <h2 style="color: #14524A; margin: 0; font-size: 22px;">Synergy5M LLP</h2>
+            <p style="color: #64748b; font-size: 13px; margin: 5px 0 0 0;">Enterprise Resource Planning & Business Solutions</p>
+        </div>
+
+        <h3 style="color: #1e293b; font-size: 18px;">Hello ${user.fullName},</h3>
+        
+        <p style="font-size: 14px; color: #475569;">
+            Thank you for taking the time to attend our live product demonstration today. We hope you found the session insightful and that you could see how Synergy5M can add value to your operations!
+        </p>
+
+        <p style="font-size: 14px; color: #475569;">
+            We are constantly striving to improve our presentations and platform features. Your feedback matters greatly to us—could you please spare just 2 minutes to share your thoughts?
+        </p>
+
+        <!-- Call-to-Action Button Box -->
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="${feedbackUrl}" target="_blank" style="background-color: #059669; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.2);">
+                ✨ Share Your Feedback
+            </a>
+        </div>
+
+        <p style="font-size: 13.5px; color: #64748b; text-align: center;">
+            If the button above doesn't work, you can copy and paste this link into your browser:<br/>
+            <a href="${feedbackUrl}" target="_blank" style="color: #0b5ed7; word-break: break-all; font-size: 12px;">${feedbackUrl}</a>
+        </p>
+
+        <p style="font-size: 14px; color: #475569; margin-top: 30px;">
+            If you have any follow-up technical questions or require a custom proposal, please feel free to reply directly to this email.
+        </p>
+
+        <p style="font-size: 14px; color: #1e293b; margin: 0;">Thank you once again,</p>
+        <p style="font-size: 14px; font-weight: bold; color: #14524A; margin: 4px 0 0 0;">The Synergy5M Team</p>
+
+        <!-- Footer Note -->
+        <div style="border-top: 1px solid #f1f5f9; margin-top: 25px; padding-top: 15px; text-align: center;">
+            <p style="font-size: 11.5px; color: #94a3b8; margin: 0;">
+                This is an automated post-demo notification from Synergy5M LLP.
+            </p>
+        </div>
+    </div>
+`
+        };
+
+        await transporter.sendMail(mailOptions);
+        res.status(200).json({ message: 'Status updated to Done and feedback email sent.' });
+    } catch (error) {
+        console.error('Error sending feedback mail:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST /api/admin/demo-requests/:id/feedback
+app.post('/api/admin/demo-requests/:id/feedback', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const pool = await poolPromise;
+        if (!pool) throw new Error("Database pool not available");
+
+        const userResult = await pool.request()
+            .input('Id', sql.Int, id)
+            .query('SELECT Email, BusinessEmail, fullName FROM [dbo].[DemoRequests] WHERE Id = @Id');
+
+        if (userResult.recordset.length === 0) {
+            return res.status(404).json({ error: 'Demo request not found' });
+        }
+
+        const user = userResult.recordset[0];
+        const targetEmail = user.BusinessEmail || user.Email;
+
+        // Update status to 'Done'
+        await pool.request()
+            .input('Id', sql.Int, id)
+            .query("UPDATE [dbo].[DemoRequests] SET [DemoStatus] = 'Done', [UpdatedAt] = GETDATE() WHERE [Id] = @Id");
+
+        // Send Feedback Form Email
+        const feedbackUrl = `https://yourdomain.com/feedback?id=${id}`; 
+        const mailOptions = {
+            from: '"Synergy Support" <support@synergy5m.com>',
+            to: targetEmail,
+            subject: 'We value your feedback on the demo',
+            html: `
+                <h3>Hello ${user.fullName},</h3>
+                <p>Thank you for attending the demo today. Please take a moment to share your feedback with us:</p>
+                <p><a href="${feedbackUrl}" style="padding: 10px 15px; background: #007bff; color: white; text-decoration: none; border-radius: 5px;">Provide Feedback</a></p>
+            `,
+        };
+
+        await transporter.sendMail(mailOptions);
+        res.status(200).json({ message: 'Status updated to Done and feedback email sent.' });
+    } catch (error) {
+        console.error('Error sending feedback mail:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 
 
 const vendorRoutes = require('./vendorRoutes'); 
@@ -1277,7 +1584,6 @@ if (fs.existsSync(indexHtmlPath)) {
     `);
   });
 }
-
 
 
 const PORT = process.env.PORT || 8080;
