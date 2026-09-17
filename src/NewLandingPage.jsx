@@ -1549,7 +1549,7 @@ function NewLandingPage() {
 
             <div className="drawer-footer-action" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <a
-                href="https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login"
+                href="https://synergy5m-business-4-profit-platform.azurewebsites.net/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="registered-user-btn"
