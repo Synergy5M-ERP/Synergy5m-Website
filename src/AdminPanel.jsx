@@ -359,6 +359,13 @@ export default function AdminPanel() {
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <button 
+              type="button"
+              onClick={() => navigate('/')} 
+              style={styles.logoutBtn}
+            >
+              Website
+            </button>
             <button 
               type="button"
               onClick={() => navigate('/vendor-emails')} 
@@ -372,7 +379,7 @@ export default function AdminPanel() {
               onClick={() => navigate('/demo-req')} 
               style={styles.logoutBtn}
             >
-              Accept Demo
+              ERP Tracker
             </button>
             <button onClick={handleLogout} className="ap-logout-btn" style={styles.logoutBtn}>
               <IconLogout /> Log out

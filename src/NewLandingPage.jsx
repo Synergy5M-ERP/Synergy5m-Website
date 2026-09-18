@@ -1696,7 +1696,7 @@ function NewLandingPage() {
             <div>
               <h2> ERP SOFTWARE</h2>
               <h3>Your Business. Your ERP. Your Brand.</h3>
-              <p>
+              <p style={{paddingBottom:'10px !important;'}}>
                 A powerful, integrated ERP software designed for MSMEs to
                 automate operations, improve control and drive growth.
               </p>

@@ -186,6 +186,13 @@ Contact : +91- 9423579446`;
           </div>
         </div>
         <button 
+              type="button"
+              onClick={() => navigate('/')} 
+              style={styles.logoutBtn}
+            >
+              Website
+            </button>
+        <button 
           type="button"
           onClick={() => navigate('/admin')} 
           style={styles.logoutBtn}
