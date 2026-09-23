@@ -32,8 +32,8 @@ export default function App() {
   // Manual Add Form States
   const [newVendorName, setNewVendorName] = useState('');
   const [newVendorPhone, setNewVendorPhone] = useState('');
-  const [newVendorCategory, setNewVendorCategory] = useState('General');
-
+ 
+const [newVendorCategory] = useState('General');
   const [message, setMessage] = useState('Hello! We are requesting a quotation for the attached product designs and specifications. Please review and respond.');
   const [images, setImages] = useState(DEFAULT_IMAGES);
   const [selectedImageIds, setSelectedImageIds] = useState(['img1']);
@@ -569,7 +569,7 @@ export default function App() {
   );
 }
 
-const FONT = "'Inter', -apple-system, 'Segoe UI', sans-serif";
+
 
 const styles = {
   topBar: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 28px", background: "#14524A", color: "#fff" },
