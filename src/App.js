@@ -7,6 +7,7 @@ import AdminPanel from './AdminPanel';
 import './App.css';
 import './index.css';
 import DemoPanel from './DemoPanel';
+import WhatsappBroadcast from './WhatsappBroadcast';
 function App() {
   return (
     <HelmetProvider>
@@ -17,6 +18,7 @@ function App() {
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/vendor-emails" element={<VendorEmailSender/>}/>
             <Route path="/demo-req" element={<DemoPanel/>} />
+            <Route path="/whatsapp" element={<WhatsappBroadcast/>} />
             <Route path="*" element={<NewLandingPage />} />
           </Routes>
         </div>

@@ -374,6 +374,14 @@ export default function AdminPanel() {
               ✉️ Email Dispatch
             </button>
 
+                    <button 
+              type="button"
+              onClick={() => navigate('/whatsapp')} 
+              style={styles.logoutBtn}
+            >
+              ✉️ Whatsapp Broadcast
+            </button>
+
              <button 
               type="button"
               onClick={() => navigate('/demo-req')} 
