@@ -93,7 +93,9 @@ html, body {
   background: none;
   color: #14263c;
   font-size: 13.5px;
-  font-weight: 700;
+  font-weight: 700 !important;
+   font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif !important;
+ 
   cursor: pointer;
   white-space: nowrap;
   padding: 10px 0;

@@ -24,7 +24,7 @@ import {
   CircleDollarSign,
   BadgeCheck,
 } from "lucide-react";
-import Logo from "./logo (1).png";
+import Logo from "./synlogo.png";
 import "./NewLandingPage.css";
 
 const defaultItemCategories = [
