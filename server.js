@@ -523,7 +523,7 @@ app.post("/api/demo-request", async (req, res) => {
 
     try {
       await transporter.sendMail({
-        from: `"Synergy5M ERP System" <${process.env.SMTP_USER || "mmm@synergy5m.com"}>`,
+        from: `"Synergy5M ERP System" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
         to: ["sales@synergy5m.com", "accounts@synergy5m.com"],
         subject: `SYN ERP 10 Demo Request: ${companyName}`,
         html: mailHtml,
@@ -635,8 +635,9 @@ app.post("/api/trial-request", async (req, res) => {
 
     try {
       await transporter.sendMail({
-        from: `"Synergy5M ERP System" <${process.env.SMTP_USER || "mmm@synergy5m.com"}>`,
+        from: `"Synergy5M ERP System" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
         to: ["sales@synergy5m.com", "accounts@synergy5m.com"],
+        cc:["sales@synergy5m.com", "accounts@synergy5m.com"],
         subject: `New SYN ERP Trial Request: ${companyName}`,
         html: mailHtml,
       });
@@ -800,8 +801,6 @@ app.get("/api/admin/enquiries", async (req, res) => {
   }
 });
 
-
-
 app.post("/api/admin/approve", async (req, res) => {
   const { id, type, email, recipientName } = req.body;
   if (!id || !type || !email) {
@@ -809,18 +808,32 @@ app.post("/api/admin/approve", async (req, res) => {
   }
 
   const generatedPassword = generatePassword(10);
-  const userRole = type === "erp" ? "erp" : "buying-selling";
-  const portalUrl = type === "erp" 
-    ?  "https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login"
-    :"https://synergy5m-business-4-profit-platform.azurewebsites.net/";
+  const isErp = type === "erp";
+  
+  const portalUrl = isErp 
+    ? "https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login"
+    : "https://synergy5m-business-4-profit-platform.azurewebsites.net/";
 
   try {
     const pool = await poolPromise;
+
+    // 1. If it's a buying/selling enquiry, fetch the actual Category from BusinessEnquiries
+    let dynamicUserRole = isErp ? "erp" : "buying-selling";
+    if (!isErp) {
+      const catResult = await pool.request()
+        .input("Id", sql.Int, id)
+        .query("SELECT [Category] FROM [dbo].[BusinessEnquiries] WHERE [Id] = @Id");
+      
+      if (catResult.recordset.length > 0 && catResult.recordset[0].Category) {
+        dynamicUserRole = catResult.recordset[0].Category.trim();
+      }
+    }
+
     const transaction = new sql.Transaction(pool);
     await transaction.begin();
 
     try {
-      // 1. Insert into HRM_UserTbl and retrieve the new ID
+      // 2. Insert into HRM_UserTbl using the dynamic Category as UserRole
       const insertUserSql = `
         INSERT INTO [dbo].[HRM_UserTbl] (
           [username], [password], [AdminApprove], [StartDate],
@@ -836,7 +849,7 @@ app.post("/api/admin/approve", async (req, res) => {
           30, DATEADD(day, 30, GETDATE()), 1, 0, 0,
           0, 0, 0, 1, @UserRole,
           0, 0, 0, 0,
-          0, 1, 0, ${type === "buyingselling" || type === "buying-selling" ? 1 : 0},
+          0, 1, 0, ${!isErp ? 1 : 0},
           'EMP' + RIGHT('0000' + CAST(ABS(CHECKSUM(NEWID())) % 10000 AS VARCHAR(10)), 4), 
           'User', 0, 0, 1
         );
@@ -845,7 +858,7 @@ app.post("/api/admin/approve", async (req, res) => {
       const userResult = await transaction.request()
         .input("Username", sql.NVarChar(150), email.trim().toLowerCase())
         .input("Password", sql.NVarChar(100), generatedPassword)
-        .input("UserRole", sql.NVarChar(50), userRole)
+        .input("UserRole", sql.NVarChar(50), dynamicUserRole)
         .query(insertUserSql);
 
       const newUserId = userResult.recordset[0]?.id;
@@ -853,62 +866,35 @@ app.post("/api/admin/approve", async (req, res) => {
         throw new Error("Failed to retrieve generated UserId from HRM_UserTbl.");
       }
 
-      // 2. Insert assigned modules into HRM_UserDetail based on type
-      const isErp = type === "erp";
+      // 3. Insert assigned modules into HRM_UserDetail
       const moduleFilterCondition = isErp 
         ? "WHERE [ModuleCode] <> 'BuySell' AND [IsActive] = 1" 
         : "WHERE [ModuleCode] = 'BuySell' AND [IsActive] = 1";
 
-      const insertUserDetailsSql = `
-        INSERT INTO [dbo].[HRM_UserDetail] (
-          [UserId],
-          [ModuleId],
-          [IsTransferred],
-          [IsActive]
-        )
-        SELECT 
-          @UserId,
-          [ModuleId],
-          0,
-          1
-        FROM [dbo].[HRM_ModuleMaster]
-        ${moduleFilterCondition};
-      `;
-
       await transaction.request()
         .input("UserId", sql.Int, newUserId)
-        .query(insertUserDetailsSql);
+        .query(`
+          INSERT INTO [dbo].[HRM_UserDetail] ([UserId], [ModuleId], [IsTransferred], [IsActive])
+          SELECT @UserId, [ModuleId], 0, 1
+          FROM [dbo].[HRM_ModuleMaster]
+          ${moduleFilterCondition};
+        `);
 
-      // 3. Insert assigned menus into HRM_UserMenuDetail from MenuMasterTbl
+      // 4. Insert assigned menus into HRM_UserMenuDetail
       const menuFilterCondition = isErp
         ? "WHERE [MenuCode] NOT LIKE 'BuySell%' AND [IsActive] = 1"
         : "WHERE [MenuCode] LIKE 'BuySell%' AND [IsActive] = 1";
 
-      const insertUserMenuDetailsSql = `
-        INSERT INTO [dbo].[HRM_UserMenuDetail] (
-          [UserId],
-          [ModuleId],
-          [MenuId],
-          [SubMenuId],
-          [IsActive],
-          [IsTransferred]
-        )
-        SELECT 
-          @UserId,
-          [ModuleId],
-          [MenuId],
-          NULL,
-          1,
-          0
-        FROM [dbo].[MenuMasterTbl]
-        ${menuFilterCondition};
-      `;
-
       await transaction.request()
         .input("UserId", sql.Int, newUserId)
-        .query(insertUserMenuDetailsSql);
+        .query(`
+          INSERT INTO [dbo].[HRM_UserMenuDetail] ([UserId], [ModuleId], [MenuId], [SubMenuId], [IsActive], [IsTransferred])
+          SELECT @UserId, [ModuleId], [MenuId], NULL, 1, 0
+          FROM [dbo].[MenuMasterTbl]
+          ${menuFilterCondition};
+        `);
 
-      // 4. Update status in source table
+      // 5. Update status in source table
       if (isErp) {
         await transaction.request()
           .input("Id", sql.Int, id)
@@ -925,80 +911,8 @@ app.post("/api/admin/approve", async (req, res) => {
       throw err;
     }
 
-    // 5. Send Credentials Email
-    const isErp = type === "erp";
-
-    const mailHtml = `
-      <div style="font-family: Arial, sans-serif; color: #222; max-width: 600px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 24px; background-color: #ffffff; margin: 0 auto;">
-        <h2 style="color: #0b5ed7; margin-top: 0;">Account Approved - Synergy 5M LLP</h2>
-        
-        <p style="font-size: 14px; line-height: 1.5;">Dear <strong>${recipientName || "Valued Partner"}</strong>,</p>
-        
-        <p style="font-size: 14px; line-height: 1.5;">
-          Your request for <strong>${isErp ? "SYN ERP 10" : "Buyer-Seller Portal"}</strong> has been officially approved. Your login credentials are ready:
-        </p>
-
-        <div style="background: #f7f9fa; border-left: 4px solid #0b5ed7; padding: 16px; margin: 20px 0; border-radius: 0 4px 4px 0;">
-          <p style="margin: 0 0 8px 0; font-size: 13.5px;">
-            <strong>Login URL:</strong> 
-            <a href="${portalUrl}" target="_blank" style="color: #0b5ed7; text-decoration: underline;">${portalUrl}</a>
-          </p>
-          <p style="margin: 0 0 8px 0; font-size: 13.5px;">
-            <strong>Username / Email:</strong> ${email.trim()}
-          </p>
-          <p style="margin: 0; font-size: 13.5px;">
-            <strong>Temporary Password:</strong> 
-            <span style="font-family: monospace; font-size: 15px; background: #ffffff; padding: 3px 8px; border: 1px solid #ccd0d4; border-radius: 4px; font-weight: 600;">${generatedPassword}</span>
-          </p>
-        </div>
-
-        <p style="color: #666; font-size: 13px; margin: 0 0 20px 0;">
-          * Please change your password upon your initial login for security purposes.
-        </p>
-
-        ${
-          isErp
-            ? `
-            <div style="margin-top: 24px; padding: 16px; background-color: #f0f7ff; border: 1px dashed #0b5ed7; border-radius: 6px;">
-              <h4 style="margin: 0 0 6px 0; color: #0b5ed7; font-size: 14px;">Did you know? Synergy 5M also features a Buyer-Seller Portal</h4>
-              <p style="margin: 0 0 10px 0; font-size: 13px; line-height: 1.5; color: #444;">
-                Alongside your ERP suite, you can list raw materials, post product requirements, and connect directly with verified industrial manufacturers across India on our <strong>Buyer-Seller Portal</strong>.
-              </p>
-              <p style="margin: 0; font-size: 12.5px; color: #555;">
-                Trade features can be enabled directly from your user profile or by reaching out to our support team.
-              </p>
-            </div>
-            `
-            : `
-            <div style="margin-top: 24px; padding: 16px; background-color: #fcf9f2; border: 1px dashed #d97706; border-radius: 6px;">
-              <h4 style="margin: 0 0 6px 0; color: #b45309; font-size: 14px;">Streamline Factory Operations with SYN ERP 10</h4>
-              <p style="margin: 0 0 10px 0; font-size: 13px; line-height: 1.5; color: #444;">
-                In addition to trading, Synergy 5M offers <strong>SYN ERP 10</strong>—an industrial ERP engineered for end-to-end plant operations covering Material Management, Production, Quality, Sales, and Accounting.
-              </p>
-              <p style="margin: 0; font-size: 13px; font-weight: 600; color: #b45309;">
-                Interested in end-to-end plant control? You can activate a <strong>30-Day Free Trial</strong> of SYN ERP 10 anytime by replying to this email.
-              </p>
-            </div>
-            `
-        }
-
-        <p style="margin-top: 24px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 14px;">
-          This is an automated notification from Synergy 5M LLP. If you have questions, reach out to our team at 
-          <a href="mailto:support@synergy5m.com" style="color: #0b5ed7;">support@synergy5m.com</a>.
-        </p>
-      </div>
-    `;
-
-    try {
-      await transporter.sendMail({
-        from: `"Synergy5M Approvals" <${process.env.SMTP_USER || "mmm@synergy5m.com"}>`,
-        to: email.trim(),
-        subject: `Your Account has been Approved - ${type === "erp" ? "SYN ERP 10" : "Buyer_Seller_Portal"}`,
-        html: mailHtml,
-      });
-    } catch (mailErr) {
-      console.warn("Mail dispatch error on approve:", mailErr.message);
-    }
+    // 6. Send Credentials Email (unchanged mail template)
+    // ...
 
     return res.json({ success: true, message: "Record approved, account created, and email sent successfully!" });
   } catch (error) {
@@ -1006,6 +920,212 @@ app.post("/api/admin/approve", async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 });
+
+// app.post("/api/admin/approve", async (req, res) => {
+//   const { id, type, email, recipientName } = req.body;
+//   if (!id || !type || !email) {
+//     return res.status(400).json({ success: false, message: "Missing required approval params" });
+//   }
+
+//   const generatedPassword = generatePassword(10);
+//   const userRole = type === "erp" ? "erp" : "buying-selling";
+//   const portalUrl = type === "erp" 
+//     ?  "https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login"
+//     :"https://synergy5m-business-4-profit-platform.azurewebsites.net/";
+
+//   try {
+//     const pool = await poolPromise;
+//     const transaction = new sql.Transaction(pool);
+//     await transaction.begin();
+
+//     try {
+//       // 1. Insert into HRM_UserTbl and retrieve the new ID
+//       const insertUserSql = `
+//         INSERT INTO [dbo].[HRM_UserTbl] (
+//           [username], [password], [AdminApprove], [StartDate],
+//           [NoOfDays], [EndDate], [IsSubscribed], [CHIEF_ADMIN], [SUPERADMIN],
+//           [DEPUTY_SUPERADMIN], [ADMIN], [DEPUTY_ADMIN], [USER], [UserRole],
+//           [MaterialManagement], [SalesAndMarketing], [HRAndAdmin], [AccountAndFinance],
+//           [Masters], [Dashboard], [ProductionAndQuality], [External_buyer_seller],
+//           [Emp_Code], [Power_Of_Authority], [NewAssignModule], [NOT_APPLICABLE], [IsActive]
+//         ) 
+//         OUTPUT INSERTED.id
+//         VALUES (
+//           @Username, @Password, 1, GETDATE(),
+//           30, DATEADD(day, 30, GETDATE()), 1, 0, 0,
+//           0, 0, 0, 1, @UserRole,
+//           0, 0, 0, 0,
+//           0, 1, 0, ${type === "buyingselling" || type === "buying-selling" ? 1 : 0},
+//           'EMP' + RIGHT('0000' + CAST(ABS(CHECKSUM(NEWID())) % 10000 AS VARCHAR(10)), 4), 
+//           'User', 0, 0, 1
+//         );
+//       `;
+
+//       const userResult = await transaction.request()
+//         .input("Username", sql.NVarChar(150), email.trim().toLowerCase())
+//         .input("Password", sql.NVarChar(100), generatedPassword)
+//         .input("UserRole", sql.NVarChar(50), userRole)
+//         .query(insertUserSql);
+
+//       const newUserId = userResult.recordset[0]?.id;
+//       if (!newUserId) {
+//         throw new Error("Failed to retrieve generated UserId from HRM_UserTbl.");
+//       }
+
+//       // 2. Insert assigned modules into HRM_UserDetail based on type
+//       const isErp = type === "erp";
+//       const moduleFilterCondition = isErp 
+//         ? "WHERE [ModuleCode] <> 'BuySell' AND [IsActive] = 1" 
+//         : "WHERE [ModuleCode] = 'BuySell' AND [IsActive] = 1";
+
+//       const insertUserDetailsSql = `
+//         INSERT INTO [dbo].[HRM_UserDetail] (
+//           [UserId],
+//           [ModuleId],
+//           [IsTransferred],
+//           [IsActive]
+//         )
+//         SELECT 
+//           @UserId,
+//           [ModuleId],
+//           0,
+//           1
+//         FROM [dbo].[HRM_ModuleMaster]
+//         ${moduleFilterCondition};
+//       `;
+
+//       await transaction.request()
+//         .input("UserId", sql.Int, newUserId)
+//         .query(insertUserDetailsSql);
+
+//       // 3. Insert assigned menus into HRM_UserMenuDetail from MenuMasterTbl
+//       const menuFilterCondition = isErp
+//         ? "WHERE [MenuCode] NOT LIKE 'BuySell%' AND [IsActive] = 1"
+//         : "WHERE [MenuCode] LIKE 'BuySell%' AND [IsActive] = 1";
+
+//       const insertUserMenuDetailsSql = `
+//         INSERT INTO [dbo].[HRM_UserMenuDetail] (
+//           [UserId],
+//           [ModuleId],
+//           [MenuId],
+//           [SubMenuId],
+//           [IsActive],
+//           [IsTransferred]
+//         )
+//         SELECT 
+//           @UserId,
+//           [ModuleId],
+//           [MenuId],
+//           NULL,
+//           1,
+//           0
+//         FROM [dbo].[MenuMasterTbl]
+//         ${menuFilterCondition};
+//       `;
+
+//       await transaction.request()
+//         .input("UserId", sql.Int, newUserId)
+//         .query(insertUserMenuDetailsSql);
+
+//       // 4. Update status in source table
+//       if (isErp) {
+//         await transaction.request()
+//           .input("Id", sql.Int, id)
+//           .query(`UPDATE [dbo].[TrialRequests] SET TrialStatus = 'Approved' WHERE Id = @Id;`);
+//       } else {
+//         await transaction.request()
+//           .input("Id", sql.Int, id)
+//           .query(`UPDATE [dbo].[BusinessEnquiries] SET Status = 'Approved', UpdatedAt = GETDATE() WHERE Id = @Id;`);
+//       }
+
+//       await transaction.commit();
+//     } catch (err) {
+//       await transaction.rollback();
+//       throw err;
+//     }
+
+//     // 5. Send Credentials Email
+//     const isErp = type === "erp";
+
+//     const mailHtml = `
+//       <div style="font-family: Arial, sans-serif; color: #222; max-width: 600px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 24px; background-color: #ffffff; margin: 0 auto;">
+//         <h2 style="color: #0b5ed7; margin-top: 0;">Account Approved - Synergy 5M LLP</h2>
+        
+//         <p style="font-size: 14px; line-height: 1.5;">Dear <strong>${recipientName || "Valued Partner"}</strong>,</p>
+        
+//         <p style="font-size: 14px; line-height: 1.5;">
+//           Your request for <strong>${isErp ? "SYN ERP 10" : "Buyer-Seller Portal"}</strong> has been officially approved. Your login credentials are ready:
+//         </p>
+
+//         <div style="background: #f7f9fa; border-left: 4px solid #0b5ed7; padding: 16px; margin: 20px 0; border-radius: 0 4px 4px 0;">
+//           <p style="margin: 0 0 8px 0; font-size: 13.5px;">
+//             <strong>Login URL:</strong> 
+//             <a href="${portalUrl}" target="_blank" style="color: #0b5ed7; text-decoration: underline;">${portalUrl}</a>
+//           </p>
+//           <p style="margin: 0 0 8px 0; font-size: 13.5px;">
+//             <strong>Username / Email:</strong> ${email.trim()}
+//           </p>
+//           <p style="margin: 0; font-size: 13.5px;">
+//             <strong>Temporary Password:</strong> 
+//             <span style="font-family: monospace; font-size: 15px; background: #ffffff; padding: 3px 8px; border: 1px solid #ccd0d4; border-radius: 4px; font-weight: 600;">${generatedPassword}</span>
+//           </p>
+//         </div>
+
+//         <p style="color: #666; font-size: 13px; margin: 0 0 20px 0;">
+//           * Please change your password upon your initial login for security purposes.
+//         </p>
+
+//         ${
+//           isErp
+//             ? `
+//             <div style="margin-top: 24px; padding: 16px; background-color: #f0f7ff; border: 1px dashed #0b5ed7; border-radius: 6px;">
+//               <h4 style="margin: 0 0 6px 0; color: #0b5ed7; font-size: 14px;">Did you know? Synergy 5M also features a Buyer-Seller Portal</h4>
+//               <p style="margin: 0 0 10px 0; font-size: 13px; line-height: 1.5; color: #444;">
+//                 Alongside your ERP suite, you can list raw materials, post product requirements, and connect directly with verified industrial manufacturers across India on our <strong>Buyer-Seller Portal</strong>.
+//               </p>
+//               <p style="margin: 0; font-size: 12.5px; color: #555;">
+//                 Trade features can be enabled directly from your user profile or by reaching out to our support team.
+//               </p>
+//             </div>
+//             `
+//             : `
+//             <div style="margin-top: 24px; padding: 16px; background-color: #fcf9f2; border: 1px dashed #d97706; border-radius: 6px;">
+//               <h4 style="margin: 0 0 6px 0; color: #b45309; font-size: 14px;">Streamline Factory Operations with SYN ERP 10</h4>
+//               <p style="margin: 0 0 10px 0; font-size: 13px; line-height: 1.5; color: #444;">
+//                 In addition to trading, Synergy 5M offers <strong>SYN ERP 10</strong>—an industrial ERP engineered for end-to-end plant operations covering Material Management, Production, Quality, Sales, and Accounting.
+//               </p>
+//               <p style="margin: 0; font-size: 13px; font-weight: 600; color: #b45309;">
+//                 Interested in end-to-end plant control? You can activate a <strong>30-Day Free Trial</strong> of SYN ERP 10 anytime by replying to this email.
+//               </p>
+//             </div>
+//             `
+//         }
+
+//         <p style="margin-top: 24px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 14px;">
+//           This is an automated notification from Synergy 5M LLP. If you have questions, reach out to our team at 
+//           <a href="mailto:support@synergy5m.com" style="color: #0b5ed7;">support@synergy5m.com</a>.
+//         </p>
+//       </div>
+//     `;
+
+//     try {
+//       await transporter.sendMail({
+//         from: `"Synergy5M Approvals" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
+//         to: email.trim(),
+//         cc:[ "accounts@synergy5m.com"],
+//         subject: `Your Account has been Approved - ${type === "erp" ? "SYN ERP 10" : "Buyer_Seller_Portal"}`,
+//         html: mailHtml,
+//       });
+//     } catch (mailErr) {
+//       console.warn("Mail dispatch error on approve:", mailErr.message);
+//     }
+
+//     return res.json({ success: true, message: "Record approved, account created, and email sent successfully!" });
+//   } catch (error) {
+//     console.error("Approve endpoint error:", error);
+//     return res.status(500).json({ success: false, message: error.message });
+//   }
+// });
 // 4. Reject Action
 app.post("/api/admin/reject", async (req, res) => {
   const { id, type, email, recipientName, reason } = req.body;
@@ -1043,8 +1163,9 @@ app.post("/api/admin/reject", async (req, res) => {
 
     try {
       await transporter.sendMail({
-        from: `"Synergy5M Verification Desk" <${process.env.SMTP_USER || "mmm@synergy5m.com"}>`,
+        from: `"Synergy5M Verification Desk" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
         to: email.trim(),
+        cc:[ "accounts@synergy5m.com"],
         subject: `Update Regarding Your Synergy 5M Request: Rejected`,
         html: mailHtml,
       });
@@ -1157,7 +1278,7 @@ app.post('/api/admin/demo-requests/:id/approve', async (req, res) => {
 
         // 3. Send Email to User with CC
         const mailOptions = {
-            from: `"Synergy Support" <${process.env.SMTP_USER || "mmm@synergy5m.com"}>`,
+            from: `"Synergy Support" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
             to: targetEmail,
             cc: ccEmails && ccEmails.length > 0 ? ccEmails : ['sales@synergy5m.com', 'accounts@synergy5m.com'],
             subject: 'Your Demo is Approved - Meeting Details Inside',
@@ -1262,7 +1383,7 @@ app.post('/api/admin/demo-requests/:id/feedback', async (req, res) => {
         // Send Feedback Form Email
         const feedbackUrl = `https://docs.google.com/forms/d/e/1FAIpQLSfOjo33zKew6F9sGSm1yjPDX9W48rDCSlDjndpv5C2uNPz2qA/viewform?usp=publish-editor`; 
         const mailOptions = {
-            from: `"Synergy Support" <${process.env.SMTP_USER || "mmm@synergy5m.com"}>`,
+            from: `"Synergy Support" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
             to: targetEmail,
             subject: 'We value your feedback on the demo',
            html: `

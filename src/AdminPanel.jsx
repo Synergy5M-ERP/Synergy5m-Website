@@ -498,12 +498,13 @@ export default function AdminPanel() {
                       <th style={styles.th}>Contact person</th>
                       <th style={styles.th}>Email</th>
                       <th style={styles.th}>Contact number</th>
+                        <th style={styles.th}>Category</th>
                     </tr>
                   </thead>
                   <tbody>
                     {dataList.length === 0 ? (
                       <tr>
-                        <td colSpan="7">
+                        <td colSpan="8">
                           <div style={styles.emptyState}>
                             <IconInbox color="#9AA5AF" />
                             <div style={styles.emptyTitle}>No matching records</div>
@@ -541,7 +542,7 @@ export default function AdminPanel() {
                         const contactPerson = activeTab === "erp" ? row.ContactPerson : row.RepresentativeName;
                         const email = activeTab === "erp" ? row.Email : (row.CompanyEmail || row.RepresentativeEmail);
                         const mobile = activeTab === "erp" ? row.MobileNo : (row.Mobile || row.RepresentativeMobile);
-
+       const category = activeTab === "erp" ? "ERP" : (row.Category || "-");
                         return (
                           <tr key={row.Id} className="ap-row" style={styles.tr}>
                             <td style={styles.td}>
@@ -601,6 +602,7 @@ export default function AdminPanel() {
                             <td style={styles.td}>{contactPerson || "-"}</td>
                             <td style={styles.td}>{email || "-"}</td>
                             <td style={styles.td}>{mobile || "-"}</td>
+                         <td style={styles.td}>{category}</td>
                           </tr>
                         );
                       })
