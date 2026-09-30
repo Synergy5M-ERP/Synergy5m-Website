@@ -911,8 +911,79 @@ app.post("/api/admin/approve", async (req, res) => {
       throw err;
     }
 
-    // 6. Send Credentials Email (unchanged mail template)
-    // ...
+    // 6. Send Credentials Email
+    const mailHtml = `
+      <div style="font-family: Arial, sans-serif; color: #222; max-width: 600px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 24px; background-color: #ffffff; margin: 0 auto;">
+        <h2 style="color: #0b5ed7; margin-top: 0;">Account Approved - Synergy 5M LLP</h2>
+        
+        <p style="font-size: 14px; line-height: 1.5;">Dear <strong>${recipientName || "Valued Partner"}</strong>,</p>
+        
+        <p style="font-size: 14px; line-height: 1.5;">
+          Your request for <strong>${isErp ? "SYN ERP 10" : "Buyer-Seller Portal"}</strong> has been officially approved. Your login credentials are ready:
+        </p>
+
+        <div style="background: #f7f9fa; border-left: 4px solid #0b5ed7; padding: 16px; margin: 20px 0; border-radius: 0 4px 4px 0;">
+          <p style="margin: 0 0 8px 0; font-size: 13.5px;">
+            <strong>Login URL:</strong> 
+            <a href="${portalUrl}" target="_blank" style="color: #0b5ed7; text-decoration: underline;">${portalUrl}</a>
+          </p>
+          <p style="margin: 0 0 8px 0; font-size: 13.5px;">
+            <strong>Username / Email:</strong> ${email.trim()}
+          </p>
+          <p style="margin: 0; font-size: 13.5px;">
+            <strong>Temporary Password:</strong> 
+            <span style="font-family: monospace; font-size: 15px; background: #ffffff; padding: 3px 8px; border: 1px solid #ccd0d4; border-radius: 4px; font-weight: 600;">${generatedPassword}</span>
+          </p>
+        </div>
+
+        <p style="color: #666; font-size: 13px; margin: 0 0 20px 0;">
+          * Please change your password upon your initial login for security purposes.
+        </p>
+
+        ${
+          isErp
+            ? `
+            <div style="margin-top: 24px; padding: 16px; background-color: #f0f7ff; border: 1px dashed #0b5ed7; border-radius: 6px;">
+              <h4 style="margin: 0 0 6px 0; color: #0b5ed7; font-size: 14px;">Did you know? Synergy 5M also features a Buyer-Seller Portal</h4>
+              <p style="margin: 0 0 10px 0; font-size: 13px; line-height: 1.5; color: #444;">
+                Alongside your ERP suite, you can list raw materials, post product requirements, and connect directly with verified industrial manufacturers across India on our <strong>Buyer-Seller Portal</strong>.
+              </p>
+              <p style="margin: 0; font-size: 12.5px; color: #555;">
+                Trade features can be enabled directly from your user profile or by reaching out to our support team.
+              </p>
+            </div>
+            `
+            : `
+            <div style="margin-top: 24px; padding: 16px; background-color: #fcf9f2; border: 1px dashed #d97706; border-radius: 6px;">
+              <h4 style="margin: 0 0 6px 0; color: #b45309; font-size: 14px;">Streamline Factory Operations with SYN ERP 10</h4>
+              <p style="margin: 0 0 10px 0; font-size: 13px; line-height: 1.5; color: #444;">
+                In addition to trading, Synergy 5M offers <strong>SYN ERP 10</strong>—an industrial ERP engineered for end-to-end plant operations covering Material Management, Production, Quality, Sales, and Accounting.
+              </p>
+              <p style="margin: 0; font-size: 13px; font-weight: 600; color: #b45309;">
+                Interested in end-to-end plant control? You can activate a <strong>30-Day Free Trial</strong> of SYN ERP 10 anytime by replying to this email.
+              </p>
+            </div>
+            `
+        }
+
+        <p style="margin-top: 24px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 14px;">
+          This is an automated notification from Synergy 5M LLP. If you have questions, reach out to our team at 
+          <a href="mailto:support@synergy5m.com" style="color: #0b5ed7;">support@synergy5m.com</a>.
+        </p>
+      </div>
+    `;
+
+    try {
+      await transporter.sendMail({
+        from: `"Synergy5M Approvals" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
+        to: email.trim(),
+        cc: ["accounts@synergy5m.com"],
+        subject: `Your Account has been Approved - ${isErp ? "SYN ERP 10" : "Buyer_Seller_Portal"}`,
+        html: mailHtml,
+      });
+    } catch (mailErr) {
+      console.warn("Mail dispatch error on approve:", mailErr.message);
+    }
 
     return res.json({ success: true, message: "Record approved, account created, and email sent successfully!" });
   } catch (error) {
@@ -1127,6 +1198,9 @@ app.post("/api/admin/approve", async (req, res) => {
 //   }
 // });
 // 4. Reject Action
+
+
+
 app.post("/api/admin/reject", async (req, res) => {
   const { id, type, email, recipientName, reason } = req.body;
   if (!id || !type || !email || !reason) {
