@@ -352,7 +352,7 @@ export default function AdminPanel() {
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <button 
+            <button 
               type="button"
               onClick={() => navigate('/')} 
               style={styles.logoutBtn}
@@ -367,7 +367,7 @@ export default function AdminPanel() {
               ✉️ Email Dispatch
             </button>
 
-                    <button 
+            <button 
               type="button"
               onClick={() => navigate('/whatsapp')} 
               style={styles.logoutBtn}
@@ -536,8 +536,7 @@ export default function AdminPanel() {
               const contactPerson = activeTab === "erp" ? row.ContactPerson : row.RepresentativeName;
               const email = activeTab === "erp" ? row.Email : (row.CompanyEmail || row.RepresentativeEmail);
               const mobile = activeTab === "erp" ? row.MobileNo : (row.Mobile || row.RepresentativeMobile);
-              
-              {/* Dynamic value: fetches trial info if ERP tab, otherwise category */}
+             
               const trialOrCategory = activeTab === "erp" 
                 ? (row.SubscriptionPlan || row.TrialType || row.Trial || "-") 
                 : (row.Category || "-");
