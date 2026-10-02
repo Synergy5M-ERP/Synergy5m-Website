@@ -1945,4 +1945,27 @@ padding: 0 12px !important;
   .swal-btn {
     width: 100%;
   }
+
+
+
+
+}
+
+@keyframes softBlink {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.blinking-vendor-badge {
+  animation: softBlink 1.8s ease-in-out infinite;
 }

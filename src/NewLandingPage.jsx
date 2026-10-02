@@ -32,6 +32,30 @@ const defaultItemCategories = [
   "SELL",
 ];
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const EMAIL_EXISTS_MESSAGE =
+  "This email already exists. Please use a different email.";
+
+// Calls backend: GET /api/check-email?email=xxx  ->  { exists: true | false }
+// Returns true if the email already exists, false otherwise.
+// If the server cannot be reached we return false (the backend must still
+// reject duplicates on save).
+async function checkEmailExists(email, signal) {
+  try {
+    const res = await fetch(
+      `/api/check-email?email=${encodeURIComponent(email.trim())}`,
+      { signal },
+    );
+    if (!res.ok) return false;
+    const data = await res.json();
+    return Boolean(data.exists);
+  } catch (err) {
+    if (err.name === "AbortError") throw err;
+    console.error("Email check failed:", err);
+    return false;
+  }
+}
+
 const consulting = {
   Marketing: {
     Icon: Target,
@@ -375,6 +399,92 @@ function Field({ label, children, required = false, hint, className = "" }) {
   );
 }
 
+/**
+ * Email input with REAL-TIME duplicate check.
+ * - While the user types (debounced 500ms) it asks the backend if the email exists.
+ * - If it exists: red error is shown and the input gets a custom validity,
+ *   so the browser blocks form submit (data is NOT saved).
+ */
+function EmailField({
+  label,
+  name,
+  placeholder,
+  required = false,
+  className = "",
+}) {
+  const [value, setValue] = useState("");
+  const [status, setStatus] = useState("idle"); // idle | checking | exists | available
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    const email = value.trim();
+    const input = inputRef.current;
+
+    // Nothing to check yet
+    if (!email || !EMAIL_REGEX.test(email)) {
+      setStatus("idle");
+      if (input) input.setCustomValidity("");
+      return undefined;
+    }
+
+    setStatus("checking");
+    if (input) input.setCustomValidity("");
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const exists = await checkEmailExists(email, controller.signal);
+        if (exists) {
+          setStatus("exists");
+          if (inputRef.current)
+            inputRef.current.setCustomValidity(EMAIL_EXISTS_MESSAGE);
+        } else {
+          setStatus("available");
+          if (inputRef.current) inputRef.current.setCustomValidity("");
+        }
+      } catch (err) {
+        // aborted because user kept typing - ignore
+      }
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [value]);
+
+  const hasError = status === "exists";
+
+  return (
+    <Field
+      label={label}
+      required={required}
+      className={className}
+      hint={
+        hasError ? (
+          <span style={{ color: "#d62828", fontWeight: 600 }}>
+            {EMAIL_EXISTS_MESSAGE}
+          </span>
+        ) : status === "checking" ? (
+          <span style={{ color: "#607089" }}>Checking email...</span>
+        ) : null
+      }
+    >
+      <input
+        ref={inputRef}
+        required={required}
+        name={name}
+        type="email"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        aria-invalid={hasError}
+        style={hasError ? { borderColor: "#d62828", outlineColor: "#d62828" } : undefined}
+      />
+    </Field>
+  );
+}
+
 function SearchableDropdown({
   label,
   name,
@@ -576,14 +686,15 @@ function CompanyVerificationFields({
         <Field label="Company Website">
           <input name="website" type="url" placeholder="https://" />
         </Field>
-        <Field label="Company Email" required>
-          <input
-            required
-            name="companyEmail"
-            type="email"
-            placeholder="official@company.com"
-          />
-        </Field>
+
+        {/* Real-time duplicate email check */}
+        <EmailField
+          label="Company Email"
+          name="companyEmail"
+          required
+          placeholder="official@company.com"
+        />
+
         <div className="form-group">
           <label style={styles.label}>Official Mobile Number <span style={{color: 'red'}}>*</span></label>
           <div style={{ display: "flex", gap: "8px", width: "100%" }}>
@@ -697,14 +808,15 @@ function RegistrationBlock({
             ))}
           </select>
         </Field>
-        <Field label="Representative Email" required>
-          <input
-            required
-            name="representativeEmail"
-            type="email"
-            placeholder="Work email"
-          />
-        </Field>
+
+        {/* Real-time duplicate email check */}
+        <EmailField
+          label="Representative Email"
+          name="representativeEmail"
+          required
+          placeholder="Work email"
+        />
+
         <Field label="Representative Mobile" required>
           <input
             required
@@ -1183,18 +1295,16 @@ function SellerForm({
         </Field>
 
         <div className="textarea-row">
-          <Field label="Product Description" >
+          <Field label="Product Description">
             <textarea
               name="productDescription"
-              
               rows="3"
               placeholder="Product description"
             />
           </Field>
-          <Field label="Technical Specification" >
+          <Field label="Technical Specification">
             <textarea
               name="technicalSpecification"
-              
               rows="3"
               placeholder="Technical specification"
             />
@@ -1290,7 +1400,6 @@ function SellerForm({
             <option>No</option>
           </select>
         </Field>
-      
       </div>
       <CommissionBlock />
     </>
@@ -1353,6 +1462,14 @@ function NewLandingPage() {
   // States for country code and mobile number
   const [countryCode, setCountryCode] = useState("+91");
   const [mobileNumber, setMobileNumber] = useState("");
+  const [vendorCount, setVendorCount] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/potential-vendors/count")
+      .then((res) => res.json())
+      .then((data) => setVendorCount(data.count))
+      .catch((err) => console.error("Failed to load vendor count:", err));
+  }, []);
 
   useEffect(() => {
     fetch("/api/units")
@@ -1397,7 +1514,7 @@ function NewLandingPage() {
 
   const closeModal = () => setModal(null);
 
-  const submitForm = (e, formType) => {
+  const submitForm = async (e, formType) => {
     e.preventDefault();
     const formElement = e.target;
     const formData = new FormData(formElement);
@@ -1408,8 +1525,46 @@ function NewLandingPage() {
     }
 
     if (formType === "buyer" || formType === "seller") {
+      // Final safety check: do NOT save if any email already exists
+      const emailsToCheck = [
+        { field: "companyEmail", label: "Company Email" },
+        { field: "representativeEmail", label: "Representative Email" },
+      ];
+
+      for (const { field, label } of emailsToCheck) {
+        const email = (formData.get(field) || "").toString().trim();
+        if (!email) continue;
+        try {
+          const exists = await checkEmailExists(email);
+          if (exists) {
+            window.alert(`${label}: ${EMAIL_EXISTS_MESSAGE}`);
+            formElement.elements[field]?.focus();
+            return; // stop - data is not saved
+          }
+        } catch (err) {
+          // ignore - server-side validation will still protect the data
+        }
+      }
+
       setRolePrompt({ formType, formData });
       return;
+    }
+
+    if (formType === "trial") {
+      // Final safety check: do NOT save if the trial email already exists
+      const trialEmail = (formData.get("email") || "").toString().trim();
+      if (trialEmail) {
+        try {
+          const exists = await checkEmailExists(trialEmail);
+          if (exists) {
+            window.alert(`Email: ${EMAIL_EXISTS_MESSAGE}`);
+            formElement.elements["email"]?.focus();
+            return; // stop - data is not saved
+          }
+        } catch (err) {
+          // ignore - server-side validation will still protect the data
+        }
+      }
     }
 
     sendFormData(formType, formData);
@@ -1462,6 +1617,9 @@ function NewLandingPage() {
             "Thank you. Your request has been submitted for review by Synergy5M."
         );
         closeModal();
+      } else if (response.status === 409) {
+        // Backend rejected because the email already exists
+        window.alert(result.message || EMAIL_EXISTS_MESSAGE);
       } else {
         window.alert(
           "Submission error: " + (result.message || "Failed to submit.")
@@ -1541,7 +1699,7 @@ function NewLandingPage() {
               <button className="nav-link" onClick={() => scrollTo("erp")}>
                 ERP SOFTWARE
               </button>
-            
+
               <button className="nav-link" onClick={() => scrollTo("connect")}>
                 BUYING & SELLING
               </button>
@@ -1556,7 +1714,7 @@ function NewLandingPage() {
               >
                 Registered User
               </a>
-              
+
               <button
                 className="expert-btn"
                 onClick={() => {
@@ -1575,7 +1733,7 @@ function NewLandingPage() {
         <section id="home" className="hero section-wrap">
           <div className="hero-copy">
             <div className="eyebrow">SYNERGY5M LLP BUSINESS SOLUTIONS</div>
-            
+
             <div className="hero-headline-group">
               <h1 className="hero-title-main">One Partner.</h1>
               <div className="text-danger h2">Three Powerful Solutions.</div>
@@ -1696,7 +1854,7 @@ function NewLandingPage() {
             <div>
               <h2> ERP SOFTWARE</h2>
               <h3>Your Business. Your ERP. Your Brand.</h3>
-              <p style={{paddingBottom:'10px !important;'}}>
+              <p style={{ paddingBottom: "10px" }}>
                 A powerful, integrated ERP software designed for MSMEs to
                 automate operations, improve control and drive growth.
               </p>
@@ -1773,7 +1931,67 @@ function NewLandingPage() {
         </section>
 
         <section id="connect" className="connect section-wrap dark-anchor">
-          <div className="section-kicker teal">03</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "8px" }}>
+            <div className="section-kicker teal" style={{ margin: 0 }}>03</div>
+
+
+<div
+              className="blinking-vendor-badge"
+              style={{
+                overflow: "hidden",
+                background: "linear-gradient(135deg, #a0b6d2 0%, #c7d1df 100%)",
+                color: "#ffffff",
+                padding: "6px 16px",
+                borderRadius: "50px",
+                fontSize: "13px",
+                fontWeight: "700",
+                boxShadow: "0 4px 15px rgba(11, 67, 141, 0.3)",
+                display: "flex",
+                alignItems: "center",
+                letterSpacing: "0.5px",
+                border: "1px solid rgba(255,255,255,0.4)"
+              }}
+            >
+              <span style={{
+                display: "inline-block",
+                whiteSpace: "nowrap",
+                color: "black"
+              }}>
+               Available  <span style={{ color: "#f01a1a", fontSize: "14px" }}>{vendorCount}</span> VENDORS 
+              </span>
+            </div>
+
+
+
+
+            {/* Attractive Right-Corner Badge Marquee / Animated Pill */}
+            <div
+              className="blinking-vendor-badge"
+              style={{
+                overflow: "hidden",
+                background: "linear-gradient(135deg, #a0b6d2 0%, #c7d1df 100%)",
+                color: "#ffffff",
+                padding: "6px 16px",
+                borderRadius: "50px",
+                fontSize: "13px",
+                fontWeight: "700",
+                boxShadow: "0 4px 15px rgba(11, 67, 141, 0.3)",
+                display: "flex",
+                alignItems: "center",
+                letterSpacing: "0.5px",
+                border: "1px solid rgba(255,255,255,0.4)"
+              }}
+            >
+              <span style={{
+                display: "inline-block",
+                whiteSpace: "nowrap",
+                color: "black"
+              }}>
+                🔥 WE HAVE <span style={{ color: "#f01a1a", fontSize: "14px" }}>{vendorCount}</span> VENDORS READY TO CONNECT!
+              </span>
+            </div>
+          </div>
+
           <div className="connect-heading">
             <div>
               <h2>
@@ -2197,14 +2415,13 @@ function NewLandingPage() {
                 />
               </Field>
 
-              <Field label="Email" required>
-                <input
-                  name="email"
-                  required
-                  type="email"
-                  placeholder="Official Email"
-                />
-              </Field>
+              {/* Real-time duplicate email check */}
+              <EmailField
+                label="Email"
+                name="email"
+                required
+                placeholder="Official Email"
+              />
 
               <Field label="GST No.">
                 <input name="gstNo" placeholder="GSTIN (Optional)" />
@@ -2228,7 +2445,7 @@ function NewLandingPage() {
                 >
                   <option value="7 Days Trial">7 Days Trial</option>
                   <option value="15 Days Trial">15 Days Trial</option>
-                  <option value="Paid Plan">Paid Plan</option>
+                  {/* <option value="Paid Plan">Paid Plan</option> */}
                 </select>
               </Field>
 

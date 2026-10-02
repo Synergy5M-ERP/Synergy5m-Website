@@ -87,6 +87,37 @@ const generatePassword = (length = 10) => {
 };
 
 // -------------------------------------------------------------
+// Email duplicate-check helpers
+// -------------------------------------------------------------
+const normalizeEmail = (e) => String(e || "").trim().toLowerCase();
+
+// Returns true if the email is already used in BusinessEnquiries
+// (company email or representative email) or already has a user login.
+// To allow rejected companies to re-apply, add:
+//   AND ISNULL(Status, '') <> 'Rejected'
+// to the BusinessEnquiries part of the query.
+async function emailExistsInDb(pool, email) {
+  const result = await pool
+    .request()
+    .input("Email", sql.NVarChar(150), email)
+    .query(`
+      SELECT TOP 1 1 AS Found
+      FROM dbo.BusinessEnquiries
+      WHERE LOWER(LTRIM(RTRIM(CompanyEmail))) = @Email
+         OR LOWER(LTRIM(RTRIM(RepresentativeEmail))) = @Email
+      UNION ALL
+      SELECT TOP 1 1
+      FROM dbo.TrialRequests
+      WHERE LOWER(LTRIM(RTRIM(Email))) = @Email
+      UNION ALL
+      SELECT TOP 1 1
+      FROM dbo.HRM_UserTbl
+      WHERE LOWER(LTRIM(RTRIM(username))) = @Email
+    `);
+  return result.recordset.length > 0;
+}
+
+// -------------------------------------------------------------
 // Diagnostics & Health Endpoints
 // -------------------------------------------------------------
 
@@ -103,6 +134,26 @@ app.get("/api/health", async (req, res) => {
     });
   } catch (err) {
     return res.status(500).json({ status: "Degraded", error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// Real-time email duplicate check  (used by the registration form)
+// GET /api/check-email?email=abc@xyz.com  ->  { exists: true | false }
+// -------------------------------------------------------------
+app.get("/api/check-email", async (req, res) => {
+  try {
+    const email = normalizeEmail(req.query.email);
+    if (!email) return res.json({ exists: false });
+
+    const pool = await poolPromise;
+    if (!pool) return res.json({ exists: false });
+
+    const exists = await emailExistsInDb(pool, email);
+    return res.json({ exists });
+  } catch (err) {
+    console.error("check-email error:", err.message);
+    return res.status(500).json({ exists: false, error: "Check failed" });
   }
 });
 
@@ -129,6 +180,26 @@ app.get("/api/categories", async (req, res) => {
   } catch (err) {
     console.warn("Categories fetch fallback:", err.message);
     return res.json(["BUY", "SELL", "TRADING", "SEMIFINISH", "SERVICES", "JOBWORK"]);
+  }
+});
+
+app.get("/api/potential-vendors/count", async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    if (!pool) {
+      return res.status(500).json({ error: "Database connection not available" });
+    }
+
+    const result = await pool.request().query(`
+      SELECT COUNT(*) AS TotalCount 
+      FROM [dbo].[Potential_Vendor]
+    `);
+
+    const count = result.recordset[0]?.TotalCount || 0;
+    return res.json({ count });
+  } catch (err) {
+    console.error("Potential vendors count fetch error:", err.message);
+    return res.status(500).json({ error: "Failed to fetch count" });
   }
 });
 
@@ -290,7 +361,7 @@ const uploadFields = upload.fields([
 app.post("/api/business-connect", uploadFields, async (req, res) => {
   try {
     const d = req.body;
-    
+
     // Normalize category to "Seller", "Both", or default to "Buyer"
     const rawCategory = (d.category || "").trim().toLowerCase();
     let category = "Buyer";
@@ -320,6 +391,24 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
     const pool = await poolPromise;
 
     if (pool) {
+      // ---------------- Duplicate email guard (do NOT save if exists) ----------------
+      const companyEmailNorm = normalizeEmail(d.companyEmail);
+      const repEmailNorm = normalizeEmail(d.representativeEmail);
+
+      if (companyEmailNorm && (await emailExistsInDb(pool, companyEmailNorm))) {
+        return res.status(409).json({
+          success: false,
+          message: "Company Email already exists. Please use a different email.",
+        });
+      }
+      if (repEmailNorm && (await emailExistsInDb(pool, repEmailNorm))) {
+        return res.status(409).json({
+          success: false,
+          message: "Representative Email already exists. Please use a different email.",
+        });
+      }
+      // -------------------------------------------------------------------------------
+
       const prefixLen = prefix.length;
       const query = `
         DECLARE @NextId INT;
@@ -425,6 +514,13 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
       message: `Submitted successfully (Ref: ${generatedCode})`,
     });
   } catch (error) {
+    // 2601 / 2627 = unique index / unique constraint violation in SQL Server
+    if (error && (error.number === 2601 || error.number === 2627)) {
+      return res.status(409).json({
+        success: false,
+        message: "This email already exists. Please use a different email.",
+      });
+    }
     console.error("Error saving BusinessEnquiry:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -571,6 +667,21 @@ app.post("/api/trial-request", async (req, res) => {
     let dbSaved = false;
 
     const pool = await poolPromise;
+
+    // ---------------- Duplicate email guard (do NOT save if exists) ----------------
+    // Kept outside the try/catch below so a duplicate is never silently
+    // written to the local fallback file.
+    if (pool) {
+      const trialEmailNorm = normalizeEmail(email);
+      if (trialEmailNorm && (await emailExistsInDb(pool, trialEmailNorm))) {
+        return res.status(409).json({
+          success: false,
+          message: "This email already exists. Please use a different email.",
+        });
+      }
+    }
+    // -------------------------------------------------------------------------------
+
     if (pool) {
       try {
         const query = `
@@ -637,7 +748,7 @@ app.post("/api/trial-request", async (req, res) => {
       await transporter.sendMail({
         from: `"Synergy5M ERP System" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
         to: ["sales@synergy5m.com", "accounts@synergy5m.com"],
-        cc:["sales@synergy5m.com", "accounts@synergy5m.com"],
+        cc: ["sales@synergy5m.com", "accounts@synergy5m.com"],
         subject: `New SYN ERP Trial Request: ${companyName}`,
         html: mailHtml,
       });
@@ -670,12 +781,6 @@ app.post("/api/admin/login", (req, res) => {
   const inputPass = (password || "").trim();
   const adminUser = (process.env.ADMIN_USER || "admin").trim();
   const adminPass = (process.env.ADMIN_PASSWORD || "admin123").trim();
-
-  // console.log("Admin Login Attempt:", {
-  //   received: { user: inputUser, pass: inputPass },
-  //   expected: { user: adminUser, pass: adminPass },
-  //   match: inputUser === adminUser && inputPass === adminPass,
-  // });
 
   if (inputUser === adminUser && inputPass === adminPass) {
     return res.json({
@@ -809,31 +914,56 @@ app.post("/api/admin/approve", async (req, res) => {
 
   const generatedPassword = generatePassword(10);
   const isErp = type === "erp";
-  
-  const portalUrl = isErp 
+
+  const portalUrl = isErp
     ? "https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login"
     : "https://synergy5m-business-4-profit-platform.azurewebsites.net/";
 
   try {
     const pool = await poolPromise;
 
-    // 1. If it's a buying/selling enquiry, fetch the actual Category from BusinessEnquiries
+    // 1. Fetch dynamic role and trial duration details
     let dynamicUserRole = isErp ? "erp" : "buying-selling";
+    let trialDays = 30; // Default fallback days
+
     if (!isErp) {
       const catResult = await pool.request()
         .input("Id", sql.Int, id)
         .query("SELECT [Category] FROM [dbo].[BusinessEnquiries] WHERE [Id] = @Id");
-      
+
       if (catResult.recordset.length > 0 && catResult.recordset[0].Category) {
         dynamicUserRole = catResult.recordset[0].Category.trim();
       }
+    } else {
+      // Fetch SubscriptionPlan from TrialRequests to extract number of days
+      const trialResult = await pool.request()
+        .input("Id", sql.Int, id)
+        .query("SELECT [SubscriptionPlan] FROM [dbo].[TrialRequests] WHERE [Id] = @Id");
+
+      if (trialResult.recordset.length > 0) {
+        const row = trialResult.recordset[0];
+        const trialString = row.SubscriptionPlan || "";
+        const match = String(trialString).match(/\d+/);
+        if (match) {
+          trialDays = parseInt(match[0], 10);
+        }
+      }
     }
+
+    // Calculate dates for email display
+    const startDateObj = new Date();
+    const endDateObj = new Date();
+    endDateObj.setDate(startDateObj.getDate() + trialDays);
+
+    const formatDate = (date) => date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    const startDateStr = formatDate(startDateObj);
+    const endDateStr = formatDate(endDateObj);
 
     const transaction = new sql.Transaction(pool);
     await transaction.begin();
 
     try {
-      // 2. Insert into HRM_UserTbl using the dynamic Category as UserRole
+      // 2. Insert into HRM_UserTbl using dynamic trial days and calculated end date
       const insertUserSql = `
         INSERT INTO [dbo].[HRM_UserTbl] (
           [username], [password], [AdminApprove], [StartDate],
@@ -846,7 +976,7 @@ app.post("/api/admin/approve", async (req, res) => {
         OUTPUT INSERTED.id
         VALUES (
           @Username, @Password, 1, GETDATE(),
-          30, DATEADD(day, 30, GETDATE()), 1, 0, 0,
+          @NoOfDays, ${isErp ? "DATEADD(day, @NoOfDays, GETDATE())" : "NULL"}, 1, 0, 0,
           0, 0, 0, 1, @UserRole,
           0, 0, 0, 0,
           0, 1, 0, ${!isErp ? 1 : 0},
@@ -859,6 +989,9 @@ app.post("/api/admin/approve", async (req, res) => {
         .input("Username", sql.NVarChar(150), email.trim().toLowerCase())
         .input("Password", sql.NVarChar(100), generatedPassword)
         .input("UserRole", sql.NVarChar(50), dynamicUserRole)
+        // Buying-selling users have no trial period -> NoOfDays = NULL
+        // (DATEADD(day, NULL, GETDATE()) also returns NULL, so EndDate = NULL)
+        .input("NoOfDays", sql.Int, isErp ? trialDays : null)
         .query(insertUserSql);
 
       const newUserId = userResult.recordset[0]?.id;
@@ -867,8 +1000,8 @@ app.post("/api/admin/approve", async (req, res) => {
       }
 
       // 3. Insert assigned modules into HRM_UserDetail
-      const moduleFilterCondition = isErp 
-        ? "WHERE [ModuleCode] <> 'BuySell' AND [IsActive] = 1" 
+      const moduleFilterCondition = isErp
+        ? "WHERE [ModuleCode] <> 'BuySell' AND [IsActive] = 1"
         : "WHERE [ModuleCode] = 'BuySell' AND [IsActive] = 1";
 
       await transaction.request()
@@ -911,7 +1044,7 @@ app.post("/api/admin/approve", async (req, res) => {
       throw err;
     }
 
-    // 6. Send Credentials Email
+    // 6. Send Credentials Email with Trial Duration & Dates
     const mailHtml = `
       <div style="font-family: Arial, sans-serif; color: #222; max-width: 600px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 24px; background-color: #ffffff; margin: 0 auto;">
         <h2 style="color: #0b5ed7; margin-top: 0;">Account Approved - Synergy 5M LLP</h2>
@@ -919,7 +1052,9 @@ app.post("/api/admin/approve", async (req, res) => {
         <p style="font-size: 14px; line-height: 1.5;">Dear <strong>${recipientName || "Valued Partner"}</strong>,</p>
         
         <p style="font-size: 14px; line-height: 1.5;">
-          Your request for <strong>${isErp ? "SYN ERP 10" : "Buyer-Seller Portal"}</strong> has been officially approved. Your login credentials are ready:
+          Your request for <strong>${isErp ? "SYN ERP 10" : "Buyer-Seller Portal"}</strong> has been officially approved. 
+          ${isErp ? `Your trial plan is <strong>${trialDays} Days</strong>, valid from <strong>${startDateStr}</strong> to <strong>${endDateStr}</strong>.` : ""}
+          Your login credentials are ready:
         </p>
 
         <div style="background: #f7f9fa; border-left: 4px solid #0b5ed7; padding: 16px; margin: 20px 0; border-radius: 0 4px 4px 0;">
@@ -945,22 +1080,16 @@ app.post("/api/admin/approve", async (req, res) => {
             ? `
             <div style="margin-top: 24px; padding: 16px; background-color: #f0f7ff; border: 1px dashed #0b5ed7; border-radius: 6px;">
               <h4 style="margin: 0 0 6px 0; color: #0b5ed7; font-size: 14px;">Did you know? Synergy 5M also features a Buyer-Seller Portal</h4>
-              <p style="margin: 0 0 10px 0; font-size: 13px; line-height: 1.5; color: #444;">
+              <p style="margin: 0 0 10px 0; font-size: 13.5px; line-height: 1.5; color: #444;">
                 Alongside your ERP suite, you can list raw materials, post product requirements, and connect directly with verified industrial manufacturers across India on our <strong>Buyer-Seller Portal</strong>.
-              </p>
-              <p style="margin: 0; font-size: 12.5px; color: #555;">
-                Trade features can be enabled directly from your user profile or by reaching out to our support team.
               </p>
             </div>
             `
             : `
             <div style="margin-top: 24px; padding: 16px; background-color: #fcf9f2; border: 1px dashed #d97706; border-radius: 6px;">
               <h4 style="margin: 0 0 6px 0; color: #b45309; font-size: 14px;">Streamline Factory Operations with SYN ERP 10</h4>
-              <p style="margin: 0 0 10px 0; font-size: 13px; line-height: 1.5; color: #444;">
+              <p style="margin: 0 0 10px 0; font-size: 13.5px; line-height: 1.5; color: #444;">
                 In addition to trading, Synergy 5M offers <strong>SYN ERP 10</strong>—an industrial ERP engineered for end-to-end plant operations covering Material Management, Production, Quality, Sales, and Accounting.
-              </p>
-              <p style="margin: 0; font-size: 13px; font-weight: 600; color: #b45309;">
-                Interested in end-to-end plant control? You can activate a <strong>30-Day Free Trial</strong> of SYN ERP 10 anytime by replying to this email.
               </p>
             </div>
             `
@@ -991,215 +1120,6 @@ app.post("/api/admin/approve", async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 });
-
-// app.post("/api/admin/approve", async (req, res) => {
-//   const { id, type, email, recipientName } = req.body;
-//   if (!id || !type || !email) {
-//     return res.status(400).json({ success: false, message: "Missing required approval params" });
-//   }
-
-//   const generatedPassword = generatePassword(10);
-//   const userRole = type === "erp" ? "erp" : "buying-selling";
-//   const portalUrl = type === "erp" 
-//     ?  "https://synergy5m-business-4-profit-platform.azurewebsites.net/Login/Login"
-//     :"https://synergy5m-business-4-profit-platform.azurewebsites.net/";
-
-//   try {
-//     const pool = await poolPromise;
-//     const transaction = new sql.Transaction(pool);
-//     await transaction.begin();
-
-//     try {
-//       // 1. Insert into HRM_UserTbl and retrieve the new ID
-//       const insertUserSql = `
-//         INSERT INTO [dbo].[HRM_UserTbl] (
-//           [username], [password], [AdminApprove], [StartDate],
-//           [NoOfDays], [EndDate], [IsSubscribed], [CHIEF_ADMIN], [SUPERADMIN],
-//           [DEPUTY_SUPERADMIN], [ADMIN], [DEPUTY_ADMIN], [USER], [UserRole],
-//           [MaterialManagement], [SalesAndMarketing], [HRAndAdmin], [AccountAndFinance],
-//           [Masters], [Dashboard], [ProductionAndQuality], [External_buyer_seller],
-//           [Emp_Code], [Power_Of_Authority], [NewAssignModule], [NOT_APPLICABLE], [IsActive]
-//         ) 
-//         OUTPUT INSERTED.id
-//         VALUES (
-//           @Username, @Password, 1, GETDATE(),
-//           30, DATEADD(day, 30, GETDATE()), 1, 0, 0,
-//           0, 0, 0, 1, @UserRole,
-//           0, 0, 0, 0,
-//           0, 1, 0, ${type === "buyingselling" || type === "buying-selling" ? 1 : 0},
-//           'EMP' + RIGHT('0000' + CAST(ABS(CHECKSUM(NEWID())) % 10000 AS VARCHAR(10)), 4), 
-//           'User', 0, 0, 1
-//         );
-//       `;
-
-//       const userResult = await transaction.request()
-//         .input("Username", sql.NVarChar(150), email.trim().toLowerCase())
-//         .input("Password", sql.NVarChar(100), generatedPassword)
-//         .input("UserRole", sql.NVarChar(50), userRole)
-//         .query(insertUserSql);
-
-//       const newUserId = userResult.recordset[0]?.id;
-//       if (!newUserId) {
-//         throw new Error("Failed to retrieve generated UserId from HRM_UserTbl.");
-//       }
-
-//       // 2. Insert assigned modules into HRM_UserDetail based on type
-//       const isErp = type === "erp";
-//       const moduleFilterCondition = isErp 
-//         ? "WHERE [ModuleCode] <> 'BuySell' AND [IsActive] = 1" 
-//         : "WHERE [ModuleCode] = 'BuySell' AND [IsActive] = 1";
-
-//       const insertUserDetailsSql = `
-//         INSERT INTO [dbo].[HRM_UserDetail] (
-//           [UserId],
-//           [ModuleId],
-//           [IsTransferred],
-//           [IsActive]
-//         )
-//         SELECT 
-//           @UserId,
-//           [ModuleId],
-//           0,
-//           1
-//         FROM [dbo].[HRM_ModuleMaster]
-//         ${moduleFilterCondition};
-//       `;
-
-//       await transaction.request()
-//         .input("UserId", sql.Int, newUserId)
-//         .query(insertUserDetailsSql);
-
-//       // 3. Insert assigned menus into HRM_UserMenuDetail from MenuMasterTbl
-//       const menuFilterCondition = isErp
-//         ? "WHERE [MenuCode] NOT LIKE 'BuySell%' AND [IsActive] = 1"
-//         : "WHERE [MenuCode] LIKE 'BuySell%' AND [IsActive] = 1";
-
-//       const insertUserMenuDetailsSql = `
-//         INSERT INTO [dbo].[HRM_UserMenuDetail] (
-//           [UserId],
-//           [ModuleId],
-//           [MenuId],
-//           [SubMenuId],
-//           [IsActive],
-//           [IsTransferred]
-//         )
-//         SELECT 
-//           @UserId,
-//           [ModuleId],
-//           [MenuId],
-//           NULL,
-//           1,
-//           0
-//         FROM [dbo].[MenuMasterTbl]
-//         ${menuFilterCondition};
-//       `;
-
-//       await transaction.request()
-//         .input("UserId", sql.Int, newUserId)
-//         .query(insertUserMenuDetailsSql);
-
-//       // 4. Update status in source table
-//       if (isErp) {
-//         await transaction.request()
-//           .input("Id", sql.Int, id)
-//           .query(`UPDATE [dbo].[TrialRequests] SET TrialStatus = 'Approved' WHERE Id = @Id;`);
-//       } else {
-//         await transaction.request()
-//           .input("Id", sql.Int, id)
-//           .query(`UPDATE [dbo].[BusinessEnquiries] SET Status = 'Approved', UpdatedAt = GETDATE() WHERE Id = @Id;`);
-//       }
-
-//       await transaction.commit();
-//     } catch (err) {
-//       await transaction.rollback();
-//       throw err;
-//     }
-
-//     // 5. Send Credentials Email
-//     const isErp = type === "erp";
-
-//     const mailHtml = `
-//       <div style="font-family: Arial, sans-serif; color: #222; max-width: 600px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 24px; background-color: #ffffff; margin: 0 auto;">
-//         <h2 style="color: #0b5ed7; margin-top: 0;">Account Approved - Synergy 5M LLP</h2>
-        
-//         <p style="font-size: 14px; line-height: 1.5;">Dear <strong>${recipientName || "Valued Partner"}</strong>,</p>
-        
-//         <p style="font-size: 14px; line-height: 1.5;">
-//           Your request for <strong>${isErp ? "SYN ERP 10" : "Buyer-Seller Portal"}</strong> has been officially approved. Your login credentials are ready:
-//         </p>
-
-//         <div style="background: #f7f9fa; border-left: 4px solid #0b5ed7; padding: 16px; margin: 20px 0; border-radius: 0 4px 4px 0;">
-//           <p style="margin: 0 0 8px 0; font-size: 13.5px;">
-//             <strong>Login URL:</strong> 
-//             <a href="${portalUrl}" target="_blank" style="color: #0b5ed7; text-decoration: underline;">${portalUrl}</a>
-//           </p>
-//           <p style="margin: 0 0 8px 0; font-size: 13.5px;">
-//             <strong>Username / Email:</strong> ${email.trim()}
-//           </p>
-//           <p style="margin: 0; font-size: 13.5px;">
-//             <strong>Temporary Password:</strong> 
-//             <span style="font-family: monospace; font-size: 15px; background: #ffffff; padding: 3px 8px; border: 1px solid #ccd0d4; border-radius: 4px; font-weight: 600;">${generatedPassword}</span>
-//           </p>
-//         </div>
-
-//         <p style="color: #666; font-size: 13px; margin: 0 0 20px 0;">
-//           * Please change your password upon your initial login for security purposes.
-//         </p>
-
-//         ${
-//           isErp
-//             ? `
-//             <div style="margin-top: 24px; padding: 16px; background-color: #f0f7ff; border: 1px dashed #0b5ed7; border-radius: 6px;">
-//               <h4 style="margin: 0 0 6px 0; color: #0b5ed7; font-size: 14px;">Did you know? Synergy 5M also features a Buyer-Seller Portal</h4>
-//               <p style="margin: 0 0 10px 0; font-size: 13px; line-height: 1.5; color: #444;">
-//                 Alongside your ERP suite, you can list raw materials, post product requirements, and connect directly with verified industrial manufacturers across India on our <strong>Buyer-Seller Portal</strong>.
-//               </p>
-//               <p style="margin: 0; font-size: 12.5px; color: #555;">
-//                 Trade features can be enabled directly from your user profile or by reaching out to our support team.
-//               </p>
-//             </div>
-//             `
-//             : `
-//             <div style="margin-top: 24px; padding: 16px; background-color: #fcf9f2; border: 1px dashed #d97706; border-radius: 6px;">
-//               <h4 style="margin: 0 0 6px 0; color: #b45309; font-size: 14px;">Streamline Factory Operations with SYN ERP 10</h4>
-//               <p style="margin: 0 0 10px 0; font-size: 13px; line-height: 1.5; color: #444;">
-//                 In addition to trading, Synergy 5M offers <strong>SYN ERP 10</strong>—an industrial ERP engineered for end-to-end plant operations covering Material Management, Production, Quality, Sales, and Accounting.
-//               </p>
-//               <p style="margin: 0; font-size: 13px; font-weight: 600; color: #b45309;">
-//                 Interested in end-to-end plant control? You can activate a <strong>30-Day Free Trial</strong> of SYN ERP 10 anytime by replying to this email.
-//               </p>
-//             </div>
-//             `
-//         }
-
-//         <p style="margin-top: 24px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 14px;">
-//           This is an automated notification from Synergy 5M LLP. If you have questions, reach out to our team at 
-//           <a href="mailto:support@synergy5m.com" style="color: #0b5ed7;">support@synergy5m.com</a>.
-//         </p>
-//       </div>
-//     `;
-
-//     try {
-//       await transporter.sendMail({
-//         from: `"Synergy5M Approvals" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
-//         to: email.trim(),
-//         cc:[ "accounts@synergy5m.com"],
-//         subject: `Your Account has been Approved - ${type === "erp" ? "SYN ERP 10" : "Buyer_Seller_Portal"}`,
-//         html: mailHtml,
-//       });
-//     } catch (mailErr) {
-//       console.warn("Mail dispatch error on approve:", mailErr.message);
-//     }
-
-//     return res.json({ success: true, message: "Record approved, account created, and email sent successfully!" });
-//   } catch (error) {
-//     console.error("Approve endpoint error:", error);
-//     return res.status(500).json({ success: false, message: error.message });
-//   }
-// });
-// 4. Reject Action
-
-
 
 app.post("/api/admin/reject", async (req, res) => {
   const { id, type, email, recipientName, reason } = req.body;
@@ -1239,7 +1159,7 @@ app.post("/api/admin/reject", async (req, res) => {
       await transporter.sendMail({
         from: `"Synergy5M Verification Desk" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
         to: email.trim(),
-        cc:[ "accounts@synergy5m.com"],
+        cc: ["accounts@synergy5m.com"],
         subject: `Update Regarding Your Synergy 5M Request: Rejected`,
         html: mailHtml,
       });
@@ -1309,7 +1229,6 @@ app.get('/api/admin/demo-requests', async (req, res) => {
     }
 });
 
-
 // POST /api/admin/demo-requests/:id/approve
 app.post('/api/admin/demo-requests/:id/approve', async (req, res) => {
     const { id } = req.params;
@@ -1323,14 +1242,14 @@ app.post('/api/admin/demo-requests/:id/approve', async (req, res) => {
         const userResult = await pool.request()
             .input('Id', sql.Int, id)
             .query('SELECT Email, BusinessEmail, fullName, DemoStatus FROM [dbo].[DemoRequests] WHERE Id = @Id');
-        
+
         if (userResult.recordset.length === 0) {
             return res.status(404).json({ error: 'Demo request not found' });
         }
 
         const user = userResult.recordset[0];
 
-        // 🛑 Validation: Check if already submitted or done
+        // Validation: Check if already submitted or done
         if (user.DemoStatus === 'Submitted' || user.DemoStatus === 'Done') {
             return res.status(400).json({ 
                 error: `Meeting email is already submitted. Current status is '${user.DemoStatus}'.` 
@@ -1425,6 +1344,7 @@ app.post('/api/admin/demo-requests/:id/approve', async (req, res) => {
 });
 
 // POST /api/admin/demo-requests/:id/feedback
+// (The old duplicate of this route has been removed - Express only ever used the first one.)
 app.post('/api/admin/demo-requests/:id/feedback', async (req, res) => {
     const { id } = req.params;
 
@@ -1442,7 +1362,7 @@ app.post('/api/admin/demo-requests/:id/feedback', async (req, res) => {
 
         const user = userResult.recordset[0];
 
-        // 🛑 Validation: Check if demo is already given / done
+        // Validation: Check if demo is already given / done
         if (user.DemoStatus === 'Done') {
             return res.status(400).json({ error: 'The demo is already given (marked as Done).' });
         }
@@ -1516,57 +1436,11 @@ app.post('/api/admin/demo-requests/:id/feedback', async (req, res) => {
     }
 });
 
-// POST /api/admin/demo-requests/:id/feedback
-app.post('/api/admin/demo-requests/:id/feedback', async (req, res) => {
-    const { id } = req.params;
-
-    try {
-        const pool = await poolPromise;
-        if (!pool) throw new Error("Database pool not available");
-
-        const userResult = await pool.request()
-            .input('Id', sql.Int, id)
-            .query('SELECT Email, BusinessEmail, fullName FROM [dbo].[DemoRequests] WHERE Id = @Id');
-
-        if (userResult.recordset.length === 0) {
-            return res.status(404).json({ error: 'Demo request not found' });
-        }
-
-        const user = userResult.recordset[0];
-        const targetEmail = user.BusinessEmail || user.Email;
-
-        // Update status to 'Done'
-        await pool.request()
-            .input('Id', sql.Int, id)
-            .query("UPDATE [dbo].[DemoRequests] SET [DemoStatus] = 'Done', [UpdatedAt] = GETDATE() WHERE [Id] = @Id");
-
-        // Send Feedback Form Email
-        const feedbackUrl = `https://yourdomain.com/feedback?id=${id}`; 
-        const mailOptions = {
-            from: '"Synergy Support" <support@synergy5m.com>',
-            to: targetEmail,
-            subject: 'We value your feedback on the demo',
-            html: `
-                <h3>Hello ${user.fullName},</h3>
-                <p>Thank you for attending the demo today. Please take a moment to share your feedback with us:</p>
-                <p><a href="${feedbackUrl}" style="padding: 10px 15px; background: #007bff; color: white; text-decoration: none; border-radius: 5px;">Provide Feedback</a></p>
-            `,
-        };
-
-        await transporter.sendMail(mailOptions);
-        res.status(200).json({ message: 'Status updated to Done and feedback email sent.' });
-    } catch (error) {
-        console.error('Error sending feedback mail:', error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-
-
 const vendorRoutes = require('./vendorRoutes'); 
 app.use('/', vendorRoutes);
-const WhatsappRoute=require('./WhatsappRoute')
-app.use('/whatsapp',WhatsappRoute);
+const WhatsappRoute = require('./WhatsappRoute');
+app.use('/whatsapp', WhatsappRoute);
+
 // -------------------------------------------------------------
 // Static Frontend Catch-All Handler (MUST BE AT THE VERY BOTTOM)
 // -------------------------------------------------------------
@@ -1605,7 +1479,6 @@ if (fs.existsSync(indexHtmlPath)) {
     `);
   });
 }
-
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
