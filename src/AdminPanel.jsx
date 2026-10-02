@@ -48,16 +48,8 @@ const IconSearch = (props) => (
     <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
   </svg>
 );
-const IconChevronLeft = (props) => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" {...props}>
-    <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-const IconChevronRight = (props) => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" {...props}>
-    <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
+
+
 
 export default function AdminPanel() {
   const navigate = useNavigate();
@@ -142,6 +134,7 @@ export default function AdminPanel() {
       return () => clearTimeout(delayDebounceFn);
     }
   }, [isAuthenticated, activeTab, page, pageSize, searchTerm, statusFilter, fetchData]);
+
 
   useEffect(() => {
     if (document.getElementById("admin-panel-font")) return;
