@@ -372,9 +372,17 @@ export default function AdminPanel() {
               onClick={() => navigate('/whatsapp')} 
               style={styles.logoutBtn}
             >
-              ✉️ Whatsapp Broadcast
+               Whatsapp Broadcast
             </button>
 
+
+     <button 
+              type="button"
+              onClick={() => navigate('/admin/email-history')} 
+              style={styles.logoutBtn}
+            >
+               Email Tracker
+            </button>
              <button 
               type="button"
               onClick={() => navigate('/demo-req')} 

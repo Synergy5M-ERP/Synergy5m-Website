@@ -8,6 +8,7 @@ import './App.css';
 import './index.css';
 import DemoPanel from './DemoPanel';
 import WhatsappBroadcast from './WhatsappBroadcast';
+import EmailDispatchHistory from './EmailDispatchHistory';
 function App() {
   return (
     <HelmetProvider>
@@ -20,6 +21,7 @@ function App() {
             <Route path="/demo-req" element={<DemoPanel/>} />
             <Route path="/whatsapp" element={<WhatsappBroadcast/>} />
             <Route path="*" element={<NewLandingPage />} />
+            <Route path="/admin/email-history" element={<EmailDispatchHistory/>} />
           </Routes>
         </div>
       </BrowserRouter>

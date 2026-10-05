@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 /* --- SVG Icons --- */
 const IconLogout = (props) => (
@@ -13,9 +13,15 @@ const IconSearch = (props) => (
     <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
   </svg>
 );
+const IconHistory = (props) => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" {...props}>
+    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
 
 export default function VendorEmailSender() {
   const navigate = useNavigate();
+  const location = useLocation(); // <-- Added useLocation to receive router state
 
   const [vendors, setVendors] = useState([]);
   const [search, setSearch] = useState('');
@@ -46,6 +52,17 @@ Thank you for your support and cooperation.`
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
+
+  // --- BONUS TIP LOGIC: Handle pre-selected vendor passed from history audit page ---
+  useEffect(() => {
+    if (location.state?.preselectedVendor) {
+      const v = location.state.preselectedVendor;
+      setSelectedIds([v.Id]);
+      if (location.state.defaultSubject) {
+        setSubject(location.state.defaultSubject);
+      }
+    }
+  }, [location.state]);
 
   // Fetch filter dropdown options on mount
   useEffect(() => {
@@ -185,20 +202,22 @@ Contact : +91- 9423579446`;
             <div style={styles.topBarSubtitle}>Vendor Email Dispatch Center</div>
           </div>
         </div>
-        <button 
-              type="button"
-              onClick={() => navigate('/')} 
-              style={styles.logoutBtn}
-            >
-              Website
-            </button>
-        <button 
-          type="button"
-          onClick={() => navigate('/admin')} 
-          style={styles.logoutBtn}
-        >
-          <IconLogout /> Back to Admin Panel
-        </button>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button 
+            type="button"
+            onClick={() => navigate('/admin/email-history')} 
+            style={styles.logoutBtn}
+          >
+            <IconHistory /> View Email Followup 
+          </button>
+          <button 
+            type="button"
+            onClick={() => navigate('/admin')} 
+            style={styles.logoutBtn}
+          >
+            <IconLogout /> Admin Panel
+          </button>
+        </div>
       </div>
 
       <div style={styles.pageBody}>
