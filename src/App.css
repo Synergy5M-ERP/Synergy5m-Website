@@ -1125,7 +1125,7 @@
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
           gap: clamp(1.5rem, 3vw, 2rem);
-          max-width: 1280px;
+          max-width: 1500px;
           margin: 0 auto;
         }
 

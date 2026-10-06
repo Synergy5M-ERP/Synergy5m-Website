@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import Quill from 'quill';
+import 'quill/dist/quill.snow.css'; // Quill styling
 
 /* --- SVG Icons --- */
 const IconLogout = (props) => (
@@ -19,41 +21,66 @@ const IconHistory = (props) => (
   </svg>
 );
 
+// 1. Define the initial template constant outside the component
+const INITIAL_EMAIL_TEMPLATE = `<p>Hi <strong>{{Contact_Person}}</strong>,</p>
+<p>We’re pleased to inform you that the new functionality has been successfully implemented for <strong>{{Company_Name}}</strong>.<br>
+Your registered GST Number is <strong>{{GST_Number}}</strong>.</p>
+<p>Please review the update and share your feedback or let us know if any additional changes are required.</p>
+<p>Thank you for your support and cooperation.</p>`;
+
 export default function VendorEmailSender() {
   const navigate = useNavigate();
-  const location = useLocation(); // <-- Added useLocation to receive router state
+  const location = useLocation();
 
   const [vendors, setVendors] = useState([]);
   const [search, setSearch] = useState('');
   
-  // Filter States & Options Lists
   const [industryFilter, setIndustryFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [availableIndustries, setAvailableIndustries] = useState([]);
   const [availableCategories, setAvailableCategories] = useState([]);
 
   const [selectedIds, setSelectedIds] = useState([]);
-  
-  // Email Form Fields
   const [subject, setSubject] = useState('New implementation of functionality');
-  const [bodyTemplate, setBodyTemplate] = useState(
-`Hi {{Contact_Person}},
+  
+  // Editor state & refs
+  const quillRef = useRef(null);
+  const editorInstance = useRef(null);
+  const [bodyHtml, setBodyHtml] = useState(INITIAL_EMAIL_TEMPLATE);
 
-We’re pleased to inform you that the new functionality has been successfully implemented for {{Company_Name}}.
-Your registered GST Number is {{GST_Number}}. 
-
-Please review the update and share your feedback or let us know if any additional changes are required.
-
-Thank you for your support and cooperation.`
-  );
-
-  const [cursorPosition, setCursorPosition] = useState(0);
   const [attachmentFile, setAttachmentFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
 
-  // --- BONUS TIP LOGIC: Handle pre-selected vendor passed from history audit page ---
+  // Initialize Quill instance directly without findDOMNode error
+  useEffect(() => {
+    if (quillRef.current && !editorInstance.current) {
+      editorInstance.current = new Quill(quillRef.current, {
+        theme: 'snow',
+        modules: {
+          toolbar: [
+            [{ header: [1, 2, false] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ color: [] }, { background: [] }],
+            [{ list: 'ordered' }, { list: 'bullet' }],
+            ['link', 'image'],
+            ['clean']
+          ]
+        },
+        placeholder: 'Type plain text, apply styling, or paste images here...'
+      });
+
+      // Set initial content using the constant
+      editorInstance.current.root.innerHTML = INITIAL_EMAIL_TEMPLATE;
+
+      // Listen for text changes
+      editorInstance.current.on('text-change', () => {
+        setBodyHtml(editorInstance.current.root.innerHTML);
+      });
+    }
+  }, []);
+
   useEffect(() => {
     if (location.state?.preselectedVendor) {
       const v = location.state.preselectedVendor;
@@ -64,7 +91,6 @@ Thank you for your support and cooperation.`
     }
   }, [location.state]);
 
-  // Fetch filter dropdown options on mount
   useEffect(() => {
     const fetchFilterOptions = async () => {
       try {
@@ -81,7 +107,6 @@ Thank you for your support and cooperation.`
     fetchFilterOptions();
   }, []);
 
-  // Memoized fetchVendors using useCallback to satisfy react-hooks/exhaustive-deps
   const fetchVendors = useCallback(async () => {
     setFetching(true);
     try {
@@ -102,7 +127,6 @@ Thank you for your support and cooperation.`
     }
   }, [search, industryFilter, categoryFilter]);
 
-  // Fetch vendors when search query or dropdown filters change
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchVendors();
@@ -124,28 +148,19 @@ Thank you for your support and cooperation.`
     }
   };
 
-  const handleTextareaSelection = (e) => {
-    setCursorPosition(e.target.selectionStart);
-  };
-
-  const insertTextAtCursor = (textToInsert) => {
-    const textBefore = bodyTemplate.substring(0, cursorPosition);
-    const textAfter = bodyTemplate.substring(cursorPosition);
-    setBodyTemplate(textBefore + textToInsert + textAfter);
-    setCursorPosition(cursorPosition + textToInsert.length);
+  const insertToken = (token) => {
+    if (editorInstance.current) {
+      const range = editorInstance.current.getSelection() || { index: editorInstance.current.getLength() };
+      editorInstance.current.insertText(range.index, ` ${token} `);
+    }
   };
 
   const handleInsertMyDetails = () => {
-    const myDetailsBlock = 
-`\n\nAjay Bhai
-CEO
-Synergy5M LLP
-501, Fortuna Business Centre, Opp. McDonald's, 
-Pimple Saudagar, Pune, Maharashtra, India. 
-PIN - 411027
-Website: synergy5m.com    
-Contact : +91- 9423579446`;
-    insertTextAtCursor(myDetailsBlock);
+    const myDetailsBlock = `<p><br></p><p><strong>Ajay Bhai</strong><br>CEO | Synergy5M LLP<br>501, Fortuna Business Centre, Opp. McDonald's,<br>Pimple Saudagar, Pune, Maharashtra, India. PIN - 411027<br>Website: <a href="https://synergy5m.com">synergy5m.com</a><br>Contact: +91-9423579446</p>`;
+    if (editorInstance.current) {
+      const range = editorInstance.current.getSelection() || { index: editorInstance.current.getLength() };
+      editorInstance.current.clipboard.dangerouslyPasteHTML(range.index, myDetailsBlock);
+    }
   };
 
   const handleSendEmails = async (e) => {
@@ -161,7 +176,7 @@ Contact : +91- 9423579446`;
     const formData = new FormData();
     formData.append('vendorIds', JSON.stringify(selectedIds));
     formData.append('subject', subject);
-    formData.append('bodyTemplate', bodyTemplate);
+    formData.append('bodyTemplate', bodyHtml);
     if (attachmentFile) {
       formData.append('attachment', attachmentFile);
     }
@@ -193,7 +208,6 @@ Contact : +91- 9423579446`;
     <div style={styles.dashboardContainer}>
       <GlobalStyle />
       
-      {/* Top Navigation Bar */}
       <div style={styles.topBar}>
         <div style={styles.topBarLeft}>
           <div style={styles.brandMarkSmall}>S5</div>
@@ -203,18 +217,10 @@ Contact : +91- 9423579446`;
           </div>
         </div>
         <div style={{ display: "flex", gap: "10px" }}>
-          <button 
-            type="button"
-            onClick={() => navigate('/admin/email-history')} 
-            style={styles.logoutBtn}
-          >
+          <button type="button" onClick={() => navigate('/admin/email-history')} style={styles.logoutBtn}>
             <IconHistory /> View Email Followup 
           </button>
-          <button 
-            type="button"
-            onClick={() => navigate('/admin')} 
-            style={styles.logoutBtn}
-          >
+          <button type="button" onClick={() => navigate('/admin')} style={styles.logoutBtn}>
             <IconLogout /> Admin Panel
           </button>
         </div>
@@ -222,8 +228,8 @@ Contact : +91- 9423579446`;
 
       <div style={styles.pageBody}>
         <div style={{ marginBottom: "20px" }}>
-          <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#14181C", margin: "0 0 4px 0" }}>Broadcast Plain Text Emails</h1>
-          <p style={{ fontSize: "13.5px", color: "#5B6570", margin: 0 }}>Filter target vendors using dropdown selections, compose updates, and attach documents.</p>
+          <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#14181C", margin: "0 0 4px 0" }}>Broadcast Rich-Text Emails</h1>
+          <p style={{ fontSize: "13.5px", color: "#5B6570", margin: 0 }}>Filter target vendors, style content visually, paste images directly, and attach files.</p>
         </div>
 
         {statusMessage && (
@@ -240,10 +246,7 @@ Contact : +91- 9423579446`;
             border: `1px solid ${statusMessage.type === 'success' ? '#B8E7C5' : '#F1C7C4'}`
           }}>
             <span>{statusMessage.text}</span>
-            <button 
-              onClick={() => setStatusMessage(null)} 
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '12px', color: 'inherit', marginLeft: 'auto' }}
-            >
+            <button onClick={() => setStatusMessage(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '12px', color: 'inherit', marginLeft: 'auto' }}>
               DISMISS
             </button>
           </div>
@@ -251,7 +254,7 @@ Contact : +91- 9423579446`;
 
         <div className="ap-email-grid" style={styles.emailDispatchGrid}>
           
-          {/* LEFT PANEL: Vendor Selection Grid with Dropdown Selectors */}
+          {/* LEFT PANEL: Vendor Selection Grid */}
           <div style={styles.emailLeftCard}>
             <div style={{ padding: "16px", borderBottom: "1px solid #E4E7E9", background: "#FAFBFB" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
@@ -260,7 +263,6 @@ Contact : +91- 9423579446`;
                 </h3>
               </div>
               
-              {/* Search & Dropdown Filters */}
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                   <IconSearch color="#788693" style={{ position: "absolute", left: "10px" }} />
@@ -275,7 +277,6 @@ Contact : +91- 9423579446`;
                 </div>
 
                 <div style={{ display: "flex", gap: "8px" }}>
-                  {/* Industry Dropdown */}
                   <select
                     value={industryFilter}
                     onChange={(e) => setIndustryFilter(e.target.value)}
@@ -288,7 +289,6 @@ Contact : +91- 9423579446`;
                     ))}
                   </select>
 
-                  {/* Category Dropdown */}
                   <select
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
@@ -304,7 +304,6 @@ Contact : +91- 9423579446`;
               </div>
             </div>
 
-            {/* Vendor List Scroll Container */}
             <div style={{ maxHeight: "500px", overflowY: "auto", padding: "12px" }}>
               <div style={{ display: "flex", alignItems: "center", paddingBottom: "10px", marginBottom: "8px", borderBottom: "1px solid #EEF0F1", position: "sticky", top: 0, background: "#fff", zIndex: 2 }}>
                 <input 
@@ -342,12 +341,7 @@ Contact : +91- 9423579446`;
                         borderColor: isChecked ? "#14524A" : "transparent",
                       }}
                     >
-                      <input 
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => {}} 
-                        style={{ marginTop: "2px", cursor: "pointer" }}
-                      />
+                      <input type="checkbox" checked={isChecked} onChange={() => {}} style={{ marginTop: "2px", cursor: "pointer" }} />
                       <div style={{ fontSize: "13px", width: "100%" }}>
                         <div style={{ fontWeight: 600, color: "#14181C" }}>{vendor.Company_Name}</div>
                         <div style={{ color: "#5B6570", fontSize: "12px" }}>{vendor.Email || "No Email Listed"}</div>
@@ -363,13 +357,13 @@ Contact : +91- 9423579446`;
             </div>
           </div>
 
-          {/* RIGHT PANEL: Plain Text Email Composer Form */}
+          {/* RIGHT PANEL: Visual Quill Editor Form */}
           <div style={styles.emailRightCard}>
             <div style={{ padding: "16px", borderBottom: "1px solid #E4E7E9", background: "#FAFBFB" }}>
-              <h3 style={{ fontSize: "14px", fontWeight: 600, color: "#14181C", margin: 0 }}>Compose Plain Text Email &amp; Attach File</h3>
+              <h3 style={{ fontSize: "14px", fontWeight: 600, color: "#14181C", margin: 0 }}>Compose Visual Email &amp; Attach File</h3>
             </div>
 
-            <form onSubmit={handleSendEmails} style={{ maxHeight: "500px", overflowY: "auto", padding: "20px" }}>
+            <form onSubmit={handleSendEmails} style={{ maxHeight: "550px", overflowY: "auto", padding: "20px" }}>
               <div style={{ marginBottom: "16px" }}>
                 <label style={styles.label}>Subject line</label>
                 <input 
@@ -384,7 +378,7 @@ Contact : +91- 9423579446`;
               </div>
 
               <div style={{ marginBottom: "16px" }}>
-                <label style={styles.label}>Attach PDF / Image / Document</label>
+                <label style={styles.label}>Attach PDF / Document</label>
                 <input 
                   type="file"
                   onChange={(e) => setAttachmentFile(e.target.files[0])}
@@ -395,30 +389,22 @@ Contact : +91- 9423579446`;
                 )}
               </div>
 
-              <div style={{ marginBottom: "16px" }}>
+              <div style={{ marginBottom: "24px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "7px", flexWrap: "wrap", gap: "6px" }}>
-                  <label style={{ ...styles.label, marginBottom: 0 }}>Plain Text Content &amp; Insert Elements</label>
+                  <label style={{ ...styles.label, marginBottom: 0 }}>Email Body &amp; Styling</label>
                   
                   <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
-                    <button type="button" onClick={() => insertTextAtCursor('{{Company_Name}}')} style={styles.tokenBtn}>+ Company Name</button>
-                    <button type="button" onClick={() => insertTextAtCursor('{{Contact_Person}}')} style={styles.tokenBtn}>+ Contact Person</button>
-                    <button type="button" onClick={() => insertTextAtCursor('{{GST_Number}}')} style={styles.tokenBtn}>+ GST No</button>
+                    <button type="button" onClick={() => insertToken('{{Company_Name}}')} style={styles.tokenBtn}>+ Company Name</button>
+                    <button type="button" onClick={() => insertToken('{{Contact_Person}}')} style={styles.tokenBtn}>+ Contact Person</button>
+                    <button type="button" onClick={() => insertToken('{{GST_Number}}')} style={styles.tokenBtn}>+ GST No</button>
                     <button type="button" onClick={handleInsertMyDetails} style={{ ...styles.tokenBtn, background: "#14524A", color: "#fff", borderColor: "#14524A" }}>+ Add My Details</button>
                   </div>
                 </div>
 
-                <textarea 
-                  rows="8"
-                  required
-                  value={bodyTemplate}
-                  onChange={(e) => setBodyTemplate(e.target.value)}
-                  onSelect={handleTextareaSelection}
-                  onClick={handleTextareaSelection}
-                  onKeyUp={handleTextareaSelection}
-                  className="ap-input"
-                  style={{ ...styles.textarea, fontFamily: "monospace", fontSize: "13px", lineHeight: "1.5" }}
-                  placeholder="Type your plain text message here..."
-                ></textarea>
+                {/* Plain DOM div for Quill initialization (no findDOMNode error) */}
+                <div style={{ background: "#FFFFFF", borderRadius: "8px", overflow: "hidden" }}>
+                  <div ref={quillRef} style={{ height: "220px", marginBottom: "42px" }} />
+                </div>
               </div>
 
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -433,7 +419,7 @@ Contact : +91- 9423579446`;
                     cursor: loading || selectedIds.length === 0 ? "not-allowed" : "pointer"
                   }}
                 >
-                  {loading ? 'Processing Dispatch...' : `Send Email with Attachment (${selectedIds.length})`}
+                  {loading ? 'Processing Dispatch...' : `Send Styled Email (${selectedIds.length})`}
                 </button>
               </div>
             </form>
@@ -452,6 +438,7 @@ function GlobalStyle() {
       body { font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif; margin: 0; background: #F2F4F5; }
       .ap-input:focus { outline: none; border-color: #14524A !important; box-shadow: 0 0 0 3px rgba(20, 82, 74, 0.12); }
       .ap-primary-btn:hover { background: #0D3A34 !important; }
+      .ql-container { font-family: 'Inter', sans-serif; font-size: 14px; }
       @media (max-width: 768px) {
         .ap-email-grid { grid-template-columns: 1fr !important; }
       }
@@ -472,7 +459,6 @@ const styles = {
   pageBody: { padding: "28px", maxWidth: "1280px", margin: "0 auto" },
   label: { display: "block", fontSize: "13px", fontWeight: 600, color: "#3C4550", marginBottom: "7px" },
   input: { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #D8DCE0", fontSize: "14px", fontFamily: FONT, background: "#FFFFFF" },
-  textarea: { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #D8DCE0", fontSize: "14px", fontFamily: FONT, resize: "vertical", background: "#FFFFFF" },
   primaryBtn: { padding: "12px", background: "#14524A", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: 600, fontSize: "14.5px", fontFamily: FONT },
   emailDispatchGrid: { display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: "20px" },
   emailLeftCard: { background: "#fff", borderRadius: "12px", border: "1px solid #E4E7E9", overflow: "hidden", height: "fit-content" },
