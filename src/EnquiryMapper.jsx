@@ -90,21 +90,21 @@ export default function EnquiryMapper() {
     };
 
     useEffect(() => {
-        axios.get('http://localhost:8080/api/enquiry-categories')
+        axios.get('/api/enquiry-categories')
             .then(res => setCategories(res.data))
             .catch(err => console.error("Failed to load categories:", err));
     }, []);
 
     useEffect(() => {
         const endpoint = isBuying ? 'api/buying' : 'api/selling';
-        axios.get(`http://localhost:8080/${endpoint}${selectedCategory ? `?category=${encodeURIComponent(selectedCategory)}` : ''}`)
+        axios.get(`/${endpoint}${selectedCategory ? `?category=${encodeURIComponent(selectedCategory)}` : ''}`)
             .then(res => setLeftList(res.data))
             .catch(err => console.error(err));
         setSelectedLeftIds([]);
     }, [isBuying, selectedCategory]);
 
     useEffect(() => {
-        axios.get(`http://localhost:8080/api/potential-vendors${selectedCategory ? `?category=${encodeURIComponent(selectedCategory)}` : ''}`)
+        axios.get(`/api/potential-vendors${selectedCategory ? `?category=${encodeURIComponent(selectedCategory)}` : ''}`)
             .then(res => setVendorList(res.data))
             .catch(err => console.error(err));
         setSelectedVendorIds([]);
@@ -130,7 +130,7 @@ export default function EnquiryMapper() {
             const payload = isBuying
                 ? { buyerEnqIds: selectedLeftIds, vendorIds: selectedVendorIds, mode: 'vendor-buying' }
                 : { sellerEnqIds: selectedLeftIds, vendorIds: selectedVendorIds, mode: 'vendor-selling' };
-            const response = await axios.post('http://localhost:8080/api/send-enquiry-email', payload);
+            const response = await axios.post('/api/send-enquiry-email', payload);
             showToast(response.data.message || 'Enquiries sent to the selected vendors.', 'success');
         } catch (error) {
             showToast('Could not send the emails. Check the console for details.', 'error');
@@ -286,13 +286,12 @@ export default function EnquiryMapper() {
                                             />
                                         </th>
                                         <th>Vendor / Category</th>
-                                       
                                         <th>Email</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {vendorList.length === 0 ? (
-                                        <tr><td colSpan="4" className="em-empty">No vendors found for this category.</td></tr>
+                                        <tr><td colSpan="3" className="em-empty">No vendors found for this category.</td></tr>
                                     ) : (
                                         vendorList.map(vendor => {
                                             const isChecked = selectedVendorIds.includes(vendor.Id);
@@ -301,10 +300,10 @@ export default function EnquiryMapper() {
                                                     <td onClick={(e) => e.stopPropagation()}>
                                                         <input type="checkbox" className="em-chk" checked={isChecked} onChange={() => toggle(setSelectedVendorIds, vendor.Id)} />
                                                     </td>
-                                                    <td><strong>{vendor.Company_Name} <br/>
-                                                    {vendor.Category ? <span className="em-tag">{vendor.Category}</span> : '-'}
-                                                    </strong></td>
-                                                   
+                                                    <td>
+                                                        <strong>{vendor.Company_Name}</strong><br/>
+                                                        {vendor.Category ? <span className="em-tag">{vendor.Category}</span> : '-'}
+                                                    </td>
                                                     <td className={`em-mail ${vendor.Email ? '' : 'none'}`}>{vendor.Email || 'No email'}</td>
                                                 </tr>
                                             );
