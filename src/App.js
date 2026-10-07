@@ -9,6 +9,7 @@ import './index.css';
 import DemoPanel from './DemoPanel';
 import WhatsappBroadcast from './WhatsappBroadcast';
 import EmailDispatchHistory from './EmailDispatchHistory';
+import EnquiryMapper from './EnquiryMapper';
 function App() {
   return (
     <HelmetProvider>
@@ -22,6 +23,7 @@ function App() {
             <Route path="/whatsapp" element={<WhatsappBroadcast/>} />
             <Route path="*" element={<NewLandingPage />} />
             <Route path="/admin/email-history" element={<EmailDispatchHistory/>} />
+            <Route path="/enquiryMapper" element={<EnquiryMapper/>} />
           </Routes>
         </div>
       </BrowserRouter>

@@ -385,6 +385,13 @@ export default function AdminPanel() {
             </button>
              <button 
               type="button"
+              onClick={() => navigate('/enquiryMapper')} 
+              style={styles.logoutBtn}
+            >
+              Buyer Seller Email
+            </button>
+             <button 
+              type="button"
               onClick={() => navigate('/demo-req')} 
               style={styles.logoutBtn}
             >

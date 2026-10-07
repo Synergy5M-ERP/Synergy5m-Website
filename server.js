@@ -1436,6 +1436,444 @@ app.post('/api/admin/demo-requests/:id/feedback', async (req, res) => {
     }
 });
 
+// Get unique categories for Buying and Selling Enquiries
+app.get('/api/enquiry-categories', async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        if (!pool) return res.status(500).json({ error: "Database connection not available" });
+
+        const result = await pool.request().query(`
+            SELECT DISTINCT ProdCat AS Category FROM [dbo].[BuyingEnquiryTbl] WHERE ProdCat IS NOT NULL AND LTRIM(RTRIM(ProdCat)) <> ''
+            UNION
+            SELECT DISTINCT ItemCat AS Category FROM [dbo].[SellingEnquiryTbl] WHERE ItemCat IS NOT NULL AND LTRIM(RTRIM(ItemCat)) <> ''
+            ORDER BY Category ASC
+        `);
+
+        const categories = result.recordset.map(row => row.Category);
+        return res.json(categories);
+    } catch (err) {
+        console.error("Error fetching enquiry categories:", err.message);
+        return res.status(500).json({ error: err.message });
+    }
+});
+
+// 1. Get Buying Enquiries (with optional Category filter & Mapped Email)
+app.get('/api/buying', async (req, res) => {
+    try {
+        const { category } = req.query;
+        const pool = await poolPromise;
+        let query = `
+            SELECT b.*, u.username AS UserEmail 
+            FROM [dbo].[BuyingEnquiryTbl] b
+            LEFT JOIN [dbo].[HRM_UserTbl] u ON b.UID = u.id
+            WHERE b.IsActive = 1
+        `;
+        
+        const request = pool.request();
+        if (category) {
+            query += ` AND b.ProdCat = @category`;
+            request.input('category', sql.VarChar, category);
+        }
+        
+        const result = await request.query(query);
+        res.json(result.recordset);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 2. Get Selling Enquiries (with optional Category filter & Mapped Email)
+app.get('/api/selling', async (req, res) => {
+    try {
+        const { category } = req.query;
+        const pool = await poolPromise;
+        let query = `
+            SELECT s.*, u.username AS UserEmail 
+            FROM [dbo].[SellingEnquiryTbl] s
+            LEFT JOIN [dbo].[HRM_UserTbl] u ON s.UID = u.id
+            WHERE s.IsActive = 1
+        `;
+        
+        const request = pool.request();
+        if (category) {
+            query += ` AND s.ItemCat = @category`;
+            request.input('category', sql.VarChar, category);
+        }
+        
+        const result = await request.query(query);
+        res.json(result.recordset);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get Potential Vendors filtered by Category (Robust against case, spaces, and null IsActive)
+app.get('/api/potential-vendors', async (req, res) => {
+    try {
+        const { category } = req.query;
+        const pool = await poolPromise;
+        if (!pool) return res.status(500).json({ error: "Database connection not available" });
+
+        let query = `
+            SELECT * FROM [dbo].[Potential_Vendor] 
+            WHERE (IsActive = 1 OR IsActive IS NULL)
+        `;
+        
+        const request = pool.request();
+        if (category) {
+            query += ` AND UPPER(LTRIM(RTRIM(Category))) = UPPER(LTRIM(RTRIM(@category)))`;
+            request.input('category', sql.VarChar, category);
+        }
+        
+        const result = await request.query(query);
+        res.json(result.recordset);
+    } catch (err) {
+        console.error("Error fetching potential vendors:", err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+// Helper function for professional HTML email structure
+
+
+ // If using ES modules / React, or use require in Node.js: 
+
+const generateStyledEmailHtml = (recipientName, enquiryTitle, detailsHtml, isBuyerLead) => {
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${enquiryTitle} - Synergy5M LLP</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #fff7ed; font-family: 'Inter', Helvetica, Arial, sans-serif; color: #334155;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #fff7ed; padding: 30px 0;">
+            <tr>
+                <td align="center">
+                    <table width="650" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(249, 115, 22, 0.08); border: 1px solid #fed7aa;">
+                        
+                        <!-- Top Orange & White Header Banner -->
+                       <tr>
+                            <td style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); padding: 22px 30px; text-align: left;">
+                                <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                    <tr>
+                                        <td width="55" style="vertical-align: middle;">
+                                            <div style="width: 48px; height: 48px; background: #ffffff; border-radius: 5%; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid #ffffff; text-align: center; line-height: 48px; overflow: hidden;">
+                                              <img src="https://synergy5m.com/static/media/synlogo.dec9f1f0bc07e146500b.png" alt="Synergy5M Logo" style="width: 65px; height: 65px; object-fit: contain; vertical-align: middle;" />
+                                 </div>
+                                        </td>
+                                        <td style="vertical-align: middle; padding-left: 14px;">
+                                            <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px; text-shadow: 0 1px 2px rgba(0,0,0,0.1);">Synergy5M LLP</h1>
+                                            <p style="color: #ffedd5; margin: 2px 0 0 0; font-size: 12.5px; font-weight: 500;">Verified B2B Global Trade & Supply Chain</p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+
+                        <!-- Main Content Area -->
+                        <tr>
+                            <td style="padding: 20px 40px 30px 40px;">
+                                <h2 style="color: #1e293b; font-size: 20px; margin-top: 5px; margin-bottom: 14px; font-weight: 600;">
+                                    Hello ${recipientName || 'Valued Partner'},
+                                </h2>
+                                
+                                <p style="font-size: 14.5px; line-height: 1.6; color: #475569; margin-bottom: 24px;">
+                                    ${isBuyerLead 
+                                        ? `We have identified a new purchase requirement matching your business profile and product category. Please review the specifications below and submit your competitive quotation.`
+                                        : `We have an active product offering available in your category. Please review the offer specifications below if interested in procurement.`
+                                    }
+                                </p>
+
+                                <!-- Specification Card Grid -->
+                                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #fffaf5; border: 1px solid #fed7aa; border-radius: 12px; margin-bottom: 28px;">
+                                    <tr>
+                                        <td style="padding: 22px;">
+                                            <table width="100%" border="0" cellspacing="0" cellpadding="8" style="font-size: 14px;">
+                                                ${detailsHtml}
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                <!-- Call to Action Buttons -->
+                                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="text-align: center; margin-bottom: 28px;">
+                                    <tr>
+                                        <td>
+                                            <a href="https://synergy5m-business-4-profit-platform.azurewebsites.net/" target="_blank" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #ffffff; padding: 13px 26px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; display: inline-block; box-shadow: 0 4px 12px rgba(249, 115, 22, 0.35); margin-right: 12px;">
+                                                🚀 View & Respond Now
+                                            </a>
+                                            <a href="https://synergy5m.com/" target="_blank" style="background: linear-gradient(135deg, #334155 0%, #1e293b 100%); color: #ffffff; padding: 13px 26px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; display: inline-block; box-shadow: 0 4px 12px rgba(51, 65, 85, 0.35);">
+                                                🌐 Synergy Web
+                                            </a>
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                <!-- Trade Safety Advisory -->
+                                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; margin-bottom: 20px;">
+                                    <tr>
+                                        <td style="padding: 14px 18px; font-size: 12.5px; color: #92400e; line-height: 1.5;">
+                                            <strong>⚠️ Trade Safety Advisory:</strong> Stick to secure payment instruments such as Letter of Credit (LC) and complete due diligence on trading partners.
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+
+                        <!-- Footer -->
+                        <tr>
+                            <td style="background-color: #fffaf5; padding: 22px 40px; border-top: 1px solid #fed7aa; text-align: center; font-size: 12px; color: #64748b; line-height: 1.5;">
+                                <p style="margin: 0 0 4px 0; font-weight: 600; color: #334155;">Synergy5M LLP & Trade Network</p>
+                                <p style="margin: 0; color: #94a3b8;">Pune, Maharashtra, India | sales@synergy5m.com</p>
+                            </td>
+                        </tr>
+
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    `;
+};
+
+// Combined Email Dispatcher for Buying/Selling Enquiries to Potential Vendors
+app.post('/api/send-enquiry-email', async (req, res) => {
+    const { buyerEnqIds, sellerEnqIds, vendorIds, mode } = req.body;
+
+    try {
+        const pool = await poolPromise;
+        if (!pool) return res.status(500).json({ error: "Database connection not available" });
+
+        // Mode 1: Send Buying Enquiries to Selected Vendors
+        if (mode === 'vendor-buying' && buyerEnqIds && vendorIds) {
+            for (const bId of buyerEnqIds) {
+                const bRes = await pool.request().input('id', sql.Int, bId)
+                    .query(`SELECT b.*, u.username as UserEmail FROM [dbo].[BuyingEnquiryTbl] b LEFT JOIN [dbo].[HRM_UserTbl] u ON b.UID = u.id WHERE b.Id = @id`);
+                
+                if (bRes.recordset.length === 0) continue;
+                const buyer = bRes.recordset[0];
+
+                for (const vId of vendorIds) {
+                    const vRes = await pool.request().input('id', sql.Int, vId)
+                        .query(`SELECT * FROM [dbo].[Potential_Vendor] WHERE Id = @id`);
+                    
+                    if (vRes.recordset.length === 0) continue;
+                    const vendor = vRes.recordset[0];
+
+                    if (vendor.Email) {
+                        const detailsRows = `
+                            <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Enquiry No:</td><td style="color: #1e293b; font-weight: 700;">${buyer.EnqNo || 'N/A'}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Product Name:</td><td style="color: #1e293b; font-weight: 700;">${buyer.ProdName}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${buyer.ProdCat || 'N/A'}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Grade / Specs:</td><td style="color: #334155;">${buyer.Grade || 'Standard'}</td></tr>
+                             <tr><td style="color: #ea580c; font-weight: 600;">HSN:</td><td style="color: #334155;">${buyer.HSN || 'Standard'}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Payment Terms:</td><td style="color: #334155;">${buyer.PayTerms || 'Standard'}</td></tr>
+
+                            <tr><td style="color: #ea580c; font-weight: 600;">Required Qty:</td><td style="color: #ea580c; font-weight: 700;">${buyer.ReqQty} ${buyer.UOM}</td></tr>
+
+                            <tr><td style="color: #ea580c; font-weight: 600;">Delivery Location and Expected Date:</td><td style="color: #334155;">${buyer.DelLoc || 'CIF'} (${buyer.ReqDelDate || 'Domestic'})</td></tr>
+                           <tr><td style="color: #ea580c; font-weight: 600;">Region:</td><td style="color: #334155;">${buyer.DomImport || 'Standard'}</td></tr>
+                           <tr><td style="color: #ea580c; font-weight: 600;">Enquiry Valid Till:</td><td style="color: #334155;">${buyer.EnqValDate || 'Standard'}</td></tr>
+
+
+                        `;
+
+                        const mailHtml = generateStyledEmailHtml(
+                            vendor.Contact_Person || vendor.Company_Name, 
+                            'Purchase Requirement Inquiry', 
+                            detailsRows, 
+                            true
+                        );
+
+                        const mailOptions = {
+                            from: process.env.SMTP_USER || "sales@synergy5m.com",
+                            to: vendor.Email,
+                            cc: [buyer.UserEmail].filter(Boolean),
+                            subject: `New Buy Lead: ${buyer.ProdName} (${buyer.ReqQty} ${buyer.UOM})`,
+                            html: mailHtml
+                        };
+                        await transporter.sendMail(mailOptions);
+                    }
+                }
+            }
+            return res.json({ success: true, message: "Buying enquiries successfully sent to selected vendors!" });
+        }
+
+        // Mode 2: Send Selling Enquiries to Selected Vendors
+        if (mode === 'vendor-selling' && sellerEnqIds && vendorIds) {
+            for (const sId of sellerEnqIds) {
+                const sRes = await pool.request().input('id', sql.Int, sId)
+                    .query(`SELECT s.*, u.username as UserEmail FROM [dbo].[SellingEnquiryTbl] s LEFT JOIN [dbo].[HRM_UserTbl] u ON s.UID = u.id WHERE s.Id = @id`);
+                
+                if (sRes.recordset.length === 0) continue;
+                const seller = sRes.recordset[0];
+
+                for (const vId of vendorIds) {
+                    const vRes = await pool.request().input('id', sql.Int, vId)
+                        .query(`SELECT * FROM [dbo].[Potential_Vendor] WHERE Id = @id`);
+                    
+                    if (vRes.recordset.length === 0) continue;
+                    const vendor = vRes.recordset[0];
+
+                    if (vendor.Email) {
+                        const detailsRows = `
+                            <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Offer No:</td><td style="color: #1e293b; font-weight: 700;">${seller.OfferNo || 'N/A'}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Product Name:</td><td style="color: #1e293b; font-weight: 700;">${seller.ProdName}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${seller.ItemCat || 'N/A'}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Grade:</td><td style="color: #334155;">${seller.Grade || 'Standard'}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Quantity Offered:</td><td style="color: #ea580c; font-weight: 700;">${seller.QuantityOffered} ${seller.UOM}</td></tr>
+                               `;
+
+                        const mailHtml = generateStyledEmailHtml(
+                            vendor.Contact_Person || vendor.Company_Name, 
+                            'Product Offering Notice', 
+                            detailsRows, 
+                            false
+                        );
+
+                        const mailOptions = {
+                            from: process.env.SMTP_USER || "sales@synergy5m.com",
+                            to: vendor.Email,
+                            cc: [seller.UserEmail].filter(Boolean),
+                            subject: `New Selling Offer: ${seller.ProdName} (${seller.QuantityOffered} ${seller.UOM})`,
+                            html: mailHtml
+                        };
+                        await transporter.sendMail(mailOptions);
+                    }
+                }
+            }
+            return res.json({ success: true, message: "Selling offers successfully sent to selected vendors!" });
+        }
+
+        return res.status(400).json({ error: "Invalid mode or parameters provided." });
+    } catch (err) {
+        console.error("Email dispatch error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+// Combined Email Dispatcher for Buying/Selling Enquiries to Potential Vendors
+app.post('/api/send-enquiry-email', async (req, res) => {
+    const { buyerEnqIds, sellerEnqIds, vendorIds, mode } = req.body;
+
+    try {
+        const pool = await poolPromise;
+        if (!pool) return res.status(500).json({ error: "Database connection not available" });
+
+        // Safely check if the local logo file exists on disk
+        const logoFilePath = path.join(__dirname, 'uploads', 'synergy-logo.png');
+        const hasLogo = fs.existsSync(logoFilePath);
+
+        const emailAttachments = hasLogo ? [{
+            filename: 'logo.png',
+            path: logoFilePath,
+            cid: 'synergylogo'
+        }] : [];
+
+        // Mode 1: Send Buying Enquiries to Selected Vendors
+        if (mode === 'vendor-buying' && buyerEnqIds && vendorIds) {
+            for (const bId of buyerEnqIds) {
+                const bRes = await pool.request().input('id', sql.Int, bId)
+                    .query(`SELECT b.*, u.username as UserEmail FROM [dbo].[BuyingEnquiryTbl] b LEFT JOIN [dbo].[HRM_UserTbl] u ON b.UID = u.id WHERE b.Id = @id`);
+                
+                if (bRes.recordset.length === 0) continue;
+                const buyer = bRes.recordset[0];
+
+                for (const vId of vendorIds) {
+                    const vRes = await pool.request().input('id', sql.Int, vId)
+                        .query(`SELECT * FROM [dbo].[Potential_Vendor] WHERE Id = @id`);
+                    
+                    if (vRes.recordset.length === 0) continue;
+                    const vendor = vRes.recordset[0];
+
+                    if (vendor.Email) {
+                        const detailsRows = `
+                            <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Enquiry No:</td><td style="color: #1e293b; font-weight: 700;">${buyer.EnqNo || 'N/A'}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Product Name:</td><td style="color: #1e293b; font-weight: 700;">${buyer.ProdName}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${buyer.ProdCat || 'N/A'}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Grade / Specs:</td><td style="color: #334155;">${buyer.Grade || 'Standard'}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Required Qty:</td><td style="color: #ea580c; font-weight: 700;">${buyer.ReqQty} ${buyer.UOM}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Target Price:</td><td style="color: #334155;">${buyer.TgtPrice || 'Negotiable'} ${buyer.Currency || ''}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Incoterm / Location:</td><td style="color: #334155;">${buyer.Incoterm || 'CIF'} (${buyer.DelLoc || 'Domestic'})</td></tr>
+                        `;
+
+                        const mailHtml = generateStyledEmailHtml(
+                            vendor.Contact_Person || vendor.Company_Name, 
+                            'Purchase Requirement Inquiry', 
+                            detailsRows, 
+                            true
+                        );
+
+                        const mailOptions = {
+                            from: process.env.SMTP_USER || "sales@synergy5m.com",
+                            to: vendor.Email,
+                            cc: [buyer.UserEmail].filter(Boolean),
+                            subject: `New Buy Lead: ${buyer.ProdName} (${buyer.ReqQty} ${buyer.UOM})`,
+                            html: mailHtml,
+                            attachments: emailAttachments
+                        };
+                        await transporter.sendMail(mailOptions);
+                    }
+                }
+            }
+            return res.json({ success: true, message: "Buying enquiries successfully sent to selected vendors!" });
+        }
+
+        // Mode 2: Send Selling Enquiries to Selected Vendors
+        if (mode === 'vendor-selling' && sellerEnqIds && vendorIds) {
+            for (const sId of sellerEnqIds) {
+                const sRes = await pool.request().input('id', sql.Int, sId)
+                    .query(`SELECT s.*, u.username as UserEmail FROM [dbo].[SellingEnquiryTbl] s LEFT JOIN [dbo].[HRM_UserTbl] u ON s.UID = u.id WHERE s.Id = @id`);
+                
+                if (sRes.recordset.length === 0) continue;
+                const seller = sRes.recordset[0];
+
+                for (const vId of vendorIds) {
+                    const vRes = await pool.request().input('id', sql.Int, vId)
+                        .query(`SELECT * FROM [dbo].[Potential_Vendor] WHERE Id = @id`);
+                    
+                    if (vRes.recordset.length === 0) continue;
+                    const vendor = vRes.recordset[0];
+
+                    if (vendor.Email) {
+                        const detailsRows = `
+                            <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Offer No:</td><td style="color: #1e293b; font-weight: 700;">${seller.OfferNo || 'N/A'}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Product Name:</td><td style="color: #1e293b; font-weight: 700;">${seller.ProdName}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${seller.ItemCat || 'N/A'}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Grade:</td><td style="color: #334155;">${seller.Grade || 'Standard'}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Quantity Offered:</td><td style="color: #ea580c; font-weight: 700;">${seller.QuantityOffered} ${seller.UOM}</td></tr>
+                            <tr><td style="color: #ea580c; font-weight: 600;">Price Per Unit:</td><td style="color: #334155;">${seller.PricePerUnit} ${seller.Currency}</td></tr>
+                        `;
+
+                        const mailHtml = generateStyledEmailHtml(
+                            vendor.Contact_Person || vendor.Company_Name, 
+                            'Product Offering Notice', 
+                            detailsRows, 
+                            false
+                        );
+
+                        const mailOptions = {
+                            from: process.env.SMTP_USER || "sales@synergy5m.com",
+                            to: vendor.Email,
+                            cc: [seller.UserEmail].filter(Boolean),
+                            subject: `New Selling Offer: ${seller.ProdName} (${seller.QuantityOffered} ${seller.UOM})`,
+                            html: mailHtml,
+                            attachments: emailAttachments
+                        };
+                        await transporter.sendMail(mailOptions);
+                    }
+                }
+            }
+            return res.json({ success: true, message: "Selling offers successfully sent to selected vendors!" });
+        }
+
+        return res.status(400).json({ error: "Invalid mode or parameters provided." });
+    } catch (err) {
+        console.error("Email dispatch error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
 const vendorRoutes = require('./vendorRoutes'); 
 app.use('/', vendorRoutes);
 const WhatsappRoute = require('./WhatsappRoute');
