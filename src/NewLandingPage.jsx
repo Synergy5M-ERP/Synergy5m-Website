@@ -1730,61 +1730,104 @@ function NewLandingPage() {
       </header>
 
       <main>
-        <section id="home" className="hero section-wrap">
-          <div className="hero-copy">
-            <div className="eyebrow">SYNERGY5M LLP BUSINESS SOLUTIONS</div>
+<section id="home" className="hero section-wrap">
+  <div className="hero-copy">
+    <div className="eyebrow">SYNERGY5M LLP BUSINESS SOLUTIONS</div>
 
-            <div className="hero-headline-group">
-              <h1 className="hero-title-main">One Partner.</h1>
-              <div className="text-danger h2">Three Powerful Solutions.</div>
-              <div className="hero-title-sub">Unlimited Possibilities.</div>
-            </div>
+    <div className="hero-headline-group">
+      <h1 className="hero-title-main">One Partner.</h1>
+      <div className="text-danger h2">Three Powerful Solutions.</div>
+      <div className="hero-title-sub">Unlimited Possibilities.</div>
+    </div>
 
-            <p className="hero-desc">
-              Empowering businesses with <strong>Consulting Excellence</strong>,{" "}
-              <strong>Intelligent ERP</strong> and <strong>Strong Industry Connections.</strong>
-            </p>
+    <p className="hero-desc">
+      Empowering businesses with <strong>Consulting Excellence</strong>,{" "}
+      <strong>Intelligent ERP</strong> and <strong>Strong Industry Connections.</strong>
+    </p>
 
-            <div className="hero-points">
-              <div className="point-item">
-                <span className="point-icon">
-                  <BriefcaseBusiness size={18} />
-                </span>
-                <div className="point-text">
-                  <b>Industry Experience</b><br/>
-                  <small>Deep understanding across sectors</small>
-                </div>
-              </div>
+    {/* Moved Vendor Badge Here for Perfect Spacing & Full Width */}
+    <div style={{ marginBottom: "20px" }}>
+      <div
+        className="blinking-vendor-badge"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          background: "linear-gradient(135deg, #c1290e 0%, #2a0de8 100%)",
+          color: "#ffffff",
+          padding: "6px 13px",
+          borderRadius: "50px",
+          fontSize: "14px",
+          fontWeight: "700",
+          margin:"5px",
+          boxShadow: "0 4px 15px rgba(11, 67, 141, 0.3)",
+          letterSpacing: "0.5px",
+          border: "1px solid rgba(255,255,255,0.4)"
+        }}
+      >
+        <span style={{
+          display: "inline-block",
+          whiteSpace: "nowrap",
+          color: "wheat"
+        }}>
+          Available <span style={{ 
+            color: "white", 
+            fontSize: "16px",
+            fontWeight: "800",
+            display: "inline-block",
+            animation: "pulseScale 1.5s infinite ease-in-out"
+          }}>{vendorCount}</span> VENDORS 
+        </span>
+      </div>
+    </div>
 
-              <div className="point-item">
-                <span className="point-icon">
-                  <ShieldCheck size={18} />
-                </span>
-                <div className="point-text">
-                  <b>Proven Expertise</b><br/>
-                  <small>Solutions that deliver measurable results</small>
-                </div>
-              </div>
+    <div className="hero-points">
+      <div className="point-item">
+        <span className="point-icon">
+          <BriefcaseBusiness size={18} />
+        </span>
+        <div className="point-text">
+          <b>Industry Experience</b><br/>
+          <small>Deep understanding across sectors</small>
+        </div>
+      </div>
 
-              <div className="point-item">
-                <span className="point-icon">
-                  <Target size={18} />
-                </span>
-                <div className="point-text">
-                  <b>Growth Focused</b><br/>
-                  <small>Helping businesses grow sustainably</small>
-                </div>
-              </div>
-            </div>
-          </div>
+      <div className="point-item">
+        <span className="point-icon">
+          <ShieldCheck size={18} />
+        </span>
+        <div className="point-text">
+          <b>Proven Expertise</b><br/>
+          <small>Solutions that deliver measurable results</small>
+        </div>
+      </div>
 
-          <div className="hero-visual">
-            <img
-              src="/hero-business.png"
-              alt="Business, technology and connections"
-            />
-          </div>
-        </section>
+      <div className="point-item">
+        <span className="point-icon">
+          <Target size={18} />
+        </span>
+        <div className="point-text">
+          <b>Growth Focused</b><br/>
+          <small>Helping businesses grow sustainably</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div className="hero-visual">
+    <img
+      src="/hero-business.png"
+      alt="Business, technology and connections"
+    />
+  </div>
+
+  {/* Keyframe animation */}
+  <style>{`
+    @keyframes pulseScale {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.15); }
+    }
+  `}</style>
+</section>
 
         <section
           id="consulting"

@@ -152,7 +152,7 @@ html, body {
 }
 
 .hero-copy {
-  padding: 60px 25px 35px 34px;
+  padding: 13px 25px 35px 34px;
 }
 
 .eyebrow {
@@ -1417,7 +1417,7 @@ html, body {
     grid-template-columns: 1fr;
   }
   .hero-copy {
-    padding: 35px 20px 25px;
+    padding: 44px 25px 35px 34px;
   }
   .hero h1 {
     font-size: 38px;

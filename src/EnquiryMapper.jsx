@@ -15,25 +15,29 @@ const css = `
 .em-brand span{font-size:12px;color:rgba(255,255,255,.7)}
 .em-ghost{display:flex;align-items:center;gap:7px;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;transition:background .15s}
 .em-ghost:hover{background:rgba(255,255,255,.12)}
-.em-bar{background:#fff;border:1px solid #dde4e2;border-radius:16px;margin:12px 0 12px;padding:20px 24px;display:flex;flex-wrap:wrap;gap:20px 28px;align-items:center;justify-content:space-between;box-shadow:0 1px 2px rgba(20,82,74,.06)}
-.em-bar h2{margin:0 0 4px;font-size:21px;font-weight:700;letter-spacing:-.4px;color:#0f2f2b}
-.em-bar p{margin:0;font-size:13.5px;color:#5f716e}
-.em-seg{display:inline-flex;background:#eef1f0;padding:4px;border-radius:11px}
-.em-seg button{border:0;background:transparent;padding:9px 16px;border-radius:8px;font:600 13.5px ${FONT};color:#5f716e;cursor:pointer;transition:all .15s}
+.em-bar{background:#fff;border:1px solid #dde4e2;border-radius:16px;margin:12px 0 12px;padding:16px 24px;display:flex;flex-wrap:nowrap;gap:16px;align-items:center;justify-content:space-between;box-shadow:0 1px 2px rgba(20,82,74,.06)}
+.em-bar h2{margin:0 0 2px;font-size:19px;font-weight:700;letter-spacing:-.4px;color:#0f2f2b}
+.em-bar p{margin:0;font-size:13px;color:#5f716e}
+.em-seg{display:inline-flex;background:#eef1f0;padding:4px;border-radius:11px;flex-shrink:0}
+.em-seg button{border:0;background:transparent;padding:8px 14px;border-radius:8px;font:600 13px ${FONT};color:#5f716e;cursor:pointer;transition:all .15s}
 .em-seg button.on{background:#14524A;color:#fff;box-shadow:0 2px 6px rgba(20,82,74,.28)}
 .em-seg button:not(.on):hover{color:#14524A}
-.em-filter{display:flex;gap:10px;align-items:center}
-.em-select{padding:10px 14px;border-radius:10px;border:1px solid #cbd6d3;min-width:220px;font:14px ${FONT};background:#fff;color:#27403c}
-.em-select:focus,.em-seg button:focus-visible,.em-ghost:focus-visible,.em-send:focus-visible{outline:2px solid #1f9d8a;outline-offset:2px}
-.em-clear{background:#e6efed;border:0;padding:10px 14px;border-radius:9px;font:600 13px ${FONT};color:#14524A;cursor:pointer}
+.em-filter{display:flex;gap:8px;align-items:center;flex-shrink:0}
+.em-select,.em-cat-search{padding:9px 12px;border-radius:10px;border:1px solid #cbd6d3;font:13.5px ${FONT};background:#fff;color:#27403c}
+.em-select{min-width:180px}
+.em-cat-search{width:140px}
+.em-select:focus,.em-cat-search:focus,.em-seg button:focus-visible,.em-ghost:focus-visible,.em-send:focus-visible,.em-search-input:focus{outline:2px solid #1f9d8a;outline-offset:2px}
+.em-clear{background:#e6efed;border:0;padding:9px 12px;border-radius:9px;font:600 13px ${FONT};color:#14524A;cursor:pointer;white-space:nowrap}
 .em-clear:hover{background:#d6e5e2}
 .em-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
 @media(max-width:1100px){.em-grid{grid-template-columns:1fr}}
 .em-card{background:#fff;border:1px solid #dde4e2;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(20,82,74,.06)}
-.em-card-h{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid #e8eeec}
-.em-card-h h3{margin:0;font-size:16px;font-weight:700;color:#0f2f2b;display:flex;align-items:center;gap:10px}
+.em-card-h{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e8eeec;gap:10px;flex-wrap:nowrap}
+.em-card-h-left{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.em-card-h h3{margin:0;font-size:16px;font-weight:700;color:#0f2f2b}
 .em-count{font-weight:600;font-size:12px;color:#6b7c79;background:#eef1f0;padding:3px 9px;border-radius:20px}
-.em-sel{font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:20px;background:#eef1f0;color:#6b7c79;transition:all .15s}
+.em-search-input{flex:1;min-width:0;width:100%;padding:6px 10px;border-radius:8px;border:1px solid #cbd6d3;font:13px ${FONT};background:#fff;color:#27403c}
+.em-sel{font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;background:#eef1f0;color:#6b7c79;white-space:nowrap;flex-shrink:0;transition:all .15s}
 .em-sel.has{background:#14524A;color:#fff}
 .em-scroll{max-height:500px;overflow:auto}
 .em-table{width:100%;border-collapse:separate;border-spacing:0;font-size:14px;text-align:left}
@@ -82,6 +86,11 @@ export default function EnquiryMapper() {
     const [sending, setSending] = useState(false);
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
+    // Search query states
+    const [leftSearchQuery, setLeftSearchQuery] = useState('');
+    const [vendorSearchQuery, setVendorSearchQuery] = useState('');
+    const [categorySearchQuery, setCategorySearchQuery] = useState('');
+
     const isBuying = mode === 'vendor-buying';
 
     const showToast = (message, type = 'success') => {
@@ -101,6 +110,7 @@ export default function EnquiryMapper() {
             .then(res => setLeftList(res.data))
             .catch(err => console.error(err));
         setSelectedLeftIds([]);
+        setLeftSearchQuery('');
     }, [isBuying, selectedCategory]);
 
     useEffect(() => {
@@ -108,13 +118,27 @@ export default function EnquiryMapper() {
             .then(res => setVendorList(res.data))
             .catch(err => console.error(err));
         setSelectedVendorIds([]);
+        setVendorSearchQuery('');
     }, [selectedCategory]);
 
     const toggle = (setter, id) =>
         setter(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
-    const allLeft = leftList.length > 0 && selectedLeftIds.length === leftList.length;
-    const allVendors = vendorList.length > 0 && selectedVendorIds.length === vendorList.length;
+    // Filter lists based on search queries
+    const filteredLeftList = leftList.filter(item => 
+        (item.ProdName || '').toLowerCase().includes(leftSearchQuery.toLowerCase())
+    );
+
+    const filteredVendorList = vendorList.filter(vendor => 
+        (vendor.Company_Name || '').toLowerCase().includes(vendorSearchQuery.toLowerCase())
+    );
+
+    const filteredCategories = categories.filter(cat => 
+        (cat || '').toLowerCase().includes(categorySearchQuery.toLowerCase())
+    );
+
+    const allLeft = filteredLeftList.length > 0 && filteredLeftList.every(i => selectedLeftIds.includes(i.Id));
+    const allVendors = filteredVendorList.length > 0 && filteredVendorList.every(v => selectedVendorIds.includes(v.Id));
     const canSend = selectedLeftIds.length > 0 && selectedVendorIds.length > 0 && !sending;
 
     const enquiryLabel = isBuying ? 'buying enquiry' : 'selling enquiry';
@@ -170,7 +194,7 @@ export default function EnquiryMapper() {
             <div className="em-wrap">
                 <section className="em-bar">
                     <div>
-                        <h2>Vendor Enquiry Dispatch</h2>
+                        <h2>Buyer Seller Connect</h2>
                         <p>Send buying or selling enquiries to vendors that match the category.</p>
                     </div>
 
@@ -184,6 +208,14 @@ export default function EnquiryMapper() {
                     </div>
 
                     <div className="em-filter">
+                        <input
+                            type="text"
+                            className="em-cat-search"
+                            placeholder="Filter categories..."
+                            value={categorySearchQuery}
+                            onChange={(e) => setCategorySearchQuery(e.target.value)}
+                            aria-label="Filter categories search"
+                        />
                         <select
                             className="em-select"
                             value={selectedCategory}
@@ -191,12 +223,12 @@ export default function EnquiryMapper() {
                             aria-label="Filter by category"
                         >
                             <option value="">All categories</option>
-                            {categories.map((cat, idx) => (
+                            {filteredCategories.map((cat, idx) => (
                                 <option key={idx} value={cat}>{cat}</option>
                             ))}
                         </select>
-                        {selectedCategory && (
-                            <button type="button" className="em-clear" onClick={() => setSelectedCategory('')}>
+                        {(selectedCategory || categorySearchQuery) && (
+                            <button type="button" className="em-clear" onClick={() => { setSelectedCategory(''); setCategorySearchQuery(''); }}>
                                 Clear ✕
                             </button>
                         )}
@@ -204,13 +236,20 @@ export default function EnquiryMapper() {
                 </section>
 
                 <div className="em-grid">
-                    {/* Enquiries */}
+                    {/* Enquiries Block */}
                     <section className="em-card">
                         <div className="em-card-h">
-                            <h3>
-                                {isBuying ? 'Buying enquiries' : 'Selling enquiries'}
+                            <div className="em-card-h-left">
+                                <h3>{isBuying ? 'Buying enquiries' : 'Selling enquiries'}</h3>
                                 <span className="em-count">{leftList.length}</span>
-                            </h3>
+                            </div>
+                            <input
+                                type="text"
+                                className="em-search-input"
+                                placeholder="Search by product name..."
+                                value={leftSearchQuery}
+                                onChange={(e) => setLeftSearchQuery(e.target.value)}
+                            />
                             <span className={`em-sel ${selectedLeftIds.length ? 'has' : ''}`}>
                                 {selectedLeftIds.length} selected
                             </span>
@@ -225,7 +264,14 @@ export default function EnquiryMapper() {
                                                 className="em-chk"
                                                 aria-label="Select all enquiries"
                                                 checked={allLeft}
-                                                onChange={() => setSelectedLeftIds(allLeft ? [] : leftList.map(i => i.Id))}
+                                                onChange={() => {
+                                                    if (allLeft) {
+                                                        setSelectedLeftIds(prev => prev.filter(id => !filteredLeftList.some(i => i.Id === id)));
+                                                    } else {
+                                                        const newIds = Array.from(new Set([...selectedLeftIds, ...filteredLeftList.map(i => i.Id)]));
+                                                        setSelectedLeftIds(newIds);
+                                                    }
+                                                }}
                                             />
                                         </th>
                                         <th>{isBuying ? 'Enq No' : 'Offer No'}</th>
@@ -235,10 +281,10 @@ export default function EnquiryMapper() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {leftList.length === 0 ? (
+                                    {filteredLeftList.length === 0 ? (
                                         <tr><td colSpan="5" className="em-empty">No enquiries found for this category.</td></tr>
                                     ) : (
-                                        leftList.map(item => {
+                                        filteredLeftList.map(item => {
                                             const isChecked = selectedLeftIds.includes(item.Id);
                                             const catValue = isBuying ? item.ProdCat : item.ItemCat;
                                             const priceVal = isBuying ? item.TgtPrice : item.PricePerUnit;
@@ -261,13 +307,20 @@ export default function EnquiryMapper() {
                         </div>
                     </section>
 
-                    {/* Vendors */}
+                    {/* Vendors Block */}
                     <section className="em-card">
                         <div className="em-card-h">
-                            <h3>
-                                Potential vendors
+                            <div className="em-card-h-left">
+                                <h3>Potential vendors</h3>
                                 <span className="em-count">{vendorList.length}</span>
-                            </h3>
+                            </div>
+                            <input
+                                type="text"
+                                className="em-search-input"
+                                placeholder="Search by vendor name..."
+                                value={vendorSearchQuery}
+                                onChange={(e) => setVendorSearchQuery(e.target.value)}
+                            />
                             <span className={`em-sel ${selectedVendorIds.length ? 'has' : ''}`}>
                                 {selectedVendorIds.length} selected
                             </span>
@@ -282,7 +335,14 @@ export default function EnquiryMapper() {
                                                 className="em-chk"
                                                 aria-label="Select all vendors"
                                                 checked={allVendors}
-                                                onChange={() => setSelectedVendorIds(allVendors ? [] : vendorList.map(v => v.Id))}
+                                                onChange={() => {
+                                                    if (allVendors) {
+                                                        setSelectedVendorIds(prev => prev.filter(id => !filteredVendorList.some(v => v.Id === id)));
+                                                    } else {
+                                                        const newIds = Array.from(new Set([...selectedVendorIds, ...filteredVendorList.map(v => v.Id)]));
+                                                        setSelectedVendorIds(newIds);
+                                                    }
+                                                }}
                                             />
                                         </th>
                                         <th>Vendor / Category</th>
@@ -290,10 +350,10 @@ export default function EnquiryMapper() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {vendorList.length === 0 ? (
+                                    {filteredVendorList.length === 0 ? (
                                         <tr><td colSpan="3" className="em-empty">No vendors found for this category.</td></tr>
                                     ) : (
-                                        vendorList.map(vendor => {
+                                        filteredVendorList.map(vendor => {
                                             const isChecked = selectedVendorIds.includes(vendor.Id);
                                             return (
                                                 <tr key={vendor.Id} className={isChecked ? 'on' : ''} onClick={() => toggle(setSelectedVendorIds, vendor.Id)}>
