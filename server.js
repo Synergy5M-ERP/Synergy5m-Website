@@ -976,7 +976,7 @@ app.post("/api/admin/approve", async (req, res) => {
         OUTPUT INSERTED.id
         VALUES (
           @Username, @Password, 1, GETDATE(),
-          @NoOfDays, ${isErp ? "DATEADD(day, @NoOfDays, GETDATE())" : "NULL"}, 1, 0, 0,
+          @NoOfDays, ${isErp ? "DATEADD(day, @NoOfDays, GETDATE())" : "NULL"},  ${!isErp ? 0 : 1}, 0, 0,
           0, 0, 0, 1, @UserRole,
           0, 0, 0, 0,
           0, 1, 0, ${!isErp ? 1 : 0},
