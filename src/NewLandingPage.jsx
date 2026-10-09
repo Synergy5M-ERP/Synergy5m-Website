@@ -554,6 +554,8 @@ function SearchableDropdown({
           fontWeight: value ? "600" : "400",
           color: value ? "#102d50" : "#607089",
           userSelect: "none",
+       marginLeft: "201px !important",
+marginTop: "12px !important",
         }}
       >
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1758,7 +1760,8 @@ function NewLandingPage() {
           borderRadius: "50px",
           fontSize: "14px",
           fontWeight: "700",
-          margin:"5px",
+          marginTop:"12px",
+marginLeft:"200px",
           boxShadow: "0 4px 15px rgba(11, 67, 141, 0.3)",
           letterSpacing: "0.5px",
           border: "1px solid rgba(255,255,255,0.4)"
