@@ -20,8 +20,12 @@ const IconHistory = (props) => (
     <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
+const IconTemplate = (props) => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" {...props}>
+    <path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
 
-// 1. Define the initial template constant outside the component
 const INITIAL_EMAIL_TEMPLATE = `<p>Hi <strong>{{Contact_Person}}</strong>,</p>
 <p>We’re pleased to inform you that the new functionality has been successfully implemented for <strong>{{Company_Name}}</strong>.<br>
 Your registered GST Number is <strong>{{GST_Number}}</strong>.</p>
@@ -48,12 +52,18 @@ export default function VendorEmailSender() {
   const editorInstance = useRef(null);
   const [bodyHtml, setBodyHtml] = useState(INITIAL_EMAIL_TEMPLATE);
 
+  // Template Management States
+  const [savedTemplates, setSavedTemplates] = useState([]);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [templateNameInput, setTemplateNameInput] = useState('');
+  const [showTemplateDrawer, setShowTemplateDrawer] = useState(false);
+
   const [attachmentFile, setAttachmentFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
 
-  // Initialize Quill instance directly without findDOMNode error
+  // Initialize Quill instance
   useEffect(() => {
     if (quillRef.current && !editorInstance.current) {
       editorInstance.current = new Quill(quillRef.current, {
@@ -71,14 +81,33 @@ export default function VendorEmailSender() {
         placeholder: 'Type plain text, apply styling, or paste images here...'
       });
 
-      // Set initial content using the constant
       editorInstance.current.root.innerHTML = INITIAL_EMAIL_TEMPLATE;
 
-      // Listen for text changes
       editorInstance.current.on('text-change', () => {
         setBodyHtml(editorInstance.current.root.innerHTML);
       });
     }
+  }, []);
+
+  // Fetch saved templates from backend / localStorage on mount
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const res = await fetch('/api/email-templates', { credentials: 'include' });
+        const data = await res.json();
+        if (data.success && data.templates) {
+          setSavedTemplates(data.templates);
+        } else {
+          // Fallback to local storage if API is pending implementation
+          const localTmpls = JSON.parse(localStorage.getItem('synergy_email_templates') || '[]');
+          setSavedTemplates(localTmpls);
+        }
+      } catch (err) {
+        const localTmpls = JSON.parse(localStorage.getItem('synergy_email_templates') || '[]');
+        setSavedTemplates(localTmpls);
+      }
+    };
+    fetchTemplates();
   }, []);
 
   useEffect(() => {
@@ -163,6 +192,65 @@ export default function VendorEmailSender() {
     }
   };
 
+  // Save or Update Template handler preventing subject duplication
+  const handleSaveTemplateSubmit = async (e) => {
+    e.preventDefault();
+    if (!templateNameInput.trim()) return;
+
+    const newTemplateItem = {
+      id: Date.now(),
+      name: templateNameInput.trim(),
+      subject: subject,
+      bodyHtml: bodyHtml,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Check if a template with the exact same subject already exists
+    const existingIndex = savedTemplates.findIndex(t => t.subject.toLowerCase() === subject.toLowerCase());
+    
+    let updatedList = [...savedTemplates];
+    if (existingIndex >= 0) {
+      // Update existing template instead of creating duplicate clutter
+      updatedList[existingIndex] = {
+        ...updatedList[existingIndex],
+        name: templateNameInput.trim(),
+        bodyHtml: bodyHtml,
+        updatedAt: new Date().toISOString()
+      };
+    } else {
+      updatedList.unshift(newTemplateItem);
+    }
+
+    setSavedTemplates(updatedList);
+    localStorage.setItem('synergy_email_templates', JSON.stringify(updatedList));
+
+    // Optional backend sync call
+    try {
+      await fetch('/api/email-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(newTemplateItem)
+      });
+    } catch (err) {
+      console.error('Backend template sync error (saved locally):', err);
+    }
+
+    setShowTemplateModal(false);
+    setTemplateNameInput('');
+    setStatusMessage({ type: 'success', text: `Template "${templateNameInput}" successfully saved!` });
+  };
+
+  const handleApplyTemplate = (tmpl) => {
+    setSubject(tmpl.subject);
+    setBodyHtml(tmpl.bodyHtml);
+    if (editorInstance.current) {
+      editorInstance.current.root.innerHTML = tmpl.bodyHtml;
+    }
+    setShowTemplateDrawer(false);
+    setStatusMessage({ type: 'success', text: `Loaded template: "${tmpl.name}"` });
+  };
+
   const handleSendEmails = async (e) => {
     e.preventDefault();
     if (selectedIds.length === 0) {
@@ -217,8 +305,11 @@ export default function VendorEmailSender() {
           </div>
         </div>
         <div style={{ display: "flex", gap: "10px" }}>
+          <button type="button" onClick={() => setShowTemplateDrawer(true)} style={styles.secondaryActionBtn}>
+            <IconTemplate /> Saved Templates ({savedTemplates.length})
+          </button>
           <button type="button" onClick={() => navigate('/admin/email-history')} style={styles.logoutBtn}>
-            <IconHistory /> View Email Followup 
+            <IconHistory /> View History 
           </button>
           <button type="button" onClick={() => navigate('/admin')} style={styles.logoutBtn}>
             <IconLogout /> Admin Panel
@@ -227,9 +318,21 @@ export default function VendorEmailSender() {
       </div>
 
       <div style={styles.pageBody}>
-        <div style={{ marginBottom: "20px" }}>
-          <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#14181C", margin: "0 0 4px 0" }}>Broadcast Rich-Text Emails</h1>
-          <p style={{ fontSize: "13.5px", color: "#5B6570", margin: 0 }}>Filter target vendors, style content visually, paste images directly, and attach files.</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: "20px", flexWrap: 'wrap', gap: '10px' }}>
+          <div>
+            <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#14181C", margin: "0 0 4px 0" }}>Broadcast Rich-Text Emails</h1>
+            <p style={{ fontSize: "13.5px", color: "#5B6570", margin: 0 }}>Filter target vendors, customize templates, and dispatch branded communications.</p>
+          </div>
+          <button 
+            type="button" 
+            onClick={() => {
+              setTemplateNameInput(subject);
+              setShowTemplateModal(true);
+            }} 
+            style={styles.saveTemplateTopBtn}
+          >
+            💾 Save Current as Template
+          </button>
         </div>
 
         {statusMessage && (
@@ -359,8 +462,15 @@ export default function VendorEmailSender() {
 
           {/* RIGHT PANEL: Visual Quill Editor Form */}
           <div style={styles.emailRightCard}>
-            <div style={{ padding: "16px", borderBottom: "1px solid #E4E7E9", background: "#FAFBFB" }}>
+            <div style={{ padding: "16px", borderBottom: "1px solid #E4E7E9", background: "#FAFBFB", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h3 style={{ fontSize: "14px", fontWeight: 600, color: "#14181C", margin: 0 }}>Compose Visual Email &amp; Attach File</h3>
+              <button 
+                type="button" 
+                onClick={() => setShowTemplateDrawer(true)} 
+                style={styles.quickLoadBtn}
+              >
+                ⚡ Choose Template
+              </button>
             </div>
 
             <form onSubmit={handleSendEmails} style={{ maxHeight: "550px", overflowY: "auto", padding: "20px" }}>
@@ -401,13 +511,23 @@ export default function VendorEmailSender() {
                   </div>
                 </div>
 
-                {/* Plain DOM div for Quill initialization (no findDOMNode error) */}
                 <div style={{ background: "#FFFFFF", borderRadius: "8px", overflow: "hidden" }}>
                   <div ref={quillRef} style={{ height: "220px", marginBottom: "42px" }} />
                 </div>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setTemplateNameInput(subject);
+                    setShowTemplateModal(true);
+                  }}
+                  style={styles.secondaryActionBtnDark}
+                >
+                  Save as Template
+                </button>
+
                 <button 
                   type="submit"
                   disabled={loading || selectedIds.length === 0}
@@ -427,6 +547,94 @@ export default function VendorEmailSender() {
 
         </div>
       </div>
+
+      {/* TEMPLATE DRAWER / MODAL PICKER */}
+      {showTemplateDrawer && (
+        <div style={styles.modalBackdrop}>
+          <div style={styles.drawerCard}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E4E7E9', paddingBottom: '12px', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#14181C' }}>Saved Email Templates &amp; Drafts</h3>
+              <button onClick={() => setShowTemplateDrawer(false)} style={styles.closeIconBtn}>✕</button>
+            </div>
+            
+            <p style={{ fontSize: '13px', color: '#5B6570', marginBottom: '16px' }}>
+              Select any saved template below to load its subject line and rich text body instantly. Matching subject lines automatically overwrite to prevent duplicates.
+            </p>
+
+            <div style={{ maxHeight: '380px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {savedTemplates.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px', color: '#9AA5AF', fontSize: '13.5px' }}>
+                  No saved templates found yet. Compose an email and click "Save as Template".
+                </div>
+              ) : (
+                savedTemplates.map((tmpl) => (
+                  <div key={tmpl.id || tmpl.subject} style={styles.templateItemCard}>
+                    <div style={{ flex: 1, paddingRight: '10px' }}>
+                      <div style={{ fontWeight: 600, fontSize: '13.5px', color: '#14524A' }}>{tmpl.name}</div>
+                      <div style={{ fontSize: '12.5px', color: '#3C4550', margin: '3px 0' }}><strong>Subject:</strong> {tmpl.subject}</div>
+                      <div style={{ fontSize: '11.5px', color: '#788693', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '380px' }}>
+                        {tmpl.bodyHtml.replace(/<[^>]*>?/gm, '')}
+                      </div>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => handleApplyTemplate(tmpl)}
+                      style={styles.useTemplateBtn}
+                    >
+                      Use Template
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SAVE TEMPLATE NAME MODAL */}
+      {showTemplateModal && (
+        <div style={styles.modalBackdrop}>
+          <div style={styles.modalCard}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 700, color: '#14181C' }}>Save Email Template</h3>
+            <p style={{ fontSize: '13px', color: '#5B6570', marginBottom: '16px' }}>
+              Give your template a recognizable label. If a template with the same subject line already exists, it will be updated automatically.
+            </p>
+            <form onSubmit={handleSaveTemplateSubmit}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={styles.label}>Template Title / Name</label>
+                <input 
+                  type="text"
+                  required
+                  value={templateNameInput}
+                  onChange={(e) => setTemplateNameInput(e.target.value)}
+                  placeholder="e.g. GST & Functionality Update"
+                  style={styles.input}
+                  className="ap-input"
+                />
+              </div>
+              <div style={{ marginBottom: '16px', background: '#F8F9FA', padding: '10px', borderRadius: '6px', fontSize: '12.5px', color: '#5B6570' }}>
+                <strong>Subject Linked:</strong> {subject}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button 
+                  type="button" 
+                  onClick={() => setShowTemplateModal(false)}
+                  style={styles.cancelModalBtn}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  style={styles.primaryBtn}
+                >
+                  Save Template
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -456,12 +664,23 @@ const styles = {
   topBarTitle: { fontSize: "15px", fontWeight: 700 },
   topBarSubtitle: { fontSize: "12px", color: "rgba(255,255,255,0.7)" },
   logoutBtn: { display: "flex", alignItems: "center", gap: "7px", background: "transparent", color: "#fff", border: "1px solid rgba(255,255,255,0.35)", padding: "8px 14px", borderRadius: "7px", cursor: "pointer", fontSize: "13px" },
+  secondaryActionBtn: { display: "flex", alignItems: "center", gap: "7px", background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.4)", padding: "8px 14px", borderRadius: "7px", cursor: "pointer", fontSize: "13px", fontWeight: 500 },
+  secondaryActionBtnDark: { background: "#F2F4F5", color: "#3C4550", border: "1px solid #D8DCE0", padding: "10px 16px", borderRadius: "8px", cursor: "pointer", fontSize: "13.5px", fontWeight: 600 },
+  saveTemplateTopBtn: { background: "#E4EEEC", color: "#14524A", border: "1px solid #14524A", padding: "8px 14px", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600 },
+  quickLoadBtn: { background: "#E4EEEC", color: "#14524A", border: "none", padding: "5px 10px", borderRadius: "5px", fontSize: "12px", fontWeight: 600, cursor: "pointer" },
   pageBody: { padding: "28px", maxWidth: "1280px", margin: "0 auto" },
   label: { display: "block", fontSize: "13px", fontWeight: 600, color: "#3C4550", marginBottom: "7px" },
   input: { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #D8DCE0", fontSize: "14px", fontFamily: FONT, background: "#FFFFFF" },
-  primaryBtn: { padding: "12px", background: "#14524A", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: 600, fontSize: "14.5px", fontFamily: FONT },
+  primaryBtn: { padding: "10px 20px", background: "#14524A", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: 600, fontSize: "14px", fontFamily: FONT },
   emailDispatchGrid: { display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: "20px" },
   emailLeftCard: { background: "#fff", borderRadius: "12px", border: "1px solid #E4E7E9", overflow: "hidden", height: "fit-content" },
   emailRightCard: { background: "#fff", borderRadius: "12px", border: "1px solid #E4E7E9", overflow: "hidden", height: "fit-content" },
-  tokenBtn: { background: "#F2F4F5", border: "1px solid #D8DCE0", color: "#3C4550", padding: "4px 9px", borderRadius: "5px", fontSize: "11.5px", cursor: "pointer", fontWeight: 500 }
+  tokenBtn: { background: "#F2F4F5", border: "1px solid #D8DCE0", color: "#3C4550", padding: "4px 9px", borderRadius: "5px", fontSize: "11.5px", cursor: "pointer", fontWeight: 500 },
+  modalBackdrop: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 },
+  drawerCard: { background: '#fff', width: '90%', maxWidth: '520px', borderRadius: '12px', padding: '20px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)' },
+  modalCard: { background: '#fff', width: '90%', maxWidth: '440px', borderRadius: '12px', padding: '20px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)' },
+  closeIconBtn: { background: 'transparent', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#788693' },
+  templateItemCard: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: '#FAFBFB', border: '1px solid #E4E7E9', borderRadius: '8px' },
+  useTemplateBtn: { background: '#14524A', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' },
+  cancelModalBtn: { background: 'transparent', color: '#5B6570', border: '1px solid #D8DCE0', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px' }
 };
