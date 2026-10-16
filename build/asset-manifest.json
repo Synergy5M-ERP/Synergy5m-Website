@@ -1,14 +1,14 @@
 {
   "files": {
-    "main.css": "/static/css/main.d6af4cad.css",
-    "main.js": "/static/js/main.c3aadaf8.js",
+    "main.css": "/static/css/main.ea89002d.css",
+    "main.js": "/static/js/main.9ede1102.js",
     "static/media/synlogo.png": "/static/media/synlogo.dec9f1f0bc07e146500b.png",
     "index.html": "/index.html",
-    "main.d6af4cad.css.map": "/static/css/main.d6af4cad.css.map",
-    "main.c3aadaf8.js.map": "/static/js/main.c3aadaf8.js.map"
+    "main.ea89002d.css.map": "/static/css/main.ea89002d.css.map",
+    "main.9ede1102.js.map": "/static/js/main.9ede1102.js.map"
   },
   "entrypoints": [
-    "static/css/main.d6af4cad.css",
-    "static/js/main.c3aadaf8.js"
+    "static/css/main.ea89002d.css",
+    "static/js/main.9ede1102.js"
   ]
 }

@@ -954,7 +954,7 @@ html, body {
 
 /* ---------------- CTA BAR & FOOTER ---------------- */
 .cta-bar {
-  max-width: 1280px;
+  max-width: 1580px;
   margin: 0 auto;
   background: #082c54;
   color: #fff;
@@ -985,7 +985,7 @@ html, body {
 }
 
 .site-footer {
-  max-width: 1280px;
+  max-width: 1580px;
   margin: auto;
   padding: 40px 25px 20px;
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Quill from 'quill';
-import 'quill/dist/quill.snow.css'; // Quill styling
+import 'quill/dist/quill.snow.css';
 
 /* --- SVG Icons --- */
 const IconLogout = (props) => (
@@ -63,7 +63,6 @@ export default function VendorEmailSender() {
   const [fetching, setFetching] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
 
-  // Initialize Quill instance
   useEffect(() => {
     if (quillRef.current && !editorInstance.current) {
       editorInstance.current = new Quill(quillRef.current, {
@@ -89,7 +88,6 @@ export default function VendorEmailSender() {
     }
   }, []);
 
-  // Fetch saved templates from backend / localStorage on mount
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
@@ -98,7 +96,6 @@ export default function VendorEmailSender() {
         if (data.success && data.templates) {
           setSavedTemplates(data.templates);
         } else {
-          // Fallback to local storage if API is pending implementation
           const localTmpls = JSON.parse(localStorage.getItem('synergy_email_templates') || '[]');
           setSavedTemplates(localTmpls);
         }
@@ -139,11 +136,7 @@ export default function VendorEmailSender() {
   const fetchVendors = useCallback(async () => {
     setFetching(true);
     try {
-      const queryParams = new URLSearchParams({
-        search,
-        industry: industryFilter,
-        category: categoryFilter
-      });
+      const queryParams = new URLSearchParams({ search, industry: industryFilter, category: categoryFilter });
       const res = await fetch(`/api/vendors?${queryParams.toString()}`, { credentials: 'include' });
       const data = await res.json();
       if (data.success) {
@@ -164,9 +157,7 @@ export default function VendorEmailSender() {
   }, [search, industryFilter, categoryFilter, fetchVendors]);
 
   const toggleSelectVendor = (id) => {
-    setSelectedIds(prev => 
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
   };
 
   const toggleSelectAll = () => {
@@ -192,7 +183,6 @@ export default function VendorEmailSender() {
     }
   };
 
-  // Save or Update Template handler preventing subject duplication
   const handleSaveTemplateSubmit = async (e) => {
     e.preventDefault();
     if (!templateNameInput.trim()) return;
@@ -205,36 +195,16 @@ export default function VendorEmailSender() {
       updatedAt: new Date().toISOString()
     };
 
-    // Check if a template with the exact same subject already exists
     const existingIndex = savedTemplates.findIndex(t => t.subject.toLowerCase() === subject.toLowerCase());
-    
     let updatedList = [...savedTemplates];
     if (existingIndex >= 0) {
-      // Update existing template instead of creating duplicate clutter
-      updatedList[existingIndex] = {
-        ...updatedList[existingIndex],
-        name: templateNameInput.trim(),
-        bodyHtml: bodyHtml,
-        updatedAt: new Date().toISOString()
-      };
+      updatedList[existingIndex] = { ...updatedList[existingIndex], name: templateNameInput.trim(), bodyHtml: bodyHtml, updatedAt: new Date().toISOString() };
     } else {
       updatedList.unshift(newTemplateItem);
     }
 
     setSavedTemplates(updatedList);
     localStorage.setItem('synergy_email_templates', JSON.stringify(updatedList));
-
-    // Optional backend sync call
-    try {
-      await fetch('/api/email-templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(newTemplateItem)
-      });
-    } catch (err) {
-      console.error('Backend template sync error (saved locally):', err);
-    }
 
     setShowTemplateModal(false);
     setTemplateNameInput('');
@@ -325,10 +295,7 @@ export default function VendorEmailSender() {
           </div>
           <button 
             type="button" 
-            onClick={() => {
-              setTemplateNameInput(subject);
-              setShowTemplateModal(true);
-            }} 
+            onClick={() => { setTemplateNameInput(subject); setShowTemplateModal(true); }} 
             style={styles.saveTemplateTopBtn}
           >
             💾 Save Current as Template
@@ -337,13 +304,8 @@ export default function VendorEmailSender() {
 
         {statusMessage && (
           <div style={{
-            padding: "12px 16px",
-            marginBottom: "20px",
-            borderRadius: "8px",
-            fontSize: "13.5px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
+            padding: "12px 16px", marginBottom: "20px", borderRadius: "8px", fontSize: "13.5px",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
             background: statusMessage.type === 'success' ? '#E3F3E8' : '#FBEAE9',
             color: statusMessage.type === 'success' ? '#1E7B45' : '#C4362E',
             border: `1px solid ${statusMessage.type === 'success' ? '#B8E7C5' : '#F1C7C4'}`
@@ -387,9 +349,7 @@ export default function VendorEmailSender() {
                     style={{ width: "50%", padding: "8px 10px", borderRadius: "6px", border: "1px solid #D8DCE0", fontSize: "12.5px", background: "#fff", cursor: "pointer" }}
                   >
                     <option value="">All Industries</option>
-                    {availableIndustries.map((ind, idx) => (
-                      <option key={idx} value={ind}>{ind}</option>
-                    ))}
+                    {availableIndustries.map((ind, idx) => (<option key={idx} value={ind}>{ind}</option>))}
                   </select>
 
                   <select
@@ -399,9 +359,7 @@ export default function VendorEmailSender() {
                     style={{ width: "50%", padding: "8px 10px", borderRadius: "6px", border: "1px solid #D8DCE0", fontSize: "12.5px", background: "#fff", cursor: "pointer" }}
                   >
                     <option value="">All Categories</option>
-                    {availableCategories.map((cat, idx) => (
-                      <option key={idx} value={cat}>{cat}</option>
-                    ))}
+                    {availableCategories.map((cat, idx) => (<option key={idx} value={cat}>{cat}</option>))}
                   </select>
                 </div>
               </div>
@@ -432,16 +390,8 @@ export default function VendorEmailSender() {
                       key={vendor.Id} 
                       onClick={() => toggleSelectVendor(vendor.Id)}
                       style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: "10px",
-                        padding: "10px",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        background: isChecked ? "#E4EEEC" : "transparent",
-                        marginBottom: "6px",
-                        border: "1px solid",
-                        borderColor: isChecked ? "#14524A" : "transparent",
+                        display: "flex", alignItems: "flex-start", gap: "10px", padding: "10px", borderRadius: "6px", cursor: "pointer",
+                        background: isChecked ? "#E4EEEC" : "transparent", marginBottom: "6px", border: "1px solid", borderColor: isChecked ? "#14524A" : "transparent",
                       }}
                     >
                       <input type="checkbox" checked={isChecked} onChange={() => {}} style={{ marginTop: "2px", cursor: "pointer" }} />
@@ -464,11 +414,7 @@ export default function VendorEmailSender() {
           <div style={styles.emailRightCard}>
             <div style={{ padding: "16px", borderBottom: "1px solid #E4E7E9", background: "#FAFBFB", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h3 style={{ fontSize: "14px", fontWeight: 600, color: "#14181C", margin: 0 }}>Compose Visual Email &amp; Attach File</h3>
-              <button 
-                type="button" 
-                onClick={() => setShowTemplateDrawer(true)} 
-                style={styles.quickLoadBtn}
-              >
+              <button type="button" onClick={() => setShowTemplateDrawer(true)} style={styles.quickLoadBtn}>
                 ⚡ Choose Template
               </button>
             </div>
@@ -477,32 +423,23 @@ export default function VendorEmailSender() {
               <div style={{ marginBottom: "16px" }}>
                 <label style={styles.label}>Subject line</label>
                 <input 
-                  type="text"
-                  required
-                  placeholder="Enter subject line..."
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  className="ap-input"
-                  style={styles.input}
+                  type="text" required placeholder="Enter subject line..." value={subject}
+                  onChange={(e) => setSubject(e.target.value)} className="ap-input" style={styles.input}
                 />
               </div>
 
               <div style={{ marginBottom: "16px" }}>
                 <label style={styles.label}>Attach PDF / Document</label>
                 <input 
-                  type="file"
-                  onChange={(e) => setAttachmentFile(e.target.files[0])}
+                  type="file" onChange={(e) => setAttachmentFile(e.target.files[0])}
                   style={{ fontSize: "13px", padding: "4px 0", color: "#3C4550", cursor: "pointer", width: "100%" }}
                 />
-                {attachmentFile && (
-                  <p style={{ fontSize: "12px", color: "#14524A", marginTop: "4px" }}>Attached: {attachmentFile.name}</p>
-                )}
+                {attachmentFile && (<p style={{ fontSize: "12px", color: "#14524A", marginTop: "4px" }}>Attached: {attachmentFile.name}</p>)}
               </div>
 
               <div style={{ marginBottom: "24px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "7px", flexWrap: "wrap", gap: "6px" }}>
                   <label style={{ ...styles.label, marginBottom: 0 }}>Email Body &amp; Styling</label>
-                  
                   <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
                     <button type="button" onClick={() => insertToken('{{Company_Name}}')} style={styles.tokenBtn}>+ Company Name</button>
                     <button type="button" onClick={() => insertToken('{{Contact_Person}}')} style={styles.tokenBtn}>+ Contact Person</button>
@@ -517,27 +454,13 @@ export default function VendorEmailSender() {
               </div>
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <button 
-                  type="button"
-                  onClick={() => {
-                    setTemplateNameInput(subject);
-                    setShowTemplateModal(true);
-                  }}
-                  style={styles.secondaryActionBtnDark}
-                >
+                <button type="button" onClick={() => { setTemplateNameInput(subject); setShowTemplateModal(true); }} style={styles.secondaryActionBtnDark}>
                   Save as Template
                 </button>
 
                 <button 
-                  type="submit"
-                  disabled={loading || selectedIds.length === 0}
-                  style={{
-                    ...styles.primaryBtn,
-                    width: "auto",
-                    padding: "10px 22px",
-                    opacity: loading || selectedIds.length === 0 ? 0.6 : 1,
-                    cursor: loading || selectedIds.length === 0 ? "not-allowed" : "pointer"
-                  }}
+                  type="submit" disabled={loading || selectedIds.length === 0}
+                  style={{ ...styles.primaryBtn, width: "auto", padding: "10px 22px", opacity: loading || selectedIds.length === 0 ? 0.6 : 1, cursor: loading || selectedIds.length === 0 ? "not-allowed" : "pointer" }}
                 >
                   {loading ? 'Processing Dispatch...' : `Send Styled Email (${selectedIds.length})`}
                 </button>
@@ -548,7 +471,7 @@ export default function VendorEmailSender() {
         </div>
       </div>
 
-      {/* TEMPLATE DRAWER / MODAL PICKER */}
+      {/* TEMPLATE DRAWER */}
       {showTemplateDrawer && (
         <div style={styles.modalBackdrop}>
           <div style={styles.drawerCard}>
@@ -557,32 +480,17 @@ export default function VendorEmailSender() {
               <button onClick={() => setShowTemplateDrawer(false)} style={styles.closeIconBtn}>✕</button>
             </div>
             
-            <p style={{ fontSize: '13px', color: '#5B6570', marginBottom: '16px' }}>
-              Select any saved template below to load its subject line and rich text body instantly. Matching subject lines automatically overwrite to prevent duplicates.
-            </p>
-
             <div style={{ maxHeight: '380px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {savedTemplates.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '30px', color: '#9AA5AF', fontSize: '13.5px' }}>
-                  No saved templates found yet. Compose an email and click "Save as Template".
-                </div>
+                <div style={{ textAlign: 'center', padding: '30px', color: '#9AA5AF', fontSize: '13.5px' }}>No saved templates found yet.</div>
               ) : (
                 savedTemplates.map((tmpl) => (
                   <div key={tmpl.id || tmpl.subject} style={styles.templateItemCard}>
                     <div style={{ flex: 1, paddingRight: '10px' }}>
                       <div style={{ fontWeight: 600, fontSize: '13.5px', color: '#14524A' }}>{tmpl.name}</div>
                       <div style={{ fontSize: '12.5px', color: '#3C4550', margin: '3px 0' }}><strong>Subject:</strong> {tmpl.subject}</div>
-                      <div style={{ fontSize: '11.5px', color: '#788693', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '380px' }}>
-                        {tmpl.bodyHtml.replace(/<[^>]*>?/gm, '')}
-                      </div>
                     </div>
-                    <button 
-                      type="button" 
-                      onClick={() => handleApplyTemplate(tmpl)}
-                      style={styles.useTemplateBtn}
-                    >
-                      Use Template
-                    </button>
+                    <button type="button" onClick={() => handleApplyTemplate(tmpl)} style={styles.useTemplateBtn}>Use Template</button>
                   </div>
                 ))
               )}
@@ -591,50 +499,27 @@ export default function VendorEmailSender() {
         </div>
       )}
 
-      {/* SAVE TEMPLATE NAME MODAL */}
+      {/* SAVE TEMPLATE MODAL */}
       {showTemplateModal && (
         <div style={styles.modalBackdrop}>
           <div style={styles.modalCard}>
             <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 700, color: '#14181C' }}>Save Email Template</h3>
-            <p style={{ fontSize: '13px', color: '#5B6570', marginBottom: '16px' }}>
-              Give your template a recognizable label. If a template with the same subject line already exists, it will be updated automatically.
-            </p>
             <form onSubmit={handleSaveTemplateSubmit}>
               <div style={{ marginBottom: '16px' }}>
                 <label style={styles.label}>Template Title / Name</label>
                 <input 
-                  type="text"
-                  required
-                  value={templateNameInput}
-                  onChange={(e) => setTemplateNameInput(e.target.value)}
-                  placeholder="e.g. GST & Functionality Update"
-                  style={styles.input}
-                  className="ap-input"
+                  type="text" required value={templateNameInput} onChange={(e) => setTemplateNameInput(e.target.value)}
+                  placeholder="e.g. GST & Functionality Update" style={styles.input} className="ap-input"
                 />
               </div>
-              <div style={{ marginBottom: '16px', background: '#F8F9FA', padding: '10px', borderRadius: '6px', fontSize: '12.5px', color: '#5B6570' }}>
-                <strong>Subject Linked:</strong> {subject}
-              </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button 
-                  type="button" 
-                  onClick={() => setShowTemplateModal(false)}
-                  style={styles.cancelModalBtn}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  style={styles.primaryBtn}
-                >
-                  Save Template
-                </button>
+                <button type="button" onClick={() => setShowTemplateModal(false)} style={styles.cancelModalBtn}>Cancel</button>
+                <button type="submit" style={styles.primaryBtn}>Save Template</button>
               </div>
             </form>
           </div>
         </div>
       )}
-
     </div>
   );
 }
@@ -645,11 +530,8 @@ function GlobalStyle() {
       * { box-sizing: border-box; }
       body { font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif; margin: 0; background: #F2F4F5; }
       .ap-input:focus { outline: none; border-color: #14524A !important; box-shadow: 0 0 0 3px rgba(20, 82, 74, 0.12); }
-      .ap-primary-btn:hover { background: #0D3A34 !important; }
       .ql-container { font-family: 'Inter', sans-serif; font-size: 14px; }
-      @media (max-width: 768px) {
-        .ap-email-grid { grid-template-columns: 1fr !important; }
-      }
+      @media (max-width: 768px) { .ap-email-grid { grid-template-columns: 1fr !important; } }
     `}</style>
   );
 }
