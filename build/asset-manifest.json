@@ -1,14 +1,32 @@
 {
   "files": {
-    "main.css": "/static/css/main.ea89002d.css",
-    "main.js": "/static/js/main.9ede1102.js",
+    "main.css": "/static/css/main.45a89e4d.css",
+    "main.js": "/static/js/main.85094edd.js",
+    "static/media/hrm3.png": "/static/media/hrm3.ecc47dd1e371929d360c.png",
+    "static/media/mm1.png": "/static/media/mm1.7e74228f0cf5896de617.png",
+    "static/media/mm2.png": "/static/media/mm2.a99693e5d0d89bdb0850.png",
+    "static/media/prod1.png": "/static/media/prod1.b58001d741db6f833dc9.png",
+    "static/media/sale1.png": "/static/media/sale1.f56f63293fae54e7cc20.png",
+    "static/media/acc1.png": "/static/media/acc1.ef1a7c766e4edeac3070.png",
+    "static/media/sales2.png": "/static/media/sales2.13022649f57e4bb266da.png",
+    "static/media/sales3.png": "/static/media/sales3.a6ec559fb3f9f865e590.png",
+    "static/media/mm3.png": "/static/media/mm3.d80aa2de844e52f47f77.png",
     "static/media/synlogo.png": "/static/media/synlogo.dec9f1f0bc07e146500b.png",
+    "static/media/acc3.png": "/static/media/acc3.20d609de6b2eb2965f6d.png",
+    "static/media/qual1.png": "/static/media/qual1.194d60c72ec2e7549b5f.png",
+    "static/media/acc2.png": "/static/media/acc2.b5c2eb92740c4b85aa79.png",
+    "static/media/qual2.png": "/static/media/qual2.8f8d08002a9ae895b251.png",
+    "static/media/hrm2.png": "/static/media/hrm2.245848c54204f1375713.png",
+    "static/media/prod2.png": "/static/media/prod2.e9476ed2c8d58348bccf.png",
+    "static/media/qual3.png": "/static/media/qual3.05c44c8240b225256473.png",
+    "static/media/hrm1.png": "/static/media/hrm1.362cd7b686abf05bead8.png",
+    "static/media/prod3.png": "/static/media/prod3.b29394645b37ec0b8a50.png",
     "index.html": "/index.html",
-    "main.ea89002d.css.map": "/static/css/main.ea89002d.css.map",
-    "main.9ede1102.js.map": "/static/js/main.9ede1102.js.map"
+    "main.45a89e4d.css.map": "/static/css/main.45a89e4d.css.map",
+    "main.85094edd.js.map": "/static/js/main.85094edd.js.map"
   },
   "entrypoints": [
-    "static/css/main.ea89002d.css",
-    "static/js/main.9ede1102.js"
+    "static/css/main.45a89e4d.css",
+    "static/js/main.85094edd.js"
   ]
 }

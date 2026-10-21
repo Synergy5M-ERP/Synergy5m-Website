@@ -88,8 +88,63 @@ router.get('/api/vendor-filters', async (req, res) => {
 });
 
 
+router.get('/api/email-dispatch-history', async (req, res) => {
+    try {
+        await sql.connect(dbConfig);
+        const result = await sql.query(`
+            SELECT 
+                i.Id AS Id,            -- <--- This ensures the item ID is correctly passed
+                l.Id AS Batch_Id,
+                l.Subject,
+                l.Dispatched_At,
+                i.Vendor_Id,
+                i.Company_Name,
+                i.Email,
+                i.Industry,
+                i.Category,
+                i.Status
+            FROM [dbo].[Email_Dispatch_Logs] l
+            JOIN [dbo].[Email_Dispatch_Items] i ON l.Id = i.Log_Id
+            ORDER BY l.Dispatched_At DESC
+        `);
+        res.json({ success: true, data: result.recordset });
+    } catch (err) {
+        console.error('Error fetching dispatch history:', err);
+        res.status(500).json({ success: false, message: 'Internal server error.' });
+    }
+});
 
 
+/**
+ * Endpoint to delete a specific email dispatch item record by its Id
+ */
+router.delete('/api/email-dispatch-items/:id', async (req, res) => {
+    const itemId = req.params.id;
+
+    if (!itemId || isNaN(itemId)) {
+        return res.status(400).json({ success: false, message: 'Invalid or missing Item ID.' });
+    }
+
+    try {
+        await sql.connect(dbConfig);
+        const request = new sql.Request();
+        request.input('id', sql.Int, itemId);
+
+        const result = await request.query(`
+            DELETE FROM [dbo].[Email_Dispatch_Items] 
+            WHERE Id = @id
+        `);
+
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({ success: false, message: 'Record not found.' });
+        }
+
+        res.json({ success: true, message: 'Record deleted successfully.' });
+    } catch (err) {
+        console.error('Error deleting email dispatch item:', err);
+        res.status(500).json({ success: false, message: 'Internal server error while deleting record.' });
+    }
+});
 router.post('/api/send-vendor-emails-attachment', upload.single('attachment'), async (req, res) => {
     const { vendorIds, subject, bodyTemplate } = req.body;
     const attachmentFile = req.file;

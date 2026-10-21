@@ -26,7 +26,26 @@ import {
 } from "lucide-react";
 import Logo from "./synlogo.png";
 import "./NewLandingPage.css";
-
+import ERPModulesBook from "./Erpmodulesbook";
+import logo from  "./synlogo.png";
+import sd1 from "./assets/sale1.png"
+import sd2 from "./assets/sales2.png"
+import sd3 from "./assets/sales3.png"
+import mm1 from "./assets/mm1.png"
+import mm2 from "./assets/mm2.png"
+import mm3 from "./assets/mm3.png"
+import acc1 from "./assets/acc1.png"
+import acc2 from "./assets/acc2.png"
+import acc3 from "./assets/acc3.png"
+import hrm1 from "./assets/hrm1.png"
+import hrm2 from "./assets/hrm2.png"
+import hrm3 from "./assets/hrm3.png"
+import prod1 from "./assets/prod1.png"
+import prod2 from "./assets/prod2.png"
+import prod3 from "./assets/prod3.png"
+import qual1 from "./assets/qual1.png"
+import qual2 from "./assets/qual2.png"
+import qual3 from "./assets/qual3.png"
 const defaultItemCategories = [
   "BUY",
   "SELL",
@@ -211,6 +230,13 @@ const erpModules = [
       "Inventory Valuation",
       "Supplier Performance",
     ],
+    images:[
+      mm1,mm2,mm3
+    ],
+    // images:["https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+    //   "https://images.unsplash.com/photo-1608222351212-18fe0ec7b13b?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+    //   "https://images.unsplash.com/photo-1666875753105-c63a6f3bdc86?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D"
+    // ],
     advantage:
       "Know what you are buying, from whom, at what cost, what is lying in stock and where your money is blocked.",
   },
@@ -234,6 +260,7 @@ const erpModules = [
       "Customer Profitability",
       "Sales MIS",
     ],
+    images:[sd1,sd2,sd3],
     advantage:
       "Know not only how much you sold — know what you sold, to whom, at what margin and what is still to be collected.",
   },
@@ -256,6 +283,7 @@ const erpModules = [
       "Production Costing",
       "Production MIS",
     ],
+    images:[prod2,prod3,prod1],
     advantage:
       "See what should be produced, what is being produced, what material is consumed and where production efficiency is being lost.",
   },
@@ -278,6 +306,7 @@ const erpModules = [
       "Quality MIS",
       "Traceability",
     ],
+    images:[qual2,qual3,qual1],
     advantage:
       "Move from “detecting defects” to understanding why defects happen and where they originate.",
   },
@@ -299,6 +328,7 @@ const erpModules = [
       "Skill Matrix",
       "Manpower MIS",
     ],
+    images:[hrm3,hrm1,hrm2],
     advantage:
       "Know who is responsible, what capability exists, where the skill gaps are and where manpower productivity can improve.",
   },
@@ -321,6 +351,7 @@ const erpModules = [
       "Financial MIS",
       "Management Reports",
     ],
+    images:[acc1,acc2,acc3],
     advantage:
       "Know where your money is earned, where it is blocked, where costs are increasing and where profitability can improve.",
   },
@@ -1928,7 +1959,7 @@ marginLeft:"200px",
             </div>
           </div>
           <div className="erp-module-box">
-            <div>
+            {/* <div>
               <h3>Powerful Modules. Complete Coverage.</h3>
               <div className="erp-grid">
                 {erpModules.map((module) => {
@@ -1953,7 +1984,9 @@ marginLeft:"200px",
                   );
                 })}
               </div>
-            </div>
+            </div> */}
+
+<ERPModulesBook modules={erpModules} logo={logo} height={400} onViewDetails={openERP}   />
             <aside>
               <h4>SYN ERP 10 Highlights</h4>
               {[
