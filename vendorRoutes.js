@@ -235,7 +235,10 @@ router.post('/api/send-vendor-emails-attachment', upload.single('attachment'), a
         res.status(500).json({ success: false, message: 'Internal server error.' });
     }
 });
-
+router.get('/api/email-templates', async (req, res) => {
+    // Return your email templates logic or array here
+    res.json({ success: true, data: [] });
+});
 // Single unified endpoint for fetching email dispatch history
 router.get('/api/email-dispatch-history', async (req, res) => {
     try {
