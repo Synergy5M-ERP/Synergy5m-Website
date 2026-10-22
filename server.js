@@ -1753,127 +1753,130 @@ app.post('/api/send-enquiry-email', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-// Combined Email Dispatcher for Buying/Selling Enquiries to Potential Vendors
-app.post('/api/send-enquiry-email', async (req, res) => {
-    const { buyerEnqIds, sellerEnqIds, vendorIds, mode } = req.body;
+// // Combined Email Dispatcher for Buying/Selling Enquiries to Potential Vendors
+// app.post('/api/send-enquiry-email', async (req, res) => {
+//     const { buyerEnqIds, sellerEnqIds, vendorIds, mode } = req.body;
 
-    try {
-        const pool = await poolPromise;
-        if (!pool) return res.status(500).json({ error: "Database connection not available" });
+//     try {
+//         const pool = await poolPromise;
+//         if (!pool) return res.status(500).json({ error: "Database connection not available" });
 
-        // Safely check if the local logo file exists on disk
-        const logoFilePath = path.join(__dirname, 'uploads', 'synergy-logo.png');
-        const hasLogo = fs.existsSync(logoFilePath);
+//         // Safely check if the local logo file exists on disk
+//         const logoFilePath = path.join(__dirname, 'uploads', 'synergy-logo.png');
+//         const hasLogo = fs.existsSync(logoFilePath);
 
-        const emailAttachments = hasLogo ? [{
-            filename: 'logo.png',
-            path: logoFilePath,
-            cid: 'synergylogo'
-        }] : [];
+//         const emailAttachments = hasLogo ? [{
+//             filename: 'logo.png',
+//             path: logoFilePath,
+//             cid: 'synergylogo'
+//         }] : [];
 
-        // Mode 1: Send Buying Enquiries to Selected Vendors
-        if (mode === 'vendor-buying' && buyerEnqIds && vendorIds) {
-            for (const bId of buyerEnqIds) {
-                const bRes = await pool.request().input('id', sql.Int, bId)
-                    .query(`SELECT b.*, u.username as UserEmail FROM [dbo].[BuyingEnquiryTbl] b LEFT JOIN [dbo].[HRM_UserTbl] u ON b.UID = u.id WHERE b.Id = @id`);
+//         // Mode 1: Send Buying Enquiries to Selected Vendors
+//         if (mode === 'vendor-buying' && buyerEnqIds && vendorIds) {
+//             for (const bId of buyerEnqIds) {
+//                 const bRes = await pool.request().input('id', sql.Int, bId)
+//                     .query(`SELECT b.*, u.username as UserEmail FROM [dbo].[BuyingEnquiryTbl] b LEFT JOIN [dbo].[HRM_UserTbl] u ON b.UID = u.id WHERE b.Id = @id`);
                 
-                if (bRes.recordset.length === 0) continue;
-                const buyer = bRes.recordset[0];
+//                 if (bRes.recordset.length === 0) continue;
+//                 const buyer = bRes.recordset[0];
 
-                for (const vId of vendorIds) {
-                    const vRes = await pool.request().input('id', sql.Int, vId)
-                        .query(`SELECT * FROM [dbo].[Potential_Vendor] WHERE Id = @id`);
+//                 for (const vId of vendorIds) {
+//                     const vRes = await pool.request().input('id', sql.Int, vId)
+//                         .query(`SELECT * FROM [dbo].[Potential_Vendor] WHERE Id = @id`);
                     
-                    if (vRes.recordset.length === 0) continue;
-                    const vendor = vRes.recordset[0];
+//                     if (vRes.recordset.length === 0) continue;
+//                     const vendor = vRes.recordset[0];
 
-                    if (vendor.Email) {
-                        const detailsRows = `
-                            <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Enquiry No:</td><td style="color: #1e293b; font-weight: 700;">${buyer.EnqNo || 'N/A'}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Product Name:</td><td style="color: #1e293b; font-weight: 700;">${buyer.ProdName}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${buyer.ProdCat || 'N/A'}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Grade / Specs:</td><td style="color: #334155;">${buyer.Grade || 'Standard'}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Required Qty:</td><td style="color: #ea580c; font-weight: 700;">${buyer.ReqQty} ${buyer.UOM}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Target Price:</td><td style="color: #334155;">${buyer.TgtPrice || 'Negotiable'} ${buyer.Currency || ''}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Incoterm / Location:</td><td style="color: #334155;">${buyer.Incoterm || 'CIF'} (${buyer.DelLoc || 'Domestic'})</td></tr>
-                        `;
+//                     if (vendor.Email) {
+//                         const detailsRows = `
+//                             <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Enquiry No:</td><td style="color: #1e293b; font-weight: 700;">${buyer.EnqNo || 'N/A'}</td></tr>
+//                             <tr><td style="color: #ea580c; font-weight: 600;">Product Name:</td><td style="color: #1e293b; font-weight: 700;">${buyer.ProdName}</td></tr>
+//                             <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${buyer.ProdCat || 'N/A'}</td></tr>
+//                             <tr><td style="color: #ea580c; font-weight: 600;">Grade / Specs:</td><td style="color: #334155;">${buyer.Grade || 'Standard'}</td></tr>
+//                             <tr><td style="color: #ea580c; font-weight: 600;">Required Qty:</td><td style="color: #ea580c; font-weight: 700;">${buyer.ReqQty} ${buyer.UOM}</td></tr>
+//                             <tr><td style="color: #ea580c; font-weight: 600;">Target Price:</td><td style="color: #334155;">${buyer.TgtPrice || 'Negotiable'} ${buyer.Currency || ''}</td></tr>
+//                             <tr><td style="color: #ea580c; font-weight: 600;">Incoterm / Location:</td><td style="color: #334155;">${buyer.Incoterm || 'CIF'} (${buyer.DelLoc || 'Domestic'})</td></tr>
+//                         `;
 
-                        const mailHtml = generateStyledEmailHtml(
-                            vendor.Contact_Person || vendor.Company_Name, 
-                            'Purchase Requirement Inquiry', 
-                            detailsRows, 
-                            true
-                        );
+//                         const mailHtml = generateStyledEmailHtml(
+//                             vendor.Contact_Person || vendor.Company_Name, 
+//                             'Purchase Requirement Inquiry', 
+//                             detailsRows, 
+//                             true
+//                         );
 
-                        const mailOptions = {
-                            from: process.env.SMTP_USER || "sales@synergy5m.com",
-                            to: vendor.Email,
-                            cc: [buyer.UserEmail].filter(Boolean),
-                            subject: `New Buy Lead: ${buyer.ProdName} (${buyer.ReqQty} ${buyer.UOM})`,
-                            html: mailHtml,
-                            attachments: emailAttachments
-                        };
-                        await transporter.sendMail(mailOptions);
-                    }
-                }
-            }
-            return res.json({ success: true, message: "Buying enquiries successfully sent to selected vendors!" });
-        }
+//                         const mailOptions = {
+//                             from: process.env.SMTP_USER || "sales@synergy5m.com",
+//                             to: vendor.Email,
+//                             cc: [buyer.UserEmail].filter(Boolean),
+//                             subject: `New Buy Lead: ${buyer.ProdName} (${buyer.ReqQty} ${buyer.UOM})`,
+//                             html: mailHtml,
+//                             attachments: emailAttachments
+//                         };
+//                         await transporter.sendMail(mailOptions);
+//                     }
+//                 }
+//             }
+//             return res.json({ success: true, message: "Buying enquiries successfully sent to selected vendors!" });
+//         }
 
-        // Mode 2: Send Selling Enquiries to Selected Vendors
-        if (mode === 'vendor-selling' && sellerEnqIds && vendorIds) {
-            for (const sId of sellerEnqIds) {
-                const sRes = await pool.request().input('id', sql.Int, sId)
-                    .query(`SELECT s.*, u.username as UserEmail FROM [dbo].[SellingEnquiryTbl] s LEFT JOIN [dbo].[HRM_UserTbl] u ON s.UID = u.id WHERE s.Id = @id`);
+//         // Mode 2: Send Selling Enquiries to Selected Vendors
+//         if (mode === 'vendor-selling' && sellerEnqIds && vendorIds) {
+//             for (const sId of sellerEnqIds) {
+//                 const sRes = await pool.request().input('id', sql.Int, sId)
+//                     .query(`SELECT s.*, u.username as UserEmail FROM [dbo].[SellingEnquiryTbl] s LEFT JOIN [dbo].[HRM_UserTbl] u ON s.UID = u.id WHERE s.Id = @id`);
                 
-                if (sRes.recordset.length === 0) continue;
-                const seller = sRes.recordset[0];
+//                 if (sRes.recordset.length === 0) continue;
+//                 const seller = sRes.recordset[0];
 
-                for (const vId of vendorIds) {
-                    const vRes = await pool.request().input('id', sql.Int, vId)
-                        .query(`SELECT * FROM [dbo].[Potential_Vendor] WHERE Id = @id`);
+//                 for (const vId of vendorIds) {
+//                     const vRes = await pool.request().input('id', sql.Int, vId)
+//                         .query(`SELECT * FROM [dbo].[Potential_Vendor] WHERE Id = @id`);
                     
-                    if (vRes.recordset.length === 0) continue;
-                    const vendor = vRes.recordset[0];
+//                     if (vRes.recordset.length === 0) continue;
+//                     const vendor = vRes.recordset[0];
 
-                    if (vendor.Email) {
-                        const detailsRows = `
-                            <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Offer No:</td><td style="color: #1e293b; font-weight: 700;">${seller.OfferNo || 'N/A'}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Product Name:</td><td style="color: #1e293b; font-weight: 700;">${seller.ProdName}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${seller.ItemCat || 'N/A'}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Grade:</td><td style="color: #334155;">${seller.Grade || 'Standard'}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Quantity Offered:</td><td style="color: #ea580c; font-weight: 700;">${seller.QuantityOffered} ${seller.UOM}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Price Per Unit:</td><td style="color: #334155;">${seller.PricePerUnit} ${seller.Currency}</td></tr>
-                        `;
+//                     if (vendor.Email) {
+//                         const detailsRows = `
+//                             <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Offer No:</td><td style="color: #1e293b; font-weight: 700;">${seller.OfferNo || 'N/A'}</td></tr>
+//                             <tr><td style="color: #ea580c; font-weight: 600;">Product Name:</td><td style="color: #1e293b; font-weight: 700;">${seller.ProdName}</td></tr>
+//                             <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${seller.ItemCat || 'N/A'}</td></tr>
+//                             <tr><td style="color: #ea580c; font-weight: 600;">Grade:</td><td style="color: #334155;">${seller.Grade || 'Standard'}</td></tr>
+//                             <tr><td style="color: #ea580c; font-weight: 600;">Quantity Offered:</td><td style="color: #ea580c; font-weight: 700;">${seller.QuantityOffered} ${seller.UOM}</td></tr>
+//                             <tr><td style="color: #ea580c; font-weight: 600;">Price Per Unit:</td><td style="color: #334155;">${seller.PricePerUnit} ${seller.Currency}</td></tr>
+//                         `;
 
-                        const mailHtml = generateStyledEmailHtml(
-                            vendor.Contact_Person || vendor.Company_Name, 
-                            'Product Offering Notice', 
-                            detailsRows, 
-                            false
-                        );
+//                         const mailHtml = generateStyledEmailHtml(
+//                             vendor.Contact_Person || vendor.Company_Name, 
+//                             'Product Offering Notice', 
+//                             detailsRows, 
+//                             false
+//                         );
 
-                        const mailOptions = {
-                            from: process.env.SMTP_USER || "sales@synergy5m.com",
-                            to: vendor.Email,
-                            cc: [seller.UserEmail].filter(Boolean),
-                            subject: `New Selling Offer: ${seller.ProdName} (${seller.QuantityOffered} ${seller.UOM})`,
-                            html: mailHtml,
-                            attachments: emailAttachments
-                        };
-                        await transporter.sendMail(mailOptions);
-                    }
-                }
-            }
-            return res.json({ success: true, message: "Selling offers successfully sent to selected vendors!" });
-        }
+//                         const mailOptions = {
+//                             from: process.env.SMTP_USER || "sales@synergy5m.com",
+//                             to: vendor.Email,
+//                             cc: [seller.UserEmail].filter(Boolean),
+//                             subject: `New Selling Offer: ${seller.ProdName} (${seller.QuantityOffered} ${seller.UOM})`,
+//                             html: mailHtml,
+//                             attachments: emailAttachments
+//                         };
+//                         await transporter.sendMail(mailOptions);
+//                     }
+//                 }
+//             }
+//             return res.json({ success: true, message: "Selling offers successfully sent to selected vendors!" });
+//         }
 
-        return res.status(400).json({ error: "Invalid mode or parameters provided." });
-    } catch (err) {
-        console.error("Email dispatch error:", err);
-        res.status(500).json({ error: err.message });
-    }
-});
+//         return res.status(400).json({ error: "Invalid mode or parameters provided." });
+//     } catch (err) {
+//         console.error("Email dispatch error:", err);
+//         res.status(500).json({ error: err.message });
+//     }
+// });
+
+
+
 const vendorRoutes = require('./vendorRoutes'); 
 app.use('/', vendorRoutes);
 const WhatsappRoute = require('./WhatsappRoute');

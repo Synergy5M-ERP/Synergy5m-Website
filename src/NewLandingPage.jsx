@@ -1778,8 +1778,8 @@ function NewLandingPage() {
       <strong>Intelligent ERP</strong> and <strong>Strong Industry Connections.</strong>
     </p>
 
-    {/* Moved Vendor Badge Here for Perfect Spacing & Full Width */}
-    <div style={{ marginBottom: "20px" }}>
+    {/* Responsive Vendor Badge Container */}
+    <div style={{ marginBottom: "20px", display: "flex", justifyContent: "flex-start" }}>
       <div
         className="blinking-vendor-badge"
         style={{
@@ -1787,21 +1787,25 @@ function NewLandingPage() {
           alignItems: "center",
           background: "linear-gradient(135deg, #c1290e 0%, #2a0de8 100%)",
           color: "#ffffff",
-          padding: "6px 13px",
+          padding: "6px 16px",
           borderRadius: "50px",
           fontSize: "14px",
           fontWeight: "700",
-          marginTop:"12px",
-marginLeft:"200px",
+          marginTop: "12px",
+          marginLeft: "0px", // Removed 200px to prevent overflow on mobile
           boxShadow: "0 4px 15px rgba(11, 67, 141, 0.3)",
           letterSpacing: "0.5px",
-          border: "1px solid rgba(255,255,255,0.4)"
+          border: "1px solid rgba(255,255,255,0.4)",
+          maxWidth: "100%",
+          boxSizing: "border-box"
         }}
       >
         <span style={{
           display: "inline-block",
           whiteSpace: "nowrap",
-          color: "wheat"
+          color: "wheat",
+          overflow: "hidden",
+          textOverflow: "ellipsis"
         }}>
           Available <span style={{ 
             color: "white", 
@@ -2014,7 +2018,7 @@ marginLeft:"200px",
             <div className="section-kicker teal" style={{ margin: 0 }}>03</div>
 
 
-<div
+{/* <div
               className="blinking-vendor-badge"
               style={{
                 overflow: "hidden",
@@ -2027,6 +2031,7 @@ marginLeft:"200px",
                 boxShadow: "0 4px 15px rgba(11, 67, 141, 0.3)",
                 display: "flex",
                 alignItems: "center",
+                marginLeft:"110 px",
                 letterSpacing: "0.5px",
                 border: "1px solid rgba(255,255,255,0.4)"
               }}
@@ -2038,8 +2043,29 @@ marginLeft:"200px",
               }}>
                Available  <span style={{ color: "#f01a1a", fontSize: "14px" }}>{vendorCount}</span> VENDORS 
               </span>
-            </div>
-
+            </div> */}
+<div
+  style={{
+    overflow: "hidden",
+    background: "linear-gradient(135deg, #a0b6d2 0%, #c7d1df 100%)",
+    color: "#ffffff",
+    padding: "6px 16px",
+    borderRadius: "50px",
+    fontSize: "13px",
+    fontWeight: "700",
+    boxShadow: "0 4px 15px rgba(11, 67, 141, 0.3)",
+    display: "flex",
+    alignItems: "center",
+    // Automatically sets 110px on desktop screens (>768px), and 0px on mobile to prevent cutoffs
+    marginLeft: typeof window !== "undefined" && window.innerWidth > 1000 ? "110px" : "0px",
+    letterSpacing: "0.5px",
+    border: "1px solid rgba(255,255,255,0.4)"
+  }}
+>
+  <span style={{ display: "inline-block", whiteSpace: "nowrap", color: "#333" }}>
+    Available <span style={{ color: "#c1290e", fontSize: "15px", fontWeight: "800" }}>{vendorCount}</span> VENDORS 
+  </span>
+</div>
 
 
 
