@@ -2,8 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const sql = require('mssql');
 const nodemailer = require('nodemailer');
-const multer = require('multer'); // npm install multer
-// const upload = multer({ storage: multer.memoryStorage() }); // Keep files in memory buffer
+const multer = require('multer');
+
 const upload = multer({ 
     limits: { 
         fieldSize: 50 * 1024 * 1024, // 50MB limit for text fields like rich-text HTML
@@ -32,16 +32,15 @@ const transporter = nodemailer.createTransport({
 
 /**
  * 1. Endpoint to fetch vendors for the selection list
- * (Fixes the 404 Not Found error on GET /api/vendors)
  */
 router.get('/api/vendors', async (req, res) => {
     try {
-        await sql.connect(dbConfig);
+        let pool = await sql.connect(dbConfig);
         const search = req.query.search || '';
         const industry = req.query.industry || '';
         const category = req.query.category || '';
 
-        const request = new sql.Request();
+        const request = pool.request();
         request.input('search', sql.VarChar, `%${search}%`);
         request.input('industry', sql.VarChar, industry);
         request.input('category', sql.VarChar, category);
@@ -70,8 +69,8 @@ router.get('/api/vendors', async (req, res) => {
 // Endpoint to fetch unique Industries and Categories for dropdown filters
 router.get('/api/vendor-filters', async (req, res) => {
     try {
-        await sql.connect(dbConfig);
-        const request = new sql.Request();
+        let pool = await sql.connect(dbConfig);
+        const request = pool.request();
         
         const industriesResult = await request.query('SELECT DISTINCT industry FROM [dbo].[Potential_Vendor] WHERE industry IS NOT NULL AND industry != \'\'');
         const categoriesResult = await request.query('SELECT DISTINCT Category FROM [dbo].[Potential_Vendor] WHERE Category IS NOT NULL AND Category != \'\'');
@@ -87,37 +86,7 @@ router.get('/api/vendor-filters', async (req, res) => {
     }
 });
 
-
-router.get('/api/email-dispatch-history', async (req, res) => {
-    try {
-        await sql.connect(dbConfig);
-        const result = await sql.query(`
-            SELECT 
-                i.Id AS Id,            -- <--- This ensures the item ID is correctly passed
-                l.Id AS Batch_Id,
-                l.Subject,
-                l.Dispatched_At,
-                i.Vendor_Id,
-                i.Company_Name,
-                i.Email,
-                i.Industry,
-                i.Category,
-                i.Status
-            FROM [dbo].[Email_Dispatch_Logs] l
-            JOIN [dbo].[Email_Dispatch_Items] i ON l.Id = i.Log_Id
-            ORDER BY l.Dispatched_At DESC
-        `);
-        res.json({ success: true, data: result.recordset });
-    } catch (err) {
-        console.error('Error fetching dispatch history:', err);
-        res.status(500).json({ success: false, message: 'Internal server error.' });
-    }
-});
-
-
-/**
- * Endpoint to delete a specific email dispatch item record by its Id
- */
+// Endpoint to delete a specific email dispatch item record by its Id
 router.delete('/api/email-dispatch-items/:id', async (req, res) => {
     const itemId = req.params.id;
 
@@ -126,8 +95,8 @@ router.delete('/api/email-dispatch-items/:id', async (req, res) => {
     }
 
     try {
-        await sql.connect(dbConfig);
-        const request = new sql.Request();
+        let pool = await sql.connect(dbConfig);
+        const request = pool.request();
         request.input('id', sql.Int, itemId);
 
         const result = await request.query(`
@@ -145,6 +114,7 @@ router.delete('/api/email-dispatch-items/:id', async (req, res) => {
         res.status(500).json({ success: false, message: 'Internal server error while deleting record.' });
     }
 });
+
 router.post('/api/send-vendor-emails-attachment', upload.single('attachment'), async (req, res) => {
     const { vendorIds, subject, bodyTemplate } = req.body;
     const attachmentFile = req.file;
@@ -161,13 +131,13 @@ router.post('/api/send-vendor-emails-attachment', upload.single('attachment'), a
     }
 
     try {
-        await sql.connect(dbConfig);
+        let pool = await sql.connect(dbConfig);
         const safeIds = parsedIds.map(id => parseInt(id)).filter(id => !isNaN(id)).join(',');
         if (!safeIds) {
             return res.status(400).json({ success: false, message: 'Invalid vendor IDs.' });
         }
 
-        const vendorResult = await sql.query(
+        const vendorResult = await pool.request().query(
             `SELECT Id, Company_Name, Email, Contact_Person, GST_Number, industry, Category 
              FROM [dbo].[Potential_Vendor] WHERE Id IN (${safeIds})`
         );
@@ -220,7 +190,7 @@ router.post('/api/send-vendor-emails-attachment', upload.single('attachment'), a
         }
 
         // --- SQL TRANSACTION FOR LOGGING ---
-        const transaction = new sql.Transaction();
+        const transaction = new sql.Transaction(pool);
         await transaction.begin();
 
         try {
@@ -266,12 +236,13 @@ router.post('/api/send-vendor-emails-attachment', upload.single('attachment'), a
     }
 });
 
-
+// Single unified endpoint for fetching email dispatch history
 router.get('/api/email-dispatch-history', async (req, res) => {
     try {
-        await sql.connect(dbConfig);
-        const result = await sql.query(`
+        let pool = await sql.connect(dbConfig);
+        const result = await pool.request().query(`
             SELECT 
+                i.Id AS Id,            
                 l.Id AS Batch_Id,
                 l.Subject,
                 l.Dispatched_At,
@@ -291,6 +262,5 @@ router.get('/api/email-dispatch-history', async (req, res) => {
         res.status(500).json({ success: false, message: 'Internal server error.' });
     }
 });
-
 
 module.exports = router;
