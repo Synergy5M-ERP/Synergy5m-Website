@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
+import { getAuthHeaders, handleAuthError } from './AdminAuthGuard';
 
 /* --- SVG Icons --- */
 const IconLogout = (props) => (
@@ -91,7 +92,11 @@ export default function VendorEmailSender() {
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
-        const res = await fetch('/api/email-templates', { credentials: 'include' });
+        const res = await fetch('/api/email-templates', { credentials: 'include', headers: getAuthHeaders() });
+        if (res.status === 401 || res.status === 403) {
+          handleAuthError(res.status, navigate);
+          return;
+        }
         const data = await res.json();
         if (data.success && data.templates) {
           setSavedTemplates(data.templates);
@@ -105,7 +110,7 @@ export default function VendorEmailSender() {
       }
     };
     fetchTemplates();
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     if (location.state?.preselectedVendor) {
@@ -120,7 +125,11 @@ export default function VendorEmailSender() {
   useEffect(() => {
     const fetchFilterOptions = async () => {
       try {
-        const res = await fetch('/api/vendor-filters', { credentials: 'include' });
+        const res = await fetch('/api/vendor-filters', { credentials: 'include', headers: getAuthHeaders() });
+        if (res.status === 401 || res.status === 403) {
+          handleAuthError(res.status, navigate);
+          return;
+        }
         const data = await res.json();
         if (data.success) {
           setAvailableIndustries(data.industries || []);
@@ -131,13 +140,17 @@ export default function VendorEmailSender() {
       }
     };
     fetchFilterOptions();
-  }, []);
+  }, [navigate]);
 
   const fetchVendors = useCallback(async () => {
     setFetching(true);
     try {
       const queryParams = new URLSearchParams({ search, industry: industryFilter, category: categoryFilter });
-      const res = await fetch(`/api/vendors?${queryParams.toString()}`, { credentials: 'include' });
+      const res = await fetch(`/api/vendors?${queryParams.toString()}`, { credentials: 'include', headers: getAuthHeaders() });
+      if (res.status === 401 || res.status === 403) {
+        handleAuthError(res.status, navigate);
+        return;
+      }
       const data = await res.json();
       if (data.success) {
         setVendors(data.data);
@@ -147,7 +160,7 @@ export default function VendorEmailSender() {
     } finally {
       setFetching(false);
     }
-  }, [search, industryFilter, categoryFilter]);
+  }, [search, industryFilter, categoryFilter, navigate]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -243,8 +256,13 @@ export default function VendorEmailSender() {
       const res = await fetch('/api/send-vendor-emails-attachment', {
         method: 'POST',
         credentials: 'include',
+        headers: getAuthHeaders(),
         body: formData 
       });
+      if (res.status === 401 || res.status === 403) {
+        handleAuthError(res.status, navigate);
+        return;
+      }
       
       const data = await res.json();
       if (data.success) {

@@ -1,0 +1,372 @@
+/* AdminAddProduct.css - B2B Professional Admin Dashboard Styling */
+
+:root {
+  --b2b-bg: #F5F7FA;
+  --b2b-navy: #0F2A47;
+  --b2b-navy-light: #1A3E63;
+  --b2b-teal: #0E7C86;
+  --b2b-teal-hover: #0A626A;
+  --b2b-teal-light: #E6F5F6;
+  --b2b-border: #E2E8F0;
+  --b2b-border-focus: #0E7C86;
+  --b2b-text-primary: #0F2A47;
+  --b2b-text-secondary: #4A5568;
+  --b2b-text-muted: #718096;
+  --b2b-danger: #E53E3E;
+  --b2b-danger-bg: #FFF5F5;
+  --b2b-warning: #DD6B20;
+  --b2b-warning-bg: #FFFAF0;
+  --b2b-success: #2E8540;
+  --b2b-success-bg: #F0FFF4;
+  --b2b-radius: 8px;
+  --b2b-card-shadow: 0 1px 3px 0 rgba(15, 42, 71, 0.06), 0 1px 2px 0 rgba(15, 42, 71, 0.04);
+  --b2b-card-shadow-hover: 0 4px 6px -1px rgba(15, 42, 71, 0.08), 0 2px 4px -1px rgba(15, 42, 71, 0.04);
+}
+
+.b2b-dashboard-page {
+  background-color: var(--b2b-bg);
+  min-height: 100vh;
+  color: var(--b2b-text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Card Styling */
+.b2b-card {
+  background: #FFFFFF;
+  border: 1px solid var(--b2b-border);
+  border-radius: var(--b2b-radius);
+  box-shadow: var(--b2b-card-shadow);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.b2b-card:hover {
+  box-shadow: var(--b2b-card-shadow-hover);
+}
+
+/* Custom Accessible Form Inputs (Min 44px touch targets) */
+.b2b-input {
+  min-height: 44px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--b2b-border);
+  background-color: #FFFFFF;
+  color: var(--b2b-text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.b2b-input:focus {
+  outline: none;
+  border-color: var(--b2b-teal);
+  box-shadow: 0 0 0 3px rgba(14, 124, 134, 0.15);
+}
+
+.b2b-input.has-error {
+  border-color: var(--b2b-danger);
+  background-color: #FFFDFD;
+}
+
+.b2b-input.has-error:focus {
+  box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.15);
+}
+
+/* Custom File Drag & Drop Zone */
+.b2b-dropzone {
+  border: 2px dashed #CBD5E1;
+  border-radius: 8px;
+  background-color: #F8FAFC;
+  padding: 24px;
+  text-align: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.b2b-dropzone:hover, .b2b-dropzone.active {
+  border-color: var(--b2b-teal);
+  background-color: var(--b2b-teal-light);
+}
+
+/* Custom Toggle Switch (44px touch target) */
+.b2b-toggle-wrapper {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.b2b-toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.b2b-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.b2b-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #CBD5E1;
+  transition: .2s ease;
+  border-radius: 24px;
+}
+
+.b2b-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .2s ease;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.b2b-toggle input:checked + .b2b-toggle-slider {
+  background-color: var(--b2b-teal);
+}
+
+.b2b-toggle input:focus + .b2b-toggle-slider {
+  box-shadow: 0 0 0 3px rgba(14, 124, 134, 0.25);
+}
+
+.b2b-toggle input:checked + .b2b-toggle-slider:before {
+  transform: translateX(20px);
+}
+
+/* Action Buttons */
+.b2b-btn-primary {
+  min-height: 44px;
+  padding: 0 20px;
+  background-color: var(--b2b-teal);
+  color: #FFFFFF;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 6px;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
+}
+
+.b2b-btn-primary:hover:not(:disabled) {
+  background-color: var(--b2b-teal-hover);
+  box-shadow: 0 2px 4px rgba(14, 124, 134, 0.25);
+}
+
+.b2b-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.b2b-btn-secondary {
+  min-height: 44px;
+  padding: 0 18px;
+  background-color: #FFFFFF;
+  color: var(--b2b-navy);
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid #CBD5E1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.b2b-btn-secondary:hover {
+  background-color: #F8FAFC;
+  border-color: #94A3B8;
+}
+
+/* Sticky Preview Card Container */
+@media (min-width: 1024px) {
+  .b2b-sticky-preview {
+    position: sticky;
+    top: 88px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+  }
+}
+
+/* Public Product Card Preview in Sticky Box */
+.public-card-preview {
+  background: #FFFFFF;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(15, 42, 71, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.public-card-preview:hover {
+  box-shadow: 0 8px 24px rgba(15, 42, 71, 0.12);
+}
+
+/* Custom Scrollbar for tables, sidebars & code viewer */
+.b2b-custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 #F1F5F9;
+}
+.b2b-custom-scrollbar::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+.b2b-custom-scrollbar::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-radius: 4px;
+}
+.b2b-custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+.b2b-custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #0E7C86;
+}
+
+/* Dedicated Scroll Container for Product List & Aggregate Enquiries */
+.b2b-table-scroll-container {
+  max-height: 600px;
+  overflow-y: auto;
+  overflow-x: auto;
+  position: relative;
+}
+
+.b2b-table-scroll-container thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #F8FAFC !important;
+  box-shadow: 0 1px 2px rgba(15, 42, 71, 0.08);
+}
+
+
+/* Database Master Item Fetcher Card */
+.db-master-fetcher-card {
+  background: linear-gradient(135deg, #F0FDF4 0%, #F8FAFC 100%);
+  border: 1.5px solid #86EFAC;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.06);
+}
+
+.db-master-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(15, 42, 71, 0.15);
+  z-index: 50;
+  margin-top: 4px;
+}
+
+.db-master-item-row {
+  padding: 10px 14px;
+  border-bottom: 1px solid #F1F5F9;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.db-master-item-row:hover {
+  background-color: #F0FDF4;
+}
+
+.db-master-item-row:last-child {
+  border-bottom: none;
+}
+
+/* Database Products Table Styling */
+.db-table-container {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(15, 42, 71, 0.04);
+}
+
+.db-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+
+.db-table th {
+  background: #F8FAFC;
+  color: #475569;
+  font-weight: 700;
+  padding: 12px 16px;
+  border-bottom: 1.5px solid #E2E8F0;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+
+.db-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #F1F5F9;
+  color: #1E293B;
+  vertical-align: middle;
+}
+
+.db-table tr:hover td {
+  background-color: #F8FAFC;
+}
+
+.db-tab-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.db-tab-btn.active {
+  background: #0E7C86;
+  color: #FFFFFF;
+  box-shadow: 0 2px 6px rgba(14, 124, 134, 0.3);
+}
+
+.db-tab-btn:not(.active) {
+  background: #F1F5F9;
+  color: #475569;
+}
+
+.db-tab-btn:not(.active):hover {
+  background: #E2E8F0;
+  color: #0F2A47;
+}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { getAuthHeaders, handleAuthError } from './AdminAuthGuard';
 
 const FONT = "'Inter', -apple-system, 'Segoe UI', sans-serif";
 
@@ -106,20 +107,30 @@ export default function EnquiryMapper() {
 
     useEffect(() => {
         const endpoint = isBuying ? 'api/buying' : 'api/selling';
-        axios.get(`/${endpoint}${selectedCategory ? `?category=${encodeURIComponent(selectedCategory)}` : ''}`)
+        axios.get(`/${endpoint}${selectedCategory ? `?category=${encodeURIComponent(selectedCategory)}` : ''}`, { headers: getAuthHeaders() })
             .then(res => setLeftList(res.data))
-            .catch(err => console.error(err));
+            .catch(err => {
+                if (err.response?.status === 401 || err.response?.status === 403) {
+                    handleAuthError(err.response.status, navigate);
+                }
+                console.error(err);
+            });
         setSelectedLeftIds([]);
         setLeftSearchQuery('');
-    }, [isBuying, selectedCategory]);
+    }, [isBuying, selectedCategory, navigate]);
 
     useEffect(() => {
-        axios.get(`/api/potential-vendors${selectedCategory ? `?category=${encodeURIComponent(selectedCategory)}` : ''}`)
+        axios.get(`/api/potential-vendors${selectedCategory ? `?category=${encodeURIComponent(selectedCategory)}` : ''}`, { headers: getAuthHeaders() })
             .then(res => setVendorList(res.data))
-            .catch(err => console.error(err));
+            .catch(err => {
+                if (err.response?.status === 401 || err.response?.status === 403) {
+                    handleAuthError(err.response.status, navigate);
+                }
+                console.error(err);
+            });
         setSelectedVendorIds([]);
         setVendorSearchQuery('');
-    }, [selectedCategory]);
+    }, [selectedCategory, navigate]);
 
     const toggle = (setter, id) =>
         setter(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -154,9 +165,13 @@ export default function EnquiryMapper() {
             const payload = isBuying
                 ? { buyerEnqIds: selectedLeftIds, vendorIds: selectedVendorIds, mode: 'vendor-buying' }
                 : { sellerEnqIds: selectedLeftIds, vendorIds: selectedVendorIds, mode: 'vendor-selling' };
-            const response = await axios.post('/api/send-enquiry-email', payload);
+            const response = await axios.post('/api/send-enquiry-email', payload, { headers: getAuthHeaders() });
             showToast(response.data.message || 'Enquiries sent to the selected vendors.', 'success');
         } catch (error) {
+            if (error.response?.status === 401 || error.response?.status === 403) {
+                handleAuthError(error.response.status, navigate);
+                return;
+            }
             showToast('Could not send the emails. Check the console for details.', 'error');
             console.error(error);
         } finally {

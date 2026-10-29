@@ -1,14 +1,25 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const sql = require('mssql');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
+const { verifyAdminToken } = require('./auth');
+
+const allowedAttachmentExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.webp', '.doc', '.docx', '.xls', '.xlsx', '.txt'];
 
 const upload = multer({ 
     limits: { 
         fieldSize: 50 * 1024 * 1024, // 50MB limit for text fields like rich-text HTML
         fileSize: 10 * 1024 * 1024   // 10MB limit for file attachments
-    } 
+    },
+    fileFilter: (req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase();
+        if (!allowedAttachmentExtensions.includes(ext)) {
+            return cb(new Error("File format not allowed for attachments. Only standard documents/images are accepted."));
+        }
+        cb(null, true);
+    }
 });
 const router = express.Router();
 
@@ -23,17 +34,20 @@ const dbConfig = {
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.SMTP_PORT) || 587,
-    secure: false,
+    secure: parseInt(process.env.SMTP_PORT) === 465,
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
+    },
+    tls: {
+        rejectUnauthorized: process.env.NODE_ENV === 'development' ? false : true
     }
 });
 
 /**
  * 1. Endpoint to fetch vendors for the selection list
  */
-router.get('/api/vendors', async (req, res) => {
+router.get('/api/vendors', verifyAdminToken, async (req, res) => {
     try {
         let pool = await sql.connect(dbConfig);
         const search = req.query.search || '';
@@ -67,7 +81,7 @@ router.get('/api/vendors', async (req, res) => {
 });
 
 // Endpoint to fetch unique Industries and Categories for dropdown filters
-router.get('/api/vendor-filters', async (req, res) => {
+router.get('/api/vendor-filters', verifyAdminToken, async (req, res) => {
     try {
         let pool = await sql.connect(dbConfig);
         const request = pool.request();
@@ -87,7 +101,7 @@ router.get('/api/vendor-filters', async (req, res) => {
 });
 
 // Endpoint to delete a specific email dispatch item record by its Id
-router.delete('/api/email-dispatch-items/:id', async (req, res) => {
+router.delete('/api/email-dispatch-items/:id', verifyAdminToken, async (req, res) => {
     const itemId = req.params.id;
 
     if (!itemId || isNaN(itemId)) {
@@ -115,7 +129,7 @@ router.delete('/api/email-dispatch-items/:id', async (req, res) => {
     }
 });
 
-router.post('/api/send-vendor-emails-attachment', upload.single('attachment'), async (req, res) => {
+router.post('/api/send-vendor-emails-attachment', verifyAdminToken, upload.single('attachment'), async (req, res) => {
     const { vendorIds, subject, bodyTemplate } = req.body;
     const attachmentFile = req.file;
 
@@ -235,12 +249,12 @@ router.post('/api/send-vendor-emails-attachment', upload.single('attachment'), a
         res.status(500).json({ success: false, message: 'Internal server error.' });
     }
 });
-router.get('/api/email-templates', async (req, res) => {
+router.get('/api/email-templates', verifyAdminToken, async (req, res) => {
     // Return your email templates logic or array here
     res.json({ success: true, data: [] });
 });
 // Single unified endpoint for fetching email dispatch history
-router.get('/api/email-dispatch-history', async (req, res) => {
+router.get('/api/email-dispatch-history', verifyAdminToken, async (req, res) => {
     try {
         let pool = await sql.connect(dbConfig);
         const result = await pool.request().query(`

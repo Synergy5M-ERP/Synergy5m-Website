@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import './AdminDemo.css';
 import { Link, useNavigate } from 'react-router-dom';
+import { getAuthHeaders, handleAuthError } from './AdminAuthGuard';
 
 const DemoPanel = () => {
     const [requests, setRequests] = useState([]);
@@ -39,25 +40,32 @@ const DemoPanel = () => {
         'support@synergy5m.com'
     ];
 
-    useEffect(() => {
-        fetchRequests(1, statusFilter, limit);
-    }, [statusFilter, limit]);
-
-    const fetchRequests = async (pageNum, status, rowLimit) => {
+    const fetchRequests = useCallback(async (pageNum, status, rowLimit) => {
         try {
             setLoading(true);
-            const response = await axios.get(`/api/admin/demo-requests?page=${pageNum}&limit=${rowLimit}&status=${status}`);
+            const response = await axios.get(
+                `/api/admin/demo-requests?page=${pageNum}&limit=${rowLimit}&status=${status}`,
+                { headers: getAuthHeaders() }
+            );
             setRequests(response.data.data);
             setTotalPages(response.data.pagination.totalPages);
             setTotalRecords(response.data.pagination.totalRecords);
             setPage(response.data.pagination.currentPage);
         } catch (error) {
             console.error('Error fetching requests', error);
+            if (error.response?.status === 401 || error.response?.status === 403) {
+                handleAuthError(error.response.status, navigate);
+                return;
+            }
             Swal.fire('Error', 'Failed to connect to server.', 'error');
         } finally {
             setLoading(false);
         }
-    };
+    }, [navigate]);
+
+    useEffect(() => {
+        fetchRequests(1, statusFilter, limit);
+    }, [statusFilter, limit, fetchRequests]);
 
     const handlePageChange = (newPage) => {
         setPage(newPage);
@@ -86,13 +94,17 @@ const DemoPanel = () => {
     const handleApproveSubmit = async (e) => {
         e.preventDefault();
         try {
-            await axios.post(`/api/admin/demo-requests/${selectedRequest.Id}/approve`, {
-                meetingDate,
-                meetingTime,
-                meetingLink,
-                hostName,
-                ccEmails
-            });
+            await axios.post(
+                `/api/admin/demo-requests/${selectedRequest.Id}/approve`,
+                {
+                    meetingDate,
+                    meetingTime,
+                    meetingLink,
+                    hostName,
+                    ccEmails
+                },
+                { headers: getAuthHeaders() }
+            );
             
             setIsModalOpen(false);
             Swal.fire({
@@ -104,6 +116,10 @@ const DemoPanel = () => {
 
             fetchRequests(page, statusFilter, limit);
         } catch (error) {
+            if (error.response?.status === 401 || error.response?.status === 403) {
+                handleAuthError(error.response.status, navigate);
+                return;
+            }
             const errorMsg = error.response?.data?.error || 'Failed to process approval.';
             Swal.fire({
                 icon: 'warning',
@@ -138,7 +154,11 @@ const DemoPanel = () => {
         if (!confirmResult.isConfirmed) return;
 
         try {
-            await axios.post(`/api/admin/demo-requests/${item.Id}/feedback`);
+            await axios.post(
+                `/api/admin/demo-requests/${item.Id}/feedback`,
+                {},
+                { headers: getAuthHeaders() }
+            );
             Swal.fire({
                 icon: 'success',
                 title: 'Feedback Sent!',
@@ -148,6 +168,10 @@ const DemoPanel = () => {
 
             fetchRequests(page, statusFilter, limit);
         } catch (error) {
+            if (error.response?.status === 401 || error.response?.status === 403) {
+                handleAuthError(error.response.status, navigate);
+                return;
+            }
             const errorMsg = error.response?.data?.error || 'Failed to trigger feedback email.';
             Swal.fire({
                 icon: 'error',

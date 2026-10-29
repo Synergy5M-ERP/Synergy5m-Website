@@ -27,7 +27,8 @@ import {
 import Logo from "./synlogo.png";
 import "./NewLandingPage.css";
 import ERPModulesBook from "./Erpmodulesbook";
-import logo from  "./synlogo.png";
+import ProductsOpenForEnquiries from "./ProductsOpenForEnquiries";
+import logo from "./synlogo.png";
 import sd1 from "./assets/sale1.png"
 import sd2 from "./assets/sales2.png"
 import sd3 from "./assets/sales3.png"
@@ -230,8 +231,8 @@ const erpModules = [
       "Inventory Valuation",
       "Supplier Performance",
     ],
-    images:[
-      mm1,mm2,mm3
+    images: [
+      mm1, mm2, mm3
     ],
     // images:["https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
     //   "https://images.unsplash.com/photo-1608222351212-18fe0ec7b13b?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
@@ -260,7 +261,7 @@ const erpModules = [
       "Customer Profitability",
       "Sales MIS",
     ],
-    images:[sd1,sd2,sd3],
+    images: [sd1, sd2, sd3],
     advantage:
       "Know not only how much you sold — know what you sold, to whom, at what margin and what is still to be collected.",
   },
@@ -283,7 +284,7 @@ const erpModules = [
       "Production Costing",
       "Production MIS",
     ],
-    images:[prod2,prod3,prod1],
+    images: [prod2, prod3, prod1],
     advantage:
       "See what should be produced, what is being produced, what material is consumed and where production efficiency is being lost.",
   },
@@ -306,7 +307,7 @@ const erpModules = [
       "Quality MIS",
       "Traceability",
     ],
-    images:[qual2,qual3,qual1],
+    images: [qual2, qual3, qual1],
     advantage:
       "Move from “detecting defects” to understanding why defects happen and where they originate.",
   },
@@ -328,7 +329,7 @@ const erpModules = [
       "Skill Matrix",
       "Manpower MIS",
     ],
-    images:[hrm3,hrm1,hrm2],
+    images: [hrm3, hrm1, hrm2],
     advantage:
       "Know who is responsible, what capability exists, where the skill gaps are and where manpower productivity can improve.",
   },
@@ -351,7 +352,7 @@ const erpModules = [
       "Financial MIS",
       "Management Reports",
     ],
-    images:[acc1,acc2,acc3],
+    images: [acc1, acc2, acc3],
     advantage:
       "Know where your money is earned, where it is blocked, where costs are increasing and where profitability can improve.",
   },
@@ -585,8 +586,8 @@ function SearchableDropdown({
           fontWeight: value ? "600" : "400",
           color: value ? "#102d50" : "#607089",
           userSelect: "none",
-       marginLeft: "201px !important",
-marginTop: "12px !important",
+          marginLeft: "201px !important",
+          marginTop: "12px !important",
         }}
       >
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -647,8 +648,8 @@ marginTop: "12px !important",
                     (e.currentTarget.style.backgroundColor = "#f5f8fc")
                   }
                   onMouseLeave={(e) =>
-                    (e.currentTarget.style.backgroundColor =
-                      value === opt ? "#f0f5fb" : "transparent")
+                  (e.currentTarget.style.backgroundColor =
+                    value === opt ? "#f0f5fb" : "transparent")
                   }
                 >
                   {opt}
@@ -729,7 +730,7 @@ function CompanyVerificationFields({
         />
 
         <div className="form-group">
-          <label style={styles.label}>Official Mobile Number <span style={{color: 'red'}}>*</span></label>
+          <label style={styles.label}>Official Mobile Number <span style={{ color: 'red' }}>*</span></label>
           <div style={{ display: "flex", gap: "8px", width: "100%" }}>
             <select
               value={countryCode}
@@ -1030,16 +1031,16 @@ function BuyerForm({
           />
           {(selectedProduct === "Other / Add New" ||
             selectedCategory === "Other / Add New") && (
-            <Field label="Enter New Product Name" required>
-              <input
-                name="productName"
-                required
-                placeholder="Type new product name"
-                value={customProduct}
-                onChange={(e) => setCustomProduct(e.target.value)}
-              />
-            </Field>
-          )}
+              <Field label="Enter New Product Name" required>
+                <input
+                  name="productName"
+                  required
+                  placeholder="Type new product name"
+                  value={customProduct}
+                  onChange={(e) => setCustomProduct(e.target.value)}
+                />
+              </Field>
+            )}
         </div>
 
         <Field label="Application / End Use" required>
@@ -1298,16 +1299,16 @@ function SellerForm({
           />
           {(selectedProduct === "Other / Add New" ||
             selectedCategory === "Other / Add New") && (
-            <Field label="Enter New Product Name" required>
-              <input
-                name="productName"
-                required
-                placeholder="Type new product name"
-                value={customProduct}
-                onChange={(e) => setCustomProduct(e.target.value)}
-              />
-            </Field>
-          )}
+              <Field label="Enter New Product Name" required>
+                <input
+                  name="productName"
+                  required
+                  placeholder="Type new product name"
+                  value={customProduct}
+                  onChange={(e) => setCustomProduct(e.target.value)}
+                />
+              </Field>
+            )}
         </div>
 
         <Field label="Manufacturer / Supplier" required>
@@ -1647,7 +1648,7 @@ function NewLandingPage() {
       if (response.ok && result.success) {
         window.alert(
           result.message ||
-            "Thank you. Your request has been submitted for review by Synergy5M."
+          "Thank you. Your request has been submitted for review by Synergy5M."
         );
         closeModal();
       } else if (response.status === 409) {
@@ -1736,6 +1737,21 @@ function NewLandingPage() {
               <button className="nav-link" onClick={() => scrollTo("connect")}>
                 BUYING & SELLING
               </button>
+
+              <button
+                className="nav-link"
+                onClick={() => scrollTo("collective-buy")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+
+                  fontWeight: 700
+                }}
+              >
+                COLLECTIVE BUY
+
+              </button>
             </div>
 
             <div className="drawer-footer-action" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -1763,109 +1779,109 @@ function NewLandingPage() {
       </header>
 
       <main>
-<section id="home" className="hero section-wrap">
-  <div className="hero-copy">
-    <div className="eyebrow">SYNERGY5M LLP BUSINESS SOLUTIONS</div>
+        <section id="home" className="hero section-wrap">
+          <div className="hero-copy">
+            <div className="eyebrow">SYNERGY5M LLP BUSINESS SOLUTIONS</div>
 
-    <div className="hero-headline-group">
-      <h1 className="hero-title-main">One Partner.</h1>
-      <div className="text-danger h2">Three Powerful Solutions.</div>
-      <div className="hero-title-sub">Unlimited Possibilities.</div>
-    </div>
+            <div className="hero-headline-group">
+              <h1 className="hero-title-main">One Partner.</h1>
+              <div className="text-danger h2">Three Powerful Solutions.</div>
+              <div className="hero-title-sub">Unlimited Possibilities.</div>
+            </div>
 
-    <p className="hero-desc">
-      Empowering businesses with <strong>Consulting Excellence</strong>,{" "}
-      <strong>Intelligent ERP</strong> and <strong>Strong Industry Connections.</strong>
-    </p>
+            <p className="hero-desc">
+              Empowering businesses with <strong>Consulting Excellence</strong>,{" "}
+              <strong>Intelligent ERP</strong> and <strong>Strong Industry Connections.</strong>
+            </p>
 
-    {/* Responsive Vendor Badge Container */}
-    <div style={{ marginBottom: "20px", display: "flex", justifyContent: "flex-start" }}>
-      <div
-        className="blinking-vendor-badge"
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          background: "linear-gradient(135deg, #c1290e 0%, #2a0de8 100%)",
-          color: "#ffffff",
-          padding: "6px 16px",
-          borderRadius: "50px",
-          fontSize: "14px",
-          fontWeight: "700",
-          marginTop: "12px",
-          marginLeft: "0px", // Removed 200px to prevent overflow on mobile
-          boxShadow: "0 4px 15px rgba(11, 67, 141, 0.3)",
-          letterSpacing: "0.5px",
-          border: "1px solid rgba(255,255,255,0.4)",
-          maxWidth: "100%",
-          boxSizing: "border-box"
-        }}
-      >
-        <span style={{
-          display: "inline-block",
-          whiteSpace: "nowrap",
-          color: "wheat",
-          overflow: "hidden",
-          textOverflow: "ellipsis"
-        }}>
-          Available <span style={{ 
-            color: "white", 
-            fontSize: "16px",
-            fontWeight: "800",
-            display: "inline-block",
-            animation: "pulseScale 1.5s infinite ease-in-out"
-          }}>{vendorCount}</span> VENDORS 
-        </span>
-      </div>
-    </div>
+            {/* Responsive Vendor Badge Container */}
+            <div style={{ marginBottom: "20px", display: "flex", justifyContent: "flex-start" }}>
+              <div
+                className="blinking-vendor-badge"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  background: "linear-gradient(135deg, #c1290e 0%, #2a0de8 100%)",
+                  color: "#ffffff",
+                  padding: "6px 16px",
+                  borderRadius: "50px",
+                  fontSize: "14px",
+                  fontWeight: "700",
+                  marginTop: "12px",
+                  marginLeft: "0px", // Removed 200px to prevent overflow on mobile
+                  boxShadow: "0 4px 15px rgba(11, 67, 141, 0.3)",
+                  letterSpacing: "0.5px",
+                  border: "1px solid rgba(255,255,255,0.4)",
+                  maxWidth: "100%",
+                  boxSizing: "border-box"
+                }}
+              >
+                <span style={{
+                  display: "inline-block",
+                  whiteSpace: "nowrap",
+                  color: "wheat",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis"
+                }}>
+                  Available <span style={{
+                    color: "white",
+                    fontSize: "16px",
+                    fontWeight: "800",
+                    display: "inline-block",
+                    animation: "pulseScale 1.5s infinite ease-in-out"
+                  }}>{vendorCount}</span> VENDORS
+                </span>
+              </div>
+            </div>
 
-    <div className="hero-points">
-      <div className="point-item">
-        <span className="point-icon">
-          <BriefcaseBusiness size={18} />
-        </span>
-        <div className="point-text">
-          <b>Industry Experience</b><br/>
-          <small>Deep understanding across sectors</small>
-        </div>
-      </div>
+            <div className="hero-points">
+              <div className="point-item">
+                <span className="point-icon">
+                  <BriefcaseBusiness size={18} />
+                </span>
+                <div className="point-text">
+                  <b>Industry Experience</b><br />
+                  <small>Deep understanding across sectors</small>
+                </div>
+              </div>
 
-      <div className="point-item">
-        <span className="point-icon">
-          <ShieldCheck size={18} />
-        </span>
-        <div className="point-text">
-          <b>Proven Expertise</b><br/>
-          <small>Solutions that deliver measurable results</small>
-        </div>
-      </div>
+              <div className="point-item">
+                <span className="point-icon">
+                  <ShieldCheck size={18} />
+                </span>
+                <div className="point-text">
+                  <b>Proven Expertise</b><br />
+                  <small>Solutions that deliver measurable results</small>
+                </div>
+              </div>
 
-      <div className="point-item">
-        <span className="point-icon">
-          <Target size={18} />
-        </span>
-        <div className="point-text">
-          <b>Growth Focused</b><br/>
-          <small>Helping businesses grow sustainably</small>
-        </div>
-      </div>
-    </div>
-  </div>
+              <div className="point-item">
+                <span className="point-icon">
+                  <Target size={18} />
+                </span>
+                <div className="point-text">
+                  <b>Growth Focused</b><br />
+                  <small>Helping businesses grow sustainably</small>
+                </div>
+              </div>
+            </div>
+          </div>
 
-  <div className="hero-visual">
-    <img
-      src="/hero-business.png"
-      alt="Business, technology and connections"
-    />
-  </div>
+          <div className="hero-visual">
+            <img
+              src="/hero-business.png"
+              alt="Business, technology and connections"
+            />
+          </div>
 
-  {/* Keyframe animation */}
-  <style>{`
+          {/* Keyframe animation */}
+          <style>{`
     @keyframes pulseScale {
       0%, 100% { transform: scale(1); }
       50% { transform: scale(1.15); }
     }
   `}</style>
-</section>
+        </section>
 
         <section
           id="consulting"
@@ -1990,7 +2006,7 @@ function NewLandingPage() {
               </div>
             </div> */}
 
-<ERPModulesBook modules={erpModules} logo={logo} height={400} onViewDetails={openERP}   />
+            <ERPModulesBook modules={erpModules} logo={logo} height={400} onViewDetails={openERP} />
             <aside>
               <h4>SYN ERP 10 Highlights</h4>
               {[
@@ -2018,7 +2034,7 @@ function NewLandingPage() {
             <div className="section-kicker teal" style={{ margin: 0 }}>03</div>
 
 
-{/* <div
+            {/* <div
               className="blinking-vendor-badge"
               style={{
                 overflow: "hidden",
@@ -2044,28 +2060,28 @@ function NewLandingPage() {
                Available  <span style={{ color: "#f01a1a", fontSize: "14px" }}>{vendorCount}</span> VENDORS 
               </span>
             </div> */}
-<div
-  style={{
-    overflow: "hidden",
-    background: "linear-gradient(135deg, #a0b6d2 0%, #c7d1df 100%)",
-    color: "#ffffff",
-    padding: "6px 16px",
-    borderRadius: "50px",
-    fontSize: "13px",
-    fontWeight: "700",
-    boxShadow: "0 4px 15px rgba(11, 67, 141, 0.3)",
-    display: "flex",
-    alignItems: "center",
-    // Automatically sets 110px on desktop screens (>768px), and 0px on mobile to prevent cutoffs
-    marginLeft: typeof window !== "undefined" && window.innerWidth > 1000 ? "110px" : "0px",
-    letterSpacing: "0.5px",
-    border: "1px solid rgba(255,255,255,0.4)"
-  }}
->
-  <span style={{ display: "inline-block", whiteSpace: "nowrap", color: "#333" }}>
-    Available <span style={{ color: "#c1290e", fontSize: "15px", fontWeight: "800" }}>{vendorCount}</span> VENDORS 
-  </span>
-</div>
+            <div
+              style={{
+                overflow: "hidden",
+                background: "linear-gradient(135deg, #a0b6d2 0%, #c7d1df 100%)",
+                color: "#ffffff",
+                padding: "6px 16px",
+                borderRadius: "50px",
+                fontSize: "13px",
+                fontWeight: "700",
+                boxShadow: "0 4px 15px rgba(11, 67, 141, 0.3)",
+                display: "flex",
+                alignItems: "center",
+                // Automatically sets 110px on desktop screens (>768px), and 0px on mobile to prevent cutoffs
+                marginLeft: typeof window !== "undefined" && window.innerWidth > 1000 ? "110px" : "0px",
+                letterSpacing: "0.5px",
+                border: "1px solid rgba(255,255,255,0.4)"
+              }}
+            >
+              <span style={{ display: "inline-block", whiteSpace: "nowrap", color: "#333" }}>
+                Available <span style={{ color: "#c1290e", fontSize: "15px", fontWeight: "800" }}>{vendorCount}</span> VENDORS
+              </span>
+            </div>
 
 
 
@@ -2183,6 +2199,27 @@ function NewLandingPage() {
               <b>15+</b>
               <span>Years of Experience</span>
             </aside>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* SECTION 04: COLLECTIVE BUY - DEMAND AGGREGATION & PRODUCTS FOR ENQUIRIES */}
+        {/* ========================================================================= */}
+        <section id="collective-buy" className="collective-buy-landing-section section-wrap" style={{ background: "#F5F8FA", padding: "17px 0", borderTop: "1px solid #E2E8F0" }}>
+          <div style={{ maxWidth: "1520px", margin: "0 auto", padding: "0 24px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+              <div className="section-kicker teal" style={{ margin: 0, padding: "4px 14px", background: "#0E7C86", color: "#fff", borderRadius: "4px", fontWeight: "800", fontSize: "14px" }}>
+                04
+              </div>
+              <span style={{ fontSize: "13px", fontWeight: "800", letterSpacing: "1px", textTransform: "uppercase", color: "#0E7C86" }}>
+                Products Open for Enquiries
+                {/* <p>
+              
+           Find an industria raw material, submit your volume requirement, and participate in collective buying rounds to access direct manufacturer bulk pricing.
+     </p>  */}
+              </span>
+            </div>
+            <ProductsOpenForEnquiries embedded={true} />
           </div>
         </section>
 
@@ -2829,20 +2866,20 @@ export default NewLandingPage;
 
 const FONT = "'Inter', -apple-system, 'Segoe UI', sans-serif";
 const styles = {
-    dashboardContainer: { minHeight: "100vh", backgroundColor: "#F2F4F5", fontFamily: FONT },
-    topBar: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 28px", background: "#14524A", color: "#fff" },
-    topBarLeft: { display: "flex", alignItems: "center", gap: "12px" },
-    brandMarkSmall: { width: "34px", height: "34px", borderRadius: "8px", background: "rgba(255,255,255,0.14)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "13px" },
-    topBarTitle: { fontSize: "15px", fontWeight: 700 },
-    topBarSubtitle: { fontSize: "12px", color: "rgba(255,255,255,0.7)" },
-    logoutBtn: { display: "flex", alignItems: "center", gap: "7px", background: "transparent", color: "#fff", border: "1px solid rgba(255,255,255,0.35)", padding: "8px 14px", borderRadius: "7px", cursor: "pointer", fontSize: "13px" },
-    pageBody: { padding: "28px", maxWidth: "1280px", margin: "0 auto" },
-    label: { display: "block", fontSize: "13px", fontWeight: 600, color: "#3C4550", marginBottom: "7px" },
-    input: { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #D8DCE0", fontSize: "14px", fontFamily: FONT, background: "#FFFFFF" },
-    textarea: { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #D8DCE0", fontSize: "14px", fontFamily: FONT, resize: "vertical", background: "#FFFFFF" },
-    primaryBtn: { padding: "12px", background: "#14524A", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: 600, fontSize: "14.5px", fontFamily: FONT },
-    emailDispatchGrid: { display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: "20px" },
-    emailLeftCard: { background: "#fff", borderRadius: "12px", border: "1px solid #E4E7E9", overflow: "hidden", height: "fit-content" },
-    emailRightCard: { background: "#fff", borderRadius: "12px", border: "1px solid #E4E7E9", overflow: "hidden", height: "fit-content" },
-    tokenBtn: { background: "#F2F4F5", border: "1px solid #D8DCE0", color: "#3C4550", padding: "4px 9px", borderRadius: "5px", fontSize: "11.5px", cursor: "pointer", fontWeight: 500 }
+  dashboardContainer: { minHeight: "100vh", backgroundColor: "#F2F4F5", fontFamily: FONT },
+  topBar: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 28px", background: "#14524A", color: "#fff" },
+  topBarLeft: { display: "flex", alignItems: "center", gap: "12px" },
+  brandMarkSmall: { width: "34px", height: "34px", borderRadius: "8px", background: "rgba(255,255,255,0.14)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "13px" },
+  topBarTitle: { fontSize: "15px", fontWeight: 700 },
+  topBarSubtitle: { fontSize: "12px", color: "rgba(255,255,255,0.7)" },
+  logoutBtn: { display: "flex", alignItems: "center", gap: "7px", background: "transparent", color: "#fff", border: "1px solid rgba(255,255,255,0.35)", padding: "8px 14px", borderRadius: "7px", cursor: "pointer", fontSize: "13px" },
+  pageBody: { padding: "28px", maxWidth: "1280px", margin: "0 auto" },
+  label: { display: "block", fontSize: "13px", fontWeight: 600, color: "#3C4550", marginBottom: "7px" },
+  input: { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #D8DCE0", fontSize: "14px", fontFamily: FONT, background: "#FFFFFF" },
+  textarea: { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #D8DCE0", fontSize: "14px", fontFamily: FONT, resize: "vertical", background: "#FFFFFF" },
+  primaryBtn: { padding: "12px", background: "#14524A", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: 600, fontSize: "14.5px", fontFamily: FONT },
+  emailDispatchGrid: { display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: "20px" },
+  emailLeftCard: { background: "#fff", borderRadius: "12px", border: "1px solid #E4E7E9", overflow: "hidden", height: "fit-content" },
+  emailRightCard: { background: "#fff", borderRadius: "12px", border: "1px solid #E4E7E9", overflow: "hidden", height: "fit-content" },
+  tokenBtn: { background: "#F2F4F5", border: "1px solid #D8DCE0", color: "#3C4550", padding: "4px 9px", borderRadius: "5px", fontSize: "11.5px", cursor: "pointer", fontWeight: 500 }
 };

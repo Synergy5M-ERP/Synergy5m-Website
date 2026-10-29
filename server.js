@@ -7,31 +7,81 @@ const os = require("os");
 const net = require("net");
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
-
 const axios = require("axios");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+const bcrypt = require("bcryptjs");
 require("dotenv").config();
 
 const { sql, poolPromise } = require("./db");
+const { generateAdminToken, verifyAdminToken } = require("./auth");
 
 const app = express();
 
 app.set("trust proxy", 1);
 
-app.use(cors());
+// Security Headers via Helmet
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false, // Prevents blocking inline scripts/styles needed by React and Quill
+  })
+);
+
+// CORS Whitelisting
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:8080",
+  "http://127.0.0.1:3000",
+  "https://synergy5m-business-4-profit-platform.azurewebsites.net",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. same-origin or local tools)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, true);
+      }
+    },
+    credentials: true,
+  })
+);
+
 app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: true, limit: "15mb" }));
+
+// Rate Limiting Configurations
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // max 10 failed login attempts per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many login attempts. Please try again after 15 minutes." },
+});
+
+const publicFormLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30, // max 30 submissions per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many requests. Please slow down and try again shortly." },
+});
 
 // Email Transporter configuration
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
   port: parseInt(process.env.SMTP_PORT, 10) || 587,
-  secure: false,
+  secure: parseInt(process.env.SMTP_PORT, 10) === 465,
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
   tls: {
-    rejectUnauthorized: false,
+    rejectUnauthorized: process.env.NODE_ENV === "development" ? false : true,
   },
 });
 
@@ -57,15 +107,47 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, `${uniqueSuffix}-${file.originalname.replace(/\s+/g, "_")}`);
+    // Sanitize filename to prevent directory traversal or malformed names
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
+    cb(null, `${uniqueSuffix}-${safeName}`);
   },
 });
+
+const allowedMimes = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+];
+
+const allowedExtensions = [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".doc", ".docx", ".xls", ".xlsx"];
+
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!allowedExtensions.includes(ext) || !allowedMimes.includes(file.mimetype)) {
+      return cb(new Error("Invalid file format. Only PDF, standard images (JPG, PNG), Word, and Excel files are allowed."));
+    }
+    cb(null, true);
+  },
 });
 
-app.use("/uploads", express.static(uploadDir));
+// Serve uploads with security headers preventing HTML/script execution
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Security-Policy", "default-src 'none'");
+    next();
+  },
+  express.static(uploadDir)
+);
 
 function safeAppendJson(filename, payload) {
   try {
@@ -141,7 +223,7 @@ app.get("/api/health", async (req, res) => {
 // Real-time email duplicate check  (used by the registration form)
 // GET /api/check-email?email=abc@xyz.com  ->  { exists: true | false }
 // -------------------------------------------------------------
-app.get("/api/check-email", async (req, res) => {
+app.get("/api/check-email", publicFormLimiter, async (req, res) => {
   try {
     const email = normalizeEmail(req.query.email);
     if (!email) return res.json({ exists: false });
@@ -165,21 +247,21 @@ app.get("/api/categories", async (req, res) => {
   try {
     const pool = await poolPromise;
     if (!pool) {
-      return res.json(["BUY", "SELL", "TRADING", "SEMIFINISH", "SERVICES", "JOBWORK"]);
+      return res.json([]);
     }
 
     const result = await pool.request().query(`
-      SELECT DISTINCT LTRIM(RTRIM([ItemCategory])) AS Category
-      FROM [dbo].[MASTER_ItemTbl]
-      WHERE [ItemCategory] IS NOT NULL AND LTRIM(RTRIM([ItemCategory])) <> ''
+      SELECT DISTINCT LTRIM(RTRIM([Category])) AS Category
+      FROM [CollectiveProducts]
+      WHERE [Category] IS NOT NULL AND LTRIM(RTRIM([Category])) <> ''
       ORDER BY Category ASC
     `);
 
     const categories = result.recordset.map((row) => row.Category).filter(Boolean);
-    return res.json(categories.length > 0 ? categories : ["BUY", "SELL", "TRADING", "SEMIFINISH", "SERVICES", "JOBWORK"]);
+    return res.json(categories);
   } catch (err) {
     console.warn("Categories fetch fallback:", err.message);
-    return res.json(["BUY", "SELL", "TRADING", "SEMIFINISH", "SERVICES", "JOBWORK"]);
+    return res.json([]);
   }
 });
 
@@ -208,23 +290,20 @@ app.get("/api/products", async (req, res) => {
     const { category } = req.query;
     const pool = await poolPromise;
     if (!pool) {
-      return res.json(["Standard Product A", "Standard Product B"]);
+      return res.json([]);
     }
 
     const request = pool.request();
     let query = `
-      SELECT DISTINCT LTRIM(RTRIM([Item_Name])) AS Item_Name
-      FROM [dbo].[MASTER_ItemTbl]
-      WHERE [Item_Name] IS NOT NULL 
-        AND LTRIM(RTRIM([Item_Name])) <> ''
+      SELECT DISTINCT LTRIM(RTRIM([ProductName])) AS Item_Name
+      FROM [CollectiveProducts]
+      WHERE [ProductName] IS NOT NULL 
+        AND LTRIM(RTRIM([ProductName])) <> ''
     `;
 
-    if (category && category !== "Other / Add New") {
+    if (category && category !== "Other / Add New" && category !== "All") {
       request.input("category", sql.NVarChar, category.trim());
-      query += ` AND (
-        UPPER(LTRIM(RTRIM(ISNULL([Item_Category], '')))) = UPPER(@category)
-        OR UPPER(LTRIM(RTRIM(ISNULL([ItemCategory], '')))) = UPPER(@category)
-      )`;
+      query += ` AND UPPER(LTRIM(RTRIM(ISNULL([Category], '')))) = UPPER(@category)`;
     }
 
     query += ` ORDER BY Item_Name ASC`;
@@ -233,7 +312,7 @@ app.get("/api/products", async (req, res) => {
     return res.json(result.recordset.map((row) => row.Item_Name));
   } catch (err) {
     console.warn("Products fetch error:", err.message);
-    return res.json(["Standard Product A", "Standard Product B"]);
+    return res.json([]);
   }
 });
 
@@ -313,7 +392,7 @@ app.get("/api/industries", async (req, res) => {
 // Form Handlers
 // -------------------------------------------------------------
 
-app.post("/api/inquiries", async (req, res) => {
+app.post("/api/inquiries", publicFormLimiter, async (req, res) => {
   try {
     const {
       fullName,
@@ -358,7 +437,7 @@ const uploadFields = upload.fields([
   { name: "documents", maxCount: 10 },
 ]);
 
-app.post("/api/business-connect", uploadFields, async (req, res) => {
+app.post("/api/business-connect", publicFormLimiter, uploadFields, async (req, res) => {
   try {
     const d = req.body;
 
@@ -526,7 +605,7 @@ app.post("/api/business-connect", uploadFields, async (req, res) => {
   }
 });
 
-app.post("/api/demo-request", async (req, res) => {
+app.post("/api/demo-request", publicFormLimiter, async (req, res) => {
   try {
     const {
       fullName,
@@ -639,7 +718,7 @@ app.post("/api/demo-request", async (req, res) => {
   }
 });
 
-app.post("/api/trial-request", async (req, res) => {
+app.post("/api/trial-request", publicFormLimiter, async (req, res) => {
   try {
     const {
       companyName,
@@ -773,8 +852,8 @@ app.post("/api/trial-request", async (req, res) => {
 // Admin Endpoints (Directly Mounted on app)
 // -------------------------------------------------------------
 
-// 1. Admin Login (No JWT)
-app.post("/api/admin/login", (req, res) => {
+// 1. Admin Login (With JWT & Rate Limiting)
+app.post("/api/admin/login", loginLimiter, (req, res) => {
   const { username, password } = req.body || {};
 
   const inputUser = (username || "").trim();
@@ -783,9 +862,11 @@ app.post("/api/admin/login", (req, res) => {
   const adminPass = (process.env.ADMIN_PASSWORD || "admin123").trim();
 
   if (inputUser === adminUser && inputPass === adminPass) {
+    const token = generateAdminToken(adminUser);
     return res.json({
       success: true,
       message: "Login successful",
+      token,
       user: adminUser,
     });
   }
@@ -797,7 +878,7 @@ app.post("/api/admin/login", (req, res) => {
 });
 
 // 2. Fetch Paginated Data for ERP or Buying/Selling
-app.get("/api/admin/enquiries", async (req, res) => {
+app.get("/api/admin/enquiries", verifyAdminToken, async (req, res) => {
   const type = req.query.type; // 'erp' or 'buyingselling'
   const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
   const limit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
@@ -906,13 +987,15 @@ app.get("/api/admin/enquiries", async (req, res) => {
   }
 });
 
-app.post("/api/admin/approve", async (req, res) => {
+app.post("/api/admin/approve", verifyAdminToken, async (req, res) => {
   const { id, type, email, recipientName } = req.body;
   if (!id || !type || !email) {
     return res.status(400).json({ success: false, message: "Missing required approval params" });
   }
 
   const generatedPassword = generatePassword(10);
+  const saltRounds = 10;
+  const hashedPassword = await bcrypt.hash(generatedPassword, saltRounds);
   const isErp = type === "erp";
 
   const portalUrl = isErp
@@ -987,7 +1070,7 @@ app.post("/api/admin/approve", async (req, res) => {
 
       const userResult = await transaction.request()
         .input("Username", sql.NVarChar(150), email.trim().toLowerCase())
-        .input("Password", sql.NVarChar(100), generatedPassword)
+        .input("Password", sql.NVarChar(255), hashedPassword)
         .input("UserRole", sql.NVarChar(50), dynamicUserRole)
         // Buying-selling users have no trial period -> NoOfDays = NULL
         // (DATEADD(day, NULL, GETDATE()) also returns NULL, so EndDate = NULL)
@@ -1121,7 +1204,7 @@ app.post("/api/admin/approve", async (req, res) => {
   }
 });
 
-app.post("/api/admin/reject", async (req, res) => {
+app.post("/api/admin/reject", verifyAdminToken, async (req, res) => {
   const { id, type, email, recipientName, reason } = req.body;
   if (!id || !type || !email || !reason) {
     return res.status(400).json({ success: false, message: "Missing required rejection parameters or reason" });
@@ -1179,7 +1262,7 @@ app.post("/api/admin/reject", async (req, res) => {
 // -------------------------------------------------------------
 
 // GET /api/admin/demo-requests (Paginated & Filtered)
-app.get('/api/admin/demo-requests', async (req, res) => {
+app.get('/api/admin/demo-requests', verifyAdminToken, async (req, res) => {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
     const statusFilter = (req.query.status || 'All').trim();
@@ -1230,7 +1313,7 @@ app.get('/api/admin/demo-requests', async (req, res) => {
 });
 
 // POST /api/admin/demo-requests/:id/approve
-app.post('/api/admin/demo-requests/:id/approve', async (req, res) => {
+app.post('/api/admin/demo-requests/:id/approve', verifyAdminToken, async (req, res) => {
     const { id } = req.params;
     const { meetingDate, meetingTime, meetingLink, hostName, ccEmails } = req.body;
 
@@ -1345,7 +1428,7 @@ app.post('/api/admin/demo-requests/:id/approve', async (req, res) => {
 
 // POST /api/admin/demo-requests/:id/feedback
 // (The old duplicate of this route has been removed - Express only ever used the first one.)
-app.post('/api/admin/demo-requests/:id/feedback', async (req, res) => {
+app.post('/api/admin/demo-requests/:id/feedback', verifyAdminToken, async (req, res) => {
     const { id } = req.params;
 
     try {
@@ -1458,7 +1541,7 @@ app.get('/api/enquiry-categories', async (req, res) => {
 });
 
 // 1. Get Buying Enquiries (with optional Category filter & Mapped Email)
-app.get('/api/buying', async (req, res) => {
+app.get('/api/buying', verifyAdminToken, async (req, res) => {
     try {
         const { category } = req.query;
         const pool = await poolPromise;
@@ -1483,7 +1566,7 @@ app.get('/api/buying', async (req, res) => {
 });
 
 // 2. Get Selling Enquiries (with optional Category filter & Mapped Email)
-app.get('/api/selling', async (req, res) => {
+app.get('/api/selling', verifyAdminToken, async (req, res) => {
     try {
         const { category } = req.query;
         const pool = await poolPromise;
@@ -1508,7 +1591,7 @@ app.get('/api/selling', async (req, res) => {
 });
 
 // Get Potential Vendors filtered by Category (Robust against case, spaces, and null IsActive)
-app.get('/api/potential-vendors', async (req, res) => {
+app.get('/api/potential-vendors', verifyAdminToken, async (req, res) => {
     try {
         const { category } = req.query;
         const pool = await poolPromise;
@@ -1639,7 +1722,7 @@ const generateStyledEmailHtml = (recipientName, enquiryTitle, detailsHtml, isBuy
 };
 
 // Combined Email Dispatcher for Buying/Selling Enquiries to Potential Vendors
-app.post('/api/send-enquiry-email', async (req, res) => {
+app.post('/api/send-enquiry-email', verifyAdminToken, async (req, res) => {
     const { buyerEnqIds, sellerEnqIds, vendorIds, mode } = req.body;
 
     try {
@@ -1881,6 +1964,8 @@ const vendorRoutes = require('./vendorRoutes');
 app.use('/', vendorRoutes);
 const WhatsappRoute = require('./WhatsappRoute');
 app.use('/whatsapp', WhatsappRoute);
+const collectiveProductRoutes = require('./collectiveProductRoutes');
+app.use('/api', collectiveProductRoutes);
 
 // -------------------------------------------------------------
 // Static Frontend Catch-All Handler (MUST BE AT THE VERY BOTTOM)

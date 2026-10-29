@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const sql = require('mssql');
 const axios = require('axios'); // npm install axios
+const { verifyAdminToken } = require('./auth');
 const router = express.Router();
 
 const dbConfig = {
@@ -18,7 +19,7 @@ const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
 /**
  * Endpoint to broadcast WhatsApp messages to multiple selected vendors
  */
-router.post('/api/whatsapp/broadcast', async (req, res) => {
+router.post('/api/whatsapp/broadcast', verifyAdminToken, async (req, res) => {
     const { vendorIds, message } = req.body;
 
     if (!vendorIds) {

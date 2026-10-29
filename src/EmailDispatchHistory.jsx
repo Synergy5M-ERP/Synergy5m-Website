@@ -291,6 +291,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
+import { getAuthHeaders, handleAuthError } from './AdminAuthGuard';
 
 const IconBack = (props) => (
   <svg width="15" height="15" viewBox="0 0 16 16" fill="none" {...props}>
@@ -332,7 +333,11 @@ export default function EmailDispatchHistory() {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const res = await fetch('/api/email-dispatch-history', { credentials: 'include' });
+        const res = await fetch('/api/email-dispatch-history', { credentials: 'include', headers: getAuthHeaders() });
+        if (res.status === 401 || res.status === 403) {
+          handleAuthError(res.status, navigate);
+          return;
+        }
         const data = await res.json();
         if (data.success) {
           setHistoryData(data.data || []);
@@ -344,7 +349,7 @@ export default function EmailDispatchHistory() {
       }
     };
     fetchHistory();
-  }, []);
+  }, [navigate]);
 
   // Filter Data
   const filteredData = historyData.filter(item => {
@@ -410,8 +415,13 @@ export default function EmailDispatchHistory() {
       try {
         const res = await fetch(`/api/email-dispatch-items/${itemId}`, {
           method: 'DELETE',
-          credentials: 'include'
+          credentials: 'include',
+          headers: getAuthHeaders()
         });
+        if (res.status === 401 || res.status === 403) {
+          handleAuthError(res.status, navigate);
+          return;
+        }
         const data = await res.json();
 
         if (data.success) {

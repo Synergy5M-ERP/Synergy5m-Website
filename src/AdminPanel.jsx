@@ -55,7 +55,7 @@ export default function AdminPanel() {
   const navigate = useNavigate();
 
   const [isAuthenticated, setIsAuthenticated] = useState(
-    localStorage.getItem("admin_logged_in") === "true"
+    localStorage.getItem("admin_logged_in") === "true" && Boolean(localStorage.getItem("admin_token"))
   );
   const [usernameInput, setUsernameInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
@@ -86,6 +86,7 @@ export default function AdminPanel() {
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem("admin_logged_in");
+    localStorage.removeItem("admin_token");
     setIsAuthenticated(false);
     setDataList([]);
   }, []);
@@ -101,8 +102,14 @@ export default function AdminPanel() {
           search: searchVal,
           status: statusVal,
         });
-        const res = await fetch(`/api/admin/enquiries?${queryParams.toString()}`, { credentials: "include" });
-        if (res.status === 401) {
+        const token = localStorage.getItem("admin_token");
+        const res = await fetch(`/api/admin/enquiries?${queryParams.toString()}`, {
+          credentials: "include",
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+        });
+        if (res.status === 401 || res.status === 403) {
           handleLogout();
           return;
         }
@@ -156,9 +163,10 @@ export default function AdminPanel() {
         body: JSON.stringify({ username: usernameInput, password: passwordInput }),
       });
       const data = await res.json();
-      if (data.success) {
-        setIsAuthenticated(true);
+      if (data.success && data.token) {
+        localStorage.setItem("admin_token", data.token);
         localStorage.setItem("admin_logged_in", "true");
+        setIsAuthenticated(true);
       } else {
         setLoginError(data.message || "Invalid credentials");
       }
@@ -175,9 +183,13 @@ export default function AdminPanel() {
 
     setActionLoading(true);
     try {
+      const token = localStorage.getItem("admin_token");
       const res = await fetch("/api/admin/approve", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
         credentials: "include",
         body: JSON.stringify({ id: row.Id, type: activeTab, email, recipientName: name }),
       });
@@ -207,9 +219,13 @@ export default function AdminPanel() {
 
     setActionLoading(true);
     try {
+      const token = localStorage.getItem("admin_token");
       const res = await fetch("/api/admin/reject", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
         credentials: "include",
         body: JSON.stringify({ id: rejectItem.Id, type: activeTab, email, recipientName: name, reason: rejectReason }),
       });
@@ -352,47 +368,60 @@ export default function AdminPanel() {
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <button 
+            <button
               type="button"
-              onClick={() => navigate('/')} 
+              onClick={() => navigate('/')}
               style={styles.logoutBtn}
             >
               Website
             </button>
-            <button 
+            <button
               type="button"
-              onClick={() => navigate('/vendor-emails')} 
+              onClick={() => navigate('/admin/products/add')}
+              style={{
+                ...styles.logoutBtn,
+                background: "#0E7C86",
+                color: "#ffffff",
+                borderColor: "#0E7C86",
+                fontWeight: 600,
+              }}
+            >
+              Aggregate Product
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/vendor-emails')}
               style={styles.logoutBtn}
             >
               ✉️ Email Dispatch
             </button>
 
-            <button 
+            <button
               type="button"
-              onClick={() => navigate('/whatsapp')} 
+              onClick={() => navigate('/whatsapp')}
               style={styles.logoutBtn}
             >
-               Whatsapp Broadcast
+              Whatsapp Broadcast
             </button>
 
 
-     <button 
+            <button
               type="button"
-              onClick={() => navigate('/admin/email-history')} 
+              onClick={() => navigate('/admin/email-history')}
               style={styles.logoutBtn}
             >
-               Email Tracker
+              Email Tracker
             </button>
-             <button 
+            <button
               type="button"
-              onClick={() => navigate('/enquiryMapper')} 
+              onClick={() => navigate('/enquiryMapper')}
               style={styles.logoutBtn}
             >
               Buyer Seller Email
             </button>
-             <button 
+            <button
               type="button"
-              onClick={() => navigate('/demo-req')} 
+              onClick={() => navigate('/demo-req')}
               style={styles.logoutBtn}
             >
               ERP Tracker
@@ -487,146 +516,146 @@ export default function AdminPanel() {
             </div>
           </div>
 
-         {/* Table Container with max height 500px and vertical scrollbar */}
-<div style={styles.tableWrapper}>
-  {loading ? (
-    <div style={styles.loadingState}>
-      <div className="ap-spinner" style={styles.spinner} />
-      Loading records from database…
-    </div>
-  ) : (
-    <div style={{ maxHeight: "500px", overflowY: "auto", overflowX: "auto" }}>
-      <table style={styles.table}>
-        <thead style={{ position: "sticky", top: 0, zIndex: 1, backgroundColor: "#FAFBFB" }}>
-          <tr style={styles.tableHeadRow}>
-            <th style={styles.th}>Actions</th>
-            <th style={styles.th}>Status</th>
-            <th style={styles.th}>Company name</th>
-            <th style={styles.th}>GST no.</th>
-            <th style={styles.th}>Contact person</th>
-            <th style={styles.th}>Email</th>
-            <th style={styles.th}>Contact number</th>
-            {/* Dynamic Header based on activeTab */}
-            <th style={styles.th}>{activeTab === "erp" ? "Trial Plan" : "Category"}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {dataList.length === 0 ? (
-            <tr>
-              <td colSpan="8">
-                <div style={styles.emptyState}>
-                  <IconInbox color="#9AA5AF" />
-                  <div style={styles.emptyTitle}>No matching records</div>
-                  <div style={styles.emptySubtitle}>Try changing your filter criteria or search query.</div>
-                </div>
-              </td>
-            </tr>
-          ) : (
-            dataList.map((row) => {
-              const rawStatus = (activeTab === "erp" ? row.TrialStatus : row.Status) || "";
-              const normalizedStatus = rawStatus.trim().toLowerCase();
-
-              const isPending =
-                !rawStatus ||
-                normalizedStatus === "pending" ||
-                normalizedStatus === "pending verification" ||
-                normalizedStatus === "active";
-
-              const isApproved = normalizedStatus === "approved";
-              const isRejected = normalizedStatus === "rejected";
-
-              const displayStatus = isApproved
-                ? "Approved"
-                : isRejected
-                ? "Rejected"
-                : "Pending Verification";
-
-              const badgeStyle = isApproved
-                ? styles.badgeSuccess
-                : isRejected
-                ? styles.badgeDanger
-                : styles.badgeWarning;
-
-              const gst = row.GSTIN || row.GSTNo || row.GST || row.GstNo || "-";
-              const contactPerson = activeTab === "erp" ? row.ContactPerson : row.RepresentativeName;
-              const email = activeTab === "erp" ? row.Email : (row.CompanyEmail || row.RepresentativeEmail);
-              const mobile = activeTab === "erp" ? row.MobileNo : (row.Mobile || row.RepresentativeMobile);
-             
-              const trialOrCategory = activeTab === "erp" 
-                ? (row.SubscriptionPlan || row.TrialType || row.Trial || "-") 
-                : (row.Category || "-");
-
-              return (
-                <tr key={row.Id} className="ap-row" style={styles.tr}>
-                  <td style={styles.td}>
-                    {isPending ? (
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        <button
-                          type="button"
-                          disabled={actionLoading}
-                          onClick={() => setApproveItem(row)}
-                          className="ap-approve-btn"
-                          style={styles.approveBtn}
-                        >
-                          <IconCheck /> 
-                        </button>
-                        <button
-                          type="button"
-                          disabled={actionLoading}
-                          onClick={() => setRejectItem(row)}
-                          className="ap-reject-btn"
-                          style={styles.rejectBtn}
-                        >
-                          <IconX /> 
-                        </button>
-                      </div>
+          {/* Table Container with max height 500px and vertical scrollbar */}
+          <div style={styles.tableWrapper}>
+            {loading ? (
+              <div style={styles.loadingState}>
+                <div className="ap-spinner" style={styles.spinner} />
+                Loading records from database…
+              </div>
+            ) : (
+              <div style={{ maxHeight: "500px", overflowY: "auto", overflowX: "auto" }}>
+                <table style={styles.table}>
+                  <thead style={{ position: "sticky", top: 0, zIndex: 1, backgroundColor: "#FAFBFB" }}>
+                    <tr style={styles.tableHeadRow}>
+                      <th style={styles.th}>Actions</th>
+                      <th style={styles.th}>Status</th>
+                      <th style={styles.th}>Company name</th>
+                      <th style={styles.th}>GST no.</th>
+                      <th style={styles.th}>Contact person</th>
+                      <th style={styles.th}>Email</th>
+                      <th style={styles.th}>Contact number</th>
+                      {/* Dynamic Header based on activeTab */}
+                      <th style={styles.th}>{activeTab === "erp" ? "Trial Plan" : "Category"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dataList.length === 0 ? (
+                      <tr>
+                        <td colSpan="8">
+                          <div style={styles.emptyState}>
+                            <IconInbox color="#9AA5AF" />
+                            <div style={styles.emptyTitle}>No matching records</div>
+                            <div style={styles.emptySubtitle}>Try changing your filter criteria or search query.</div>
+                          </div>
+                        </td>
+                      </tr>
                     ) : (
-                      <span style={styles.processedLabel}>
-                        {isApproved ? "Approved" : "Rejected"}
-                      </span>
-                    )}
-                  </td>
-                  <td style={styles.td}>
-                    <span style={badgeStyle}>
-                      <span style={styles.badgeDot} />
-                      {displayStatus}
-                    </span>
-                  </td>
-                  <td style={styles.td}>
-                    <strong style={{ color: "#14181C" }}>{row.CompanyName}</strong>
-                  </td>
-                  <td style={styles.td}>
-                    <div style={styles.gstCell}>
-                      <span style={{ fontFamily: "monospace", fontWeight: 600 }}>{gst}</span>
-                      {gst !== "-" && (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenGstPortal(row)}
-                          className="ap-validate-btn"
-                          style={styles.validateBtn}
-                          title="Copy GSTIN and open IRIS MSME verification in a new tab"
-                        >
-                          <IconShieldCheck />
-                          {copiedGstId === row.Id ? "Copied! Opening..." : "Verify on IRIS"}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                  <td style={styles.td}>{contactPerson || "-"}</td>
-                  <td style={styles.td}>{email || "-"}</td>
-                  <td style={styles.td}>{mobile || "-"}</td>
-                  <td style={styles.td}>{trialOrCategory}</td>
-                </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
-    </div>
-  )}
+                      dataList.map((row) => {
+                        const rawStatus = (activeTab === "erp" ? row.TrialStatus : row.Status) || "";
+                        const normalizedStatus = rawStatus.trim().toLowerCase();
 
-  {/* Pagination Controls ... */}
-</div>
+                        const isPending =
+                          !rawStatus ||
+                          normalizedStatus === "pending" ||
+                          normalizedStatus === "pending verification" ||
+                          normalizedStatus === "active";
+
+                        const isApproved = normalizedStatus === "approved";
+                        const isRejected = normalizedStatus === "rejected";
+
+                        const displayStatus = isApproved
+                          ? "Approved"
+                          : isRejected
+                            ? "Rejected"
+                            : "Pending Verification";
+
+                        const badgeStyle = isApproved
+                          ? styles.badgeSuccess
+                          : isRejected
+                            ? styles.badgeDanger
+                            : styles.badgeWarning;
+
+                        const gst = row.GSTIN || row.GSTNo || row.GST || row.GstNo || "-";
+                        const contactPerson = activeTab === "erp" ? row.ContactPerson : row.RepresentativeName;
+                        const email = activeTab === "erp" ? row.Email : (row.CompanyEmail || row.RepresentativeEmail);
+                        const mobile = activeTab === "erp" ? row.MobileNo : (row.Mobile || row.RepresentativeMobile);
+
+                        const trialOrCategory = activeTab === "erp"
+                          ? (row.SubscriptionPlan || row.TrialType || row.Trial || "-")
+                          : (row.Category || "-");
+
+                        return (
+                          <tr key={row.Id} className="ap-row" style={styles.tr}>
+                            <td style={styles.td}>
+                              {isPending ? (
+                                <div style={{ display: "flex", gap: "8px" }}>
+                                  <button
+                                    type="button"
+                                    disabled={actionLoading}
+                                    onClick={() => setApproveItem(row)}
+                                    className="ap-approve-btn"
+                                    style={styles.approveBtn}
+                                  >
+                                    <IconCheck />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={actionLoading}
+                                    onClick={() => setRejectItem(row)}
+                                    className="ap-reject-btn"
+                                    style={styles.rejectBtn}
+                                  >
+                                    <IconX />
+                                  </button>
+                                </div>
+                              ) : (
+                                <span style={styles.processedLabel}>
+                                  {isApproved ? "Approved" : "Rejected"}
+                                </span>
+                              )}
+                            </td>
+                            <td style={styles.td}>
+                              <span style={badgeStyle}>
+                                <span style={styles.badgeDot} />
+                                {displayStatus}
+                              </span>
+                            </td>
+                            <td style={styles.td}>
+                              <strong style={{ color: "#14181C" }}>{row.CompanyName}</strong>
+                            </td>
+                            <td style={styles.td}>
+                              <div style={styles.gstCell}>
+                                <span style={{ fontFamily: "monospace", fontWeight: 600 }}>{gst}</span>
+                                {gst !== "-" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenGstPortal(row)}
+                                    className="ap-validate-btn"
+                                    style={styles.validateBtn}
+                                    title="Copy GSTIN and open IRIS MSME verification in a new tab"
+                                  >
+                                    <IconShieldCheck />
+                                    {copiedGstId === row.Id ? "Copied! Opening..." : "Verify on IRIS"}
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                            <td style={styles.td}>{contactPerson || "-"}</td>
+                            <td style={styles.td}>{email || "-"}</td>
+                            <td style={styles.td}>{mobile || "-"}</td>
+                            <td style={styles.td}>{trialOrCategory}</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination Controls ... */}
+          </div>
         </div>
 
         {/* Approve Confirmation Modal */}
