@@ -28,6 +28,7 @@ import Logo from "./synlogo.png";
 import "./NewLandingPage.css";
 import ERPModulesBook from "./Erpmodulesbook";
 import ProductsOpenForEnquiries from "./ProductsOpenForEnquiries";
+import CollectiveBuyShowcase from "./CollectiveBuyShowcase";
 import logo from "./synlogo.png";
 import sd1 from "./assets/sale1.png"
 import sd2 from "./assets/sales2.png"
@@ -2205,20 +2206,27 @@ function NewLandingPage() {
         {/* ========================================================================= */}
         {/* SECTION 04: COLLECTIVE BUY - DEMAND AGGREGATION & PRODUCTS FOR ENQUIRIES */}
         {/* ========================================================================= */}
-        <section id="collective-buy" className="collective-buy-landing-section section-wrap" style={{ background: "#F5F8FA", padding: "17px 0", borderTop: "1px solid #E2E8F0" }}>
+        <section id="collective-buy" className="collective-buy-landing-section section-wrap" style={{ background: "#F5F8FA", padding: "36px 0 24px 0", borderTop: "1px solid #E2E8F0" }}>
           <div style={{ maxWidth: "1520px", margin: "0 auto", padding: "0 24px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+            {/* <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
               <div className="section-kicker teal" style={{ margin: 0, padding: "4px 14px", background: "#0E7C86", color: "#fff", borderRadius: "4px", fontWeight: "800", fontSize: "14px" }}>
                 04
               </div>
               <span style={{ fontSize: "13px", fontWeight: "800", letterSpacing: "1px", textTransform: "uppercase", color: "#0E7C86" }}>
-                Products Open for Enquiries
-                {/* <p>
-              
-           Find an industria raw material, submit your volume requirement, and participate in collective buying rounds to access direct manufacturer bulk pricing.
-     </p>  */}
+                Synergy5M <span>CollectiveBuy</span>
               </span>
-            </div>
+            </div> */}
+
+            {/* Synergy5M CollectiveBuy Showcase */}
+            <CollectiveBuyShowcase
+              onOpenModal={(type) => setModal(type)}
+              onScrollToCatalog={() => {
+                const el = document.getElementById("collective-products-catalog");
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            />
+
+            {/* Live Interactive Product Opportunities & Enquiries */}
             <ProductsOpenForEnquiries embedded={true} />
           </div>
         </section>

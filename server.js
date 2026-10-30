@@ -71,7 +71,7 @@ const publicFormLimiter = rateLimit({
   message: { success: false, message: "Too many requests. Please slow down and try again shortly." },
 });
 
-// Email Transporter configuration
+// Email Transporter configuration with connection pooling & timeouts
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
   port: parseInt(process.env.SMTP_PORT, 10) || 587,
@@ -80,10 +80,37 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  pool: true,
+  maxConnections: 5,
+  maxMessages: 100,
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
   tls: {
     rejectUnauthorized: process.env.NODE_ENV === "development" ? false : true,
   },
 });
+
+// Non-blocking parallel background email dispatcher with batching & polite spacing
+function dispatchEmailTasksInBackground(tasks) {
+  if (!tasks || tasks.length === 0) return;
+  (async () => {
+    const BATCH_SIZE = 4;
+    for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
+      const batch = tasks.slice(i, i + BATCH_SIZE);
+      await Promise.allSettled(batch.map(async (task) => {
+        try {
+          await transporter.sendMail(task.mailOptions);
+        } catch (err) {
+          // Suppress sensitive SMTP/PII details from logs
+        }
+      }));
+      if (i + BATCH_SIZE < tasks.length) {
+        await new Promise(r => setTimeout(r, 150));
+      }
+    }
+  })().catch(() => {});
+}
 
 // Resilient filesystem handling
 let uploadDir = path.join(__dirname, "uploads");
@@ -1529,6 +1556,10 @@ app.get('/api/enquiry-categories', async (req, res) => {
             SELECT DISTINCT ProdCat AS Category FROM [dbo].[BuyingEnquiryTbl] WHERE ProdCat IS NOT NULL AND LTRIM(RTRIM(ProdCat)) <> ''
             UNION
             SELECT DISTINCT ItemCat AS Category FROM [dbo].[SellingEnquiryTbl] WHERE ItemCat IS NOT NULL AND LTRIM(RTRIM(ItemCat)) <> ''
+            UNION
+            SELECT DISTINCT Category AS Category FROM [dbo].[CollectiveProducts] WHERE Category IS NOT NULL AND LTRIM(RTRIM(Category)) <> ''
+            UNION
+            SELECT DISTINCT Category AS Category FROM [dbo].[Potential_Vendor] WHERE Category IS NOT NULL AND LTRIM(RTRIM(Category)) <> ''
             ORDER BY Category ASC
         `);
 
@@ -1615,12 +1646,62 @@ app.get('/api/potential-vendors', verifyAdminToken, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+// Get Collective Buying Enquiries for EnquiryMapper (Submit Offer dispatch)
+app.get('/api/collective-enquiries-for-vendors', verifyAdminToken, async (req, res) => {
+    try {
+        const { category } = req.query;
+        const pool = await poolPromise;
+        if (!pool) return res.status(500).json({ error: "Database connection not available" });
+
+        let query = `
+            SELECT 
+                ce.Id,
+                ce.ProductId,
+                ce.ProductName,
+                COALESCE(cp.Category, 'General Industrial') AS ProdCat,
+                COALESCE(cp.Category, 'General Industrial') AS Category,
+                cp.GradeVariant,
+                ce.RequiredQuantity AS ReqQty,
+                ce.RequiredQuantity,
+                ce.Uom,
+                ce.DeliveryLocation AS DelLoc,
+                ce.DeliveryLocation,
+                ce.TargetDeliveryDate AS ReqDelDate,
+                ce.TargetDeliveryDate,
+                ce.CompanyName,
+                ce.ContactPerson,
+                ce.Email,
+                ce.Phone,
+                ce.Comments,
+                ce.Status,
+                ce.CreatedAt
+            FROM [dbo].[CollectiveEnquiries] ce
+            LEFT JOIN [dbo].[CollectiveProducts] cp ON ce.ProductId = cp.Id
+            WHERE (ce.Status = 'Submitted' OR ce.Status = 'In Review' OR ce.Status IS NULL OR ce.Status = 'Allocated to Pool')
+        `;
+
+        const request = pool.request();
+        if (category) {
+            query += ` AND UPPER(LTRIM(RTRIM(COALESCE(cp.Category, '')))) = UPPER(LTRIM(RTRIM(@category)))`;
+            request.input('category', sql.VarChar, category);
+        }
+
+        query += ` ORDER BY ce.Id DESC`;
+
+        const result = await request.query(query);
+        return res.json(result.recordset || []);
+    } catch (err) {
+        console.error("Error fetching collective enquiries for vendors:", err);
+        return res.status(500).json({ error: err.message });
+    }
+});
 // Helper function for professional HTML email structure
 
 
  // If using ES modules / React, or use require in Node.js: 
 
-const generateStyledEmailHtml = (recipientName, enquiryTitle, detailsHtml, isBuyerLead) => {
+const generateStyledEmailHtml = (recipientName, enquiryTitle, detailsHtml, isBuyerLead, customIntro, customCtaUrl, customCtaText) => {
     return `
     <!DOCTYPE html>
     <html>
@@ -1662,10 +1743,10 @@ const generateStyledEmailHtml = (recipientName, enquiryTitle, detailsHtml, isBuy
                                 </h2>
                                 
                                 <p style="font-size: 14.5px; line-height: 1.6; color: #475569; margin-bottom: 24px;">
-                                    ${isBuyerLead 
+                                    ${customIntro || (isBuyerLead 
                                         ? `We have identified a new purchase requirement matching your business profile and product category. Please review the specifications below and submit your competitive quotation.`
                                         : `We have an active product offering available in your category. Please review the offer specifications below if interested in procurement.`
-                                    }
+                                    )}
                                 </p>
 
                                 <!-- Specification Card Grid -->
@@ -1683,8 +1764,8 @@ const generateStyledEmailHtml = (recipientName, enquiryTitle, detailsHtml, isBuy
                                 <table width="100%" border="0" cellspacing="0" cellpadding="0" style="text-align: center; margin-bottom: 28px;">
                                     <tr>
                                         <td>
-                                            <a href="https://synergy5m-business-4-profit-platform.azurewebsites.net/" target="_blank" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #ffffff; padding: 13px 26px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; display: inline-block; box-shadow: 0 4px 12px rgba(249, 115, 22, 0.35); margin-right: 12px;">
-                                                🚀 View & Respond Now
+                                            <a href="${customCtaUrl || 'https://synergy5m-business-4-profit-platform.azurewebsites.net/'}" target="_blank" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #ffffff; padding: 13px 26px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; display: inline-block; box-shadow: 0 4px 12px rgba(249, 115, 22, 0.35); margin-right: 12px;">
+                                                ${customCtaText || '🚀 View & Respond Now'}
                                             </a>
                                             <a href="https://synergy5m.com/" target="_blank" style="background: linear-gradient(135deg, #334155 0%, #1e293b 100%); color: #ffffff; padding: 13px 26px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; display: inline-block; box-shadow: 0 4px 12px rgba(51, 65, 85, 0.35);">
                                                 🌐 Synergy Web
@@ -1723,240 +1804,339 @@ const generateStyledEmailHtml = (recipientName, enquiryTitle, detailsHtml, isBuy
 
 // Combined Email Dispatcher for Buying/Selling Enquiries to Potential Vendors
 app.post('/api/send-enquiry-email', verifyAdminToken, async (req, res) => {
-    const { buyerEnqIds, sellerEnqIds, vendorIds, mode } = req.body;
+    const { buyerEnqIds, sellerEnqIds, collectiveEnqIds, vendorIds, mode, enquiriesData } = req.body;
 
     try {
         const pool = await poolPromise;
         if (!pool) return res.status(500).json({ error: "Database connection not available" });
 
+        // Clean and validate vendor IDs
+        const cleanVendorIds = (Array.isArray(vendorIds) ? vendorIds : [])
+            .map(v => parseInt(v, 10))
+            .filter(v => !isNaN(v) && v > 0);
+
+        if (cleanVendorIds.length === 0) {
+            return res.status(400).json({ error: "Please select at least one vendor." });
+        }
+
+        // Fetch selected vendors in ONE bulk query
+        const vReq = pool.request();
+        cleanVendorIds.forEach((id, idx) => vReq.input(`vid_${idx}`, sql.Int, id));
+        const vQuery = `SELECT * FROM [dbo].[Potential_Vendor] WHERE Id IN (${cleanVendorIds.map((_, idx) => `@vid_${idx}`).join(', ')})`;
+        const vRes = await vReq.query(vQuery);
+        const vendors = vRes.recordset.filter(v => v.Email && v.Email.includes('@'));
+
+        if (vendors.length === 0) {
+            return res.status(400).json({ error: "None of the selected vendors have a valid email address." });
+        }
+
+        // =========================================================================
         // Mode 1: Send Buying Enquiries to Selected Vendors
-        if (mode === 'vendor-buying' && buyerEnqIds && vendorIds) {
-            for (const bId of buyerEnqIds) {
-                const bRes = await pool.request().input('id', sql.Int, bId)
-                    .query(`SELECT b.*, u.username as UserEmail FROM [dbo].[BuyingEnquiryTbl] b LEFT JOIN [dbo].[HRM_UserTbl] u ON b.UID = u.id WHERE b.Id = @id`);
-                
-                if (bRes.recordset.length === 0) continue;
-                const buyer = bRes.recordset[0];
+        // =========================================================================
+        if (mode === 'vendor-buying' && buyerEnqIds) {
+            const cleanBuyerIds = (Array.isArray(buyerEnqIds) ? buyerEnqIds : [])
+                .map(b => parseInt(b, 10))
+                .filter(b => !isNaN(b) && b > 0);
 
-                for (const vId of vendorIds) {
-                    const vRes = await pool.request().input('id', sql.Int, vId)
-                        .query(`SELECT * FROM [dbo].[Potential_Vendor] WHERE Id = @id`);
-                    
-                    if (vRes.recordset.length === 0) continue;
-                    const vendor = vRes.recordset[0];
+            if (cleanBuyerIds.length === 0) {
+                return res.status(400).json({ error: "No valid buying enquiries selected." });
+            }
 
-                    if (vendor.Email) {
-                        const detailsRows = `
-                            <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Enquiry No:</td><td style="color: #1e293b; font-weight: 700;">${buyer.EnqNo || 'N/A'}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Product Name:</td><td style="color: #1e293b; font-weight: 700;">${buyer.ProdName}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${buyer.ProdCat || 'N/A'}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Grade / Specs:</td><td style="color: #334155;">${buyer.Grade || 'Standard'}</td></tr>
-                             <tr><td style="color: #ea580c; font-weight: 600;">HSN:</td><td style="color: #334155;">${buyer.HSN || 'Standard'}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Payment Terms:</td><td style="color: #334155;">${buyer.PayTerms || 'Standard'}</td></tr>
+            const bReq = pool.request();
+            cleanBuyerIds.forEach((id, idx) => bReq.input(`bid_${idx}`, sql.Int, id));
+            const bQuery = `
+                SELECT b.*, u.username as UserEmail 
+                FROM [dbo].[BuyingEnquiryTbl] b 
+                LEFT JOIN [dbo].[HRM_UserTbl] u ON b.UID = u.id 
+                WHERE b.Id IN (${cleanBuyerIds.map((_, idx) => `@bid_${idx}`).join(', ')})
+            `;
+            const bRes = await bReq.query(bQuery);
+            const buyers = bRes.recordset;
 
-                            <tr><td style="color: #ea580c; font-weight: 600;">Required Qty:</td><td style="color: #ea580c; font-weight: 700;">${buyer.ReqQty} ${buyer.UOM}</td></tr>
+            if (buyers.length === 0) {
+                return res.status(400).json({ error: "Selected buying enquiries not found." });
+            }
 
-                            <tr><td style="color: #ea580c; font-weight: 600;">Delivery Location and Expected Date:</td><td style="color: #334155;">${buyer.DelLoc || 'CIF'} (${buyer.ReqDelDate || 'Domestic'})</td></tr>
-                           <tr><td style="color: #ea580c; font-weight: 600;">Region:</td><td style="color: #334155;">${buyer.DomImport || 'Standard'}</td></tr>
-                           <tr><td style="color: #ea580c; font-weight: 600;">Enquiry Valid Till:</td><td style="color: #334155;">${buyer.EnqValDate || 'Standard'}</td></tr>
+            const tasks = [];
+            for (const buyer of buyers) {
+                const detailsRows = `
+                    <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Enquiry No:</td><td style="color: #1e293b; font-weight: 700;">${buyer.EnqNo || 'N/A'}</td></tr>
+                    <tr><td style="color: #ea580c; font-weight: 600;">Product Name:</td><td style="color: #1e293b; font-weight: 700;">${buyer.ProdName}</td></tr>
+                    <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${buyer.ProdCat || 'N/A'}</td></tr>
+                    <tr><td style="color: #ea580c; font-weight: 600;">Grade / Specs:</td><td style="color: #334155;">${buyer.Grade || 'Standard'}</td></tr>
+                    <tr><td style="color: #ea580c; font-weight: 600;">HSN:</td><td style="color: #334155;">${buyer.HSN || 'Standard'}</td></tr>
+                    <tr><td style="color: #ea580c; font-weight: 600;">Payment Terms:</td><td style="color: #334155;">${buyer.PayTerms || 'Standard'}</td></tr>
+                    <tr><td style="color: #ea580c; font-weight: 600;">Required Qty:</td><td style="color: #ea580c; font-weight: 700;">${buyer.ReqQty} ${buyer.UOM}</td></tr>
+                    <tr><td style="color: #ea580c; font-weight: 600;">Delivery Location:</td><td style="color: #334155;">${buyer.DelLoc || 'CIF'} (${buyer.ReqDelDate || 'Domestic'})</td></tr>
+                    <tr><td style="color: #ea580c; font-weight: 600;">Region:</td><td style="color: #334155;">${buyer.DomImport || 'Standard'}</td></tr>
+                    <tr><td style="color: #ea580c; font-weight: 600;">Enquiry Valid Till:</td><td style="color: #334155;">${buyer.EnqValDate || 'Standard'}</td></tr>
+                `;
 
+                for (const vendor of vendors) {
+                    const mailHtml = generateStyledEmailHtml(
+                        vendor.Contact_Person || vendor.Company_Name,
+                        'Purchase Requirement Inquiry',
+                        detailsRows,
+                        true
+                    );
 
-                        `;
-
-                        const mailHtml = generateStyledEmailHtml(
-                            vendor.Contact_Person || vendor.Company_Name, 
-                            'Purchase Requirement Inquiry', 
-                            detailsRows, 
-                            true
-                        );
-
-                        const mailOptions = {
+                    tasks.push({
+                        to: vendor.Email,
+                        mailOptions: {
                             from: process.env.SMTP_USER || "sales@synergy5m.com",
                             to: vendor.Email,
                             cc: [buyer.UserEmail].filter(Boolean),
                             subject: `New Buy Lead: ${buyer.ProdName} (${buyer.ReqQty} ${buyer.UOM})`,
                             html: mailHtml
-                        };
-                        await transporter.sendMail(mailOptions);
-                    }
+                        }
+                    });
                 }
             }
-            return res.json({ success: true, message: "Buying enquiries successfully sent to selected vendors!" });
+
+            // Immediately send HTTP success response to prevent ANY gateway timeout
+            res.json({
+                success: true,
+                totalVendors: vendors.length,
+                totalEmails: tasks.length,
+                message: `Buying enquiries successfully dispatched to ${vendors.length} selected vendor${vendors.length === 1 ? '' : 's'}!`
+            });
+
+            // Dispatch emails asynchronously in background
+            dispatchEmailTasksInBackground(tasks, 'Vendor-Buying');
+            return;
         }
 
+        // =========================================================================
         // Mode 2: Send Selling Enquiries to Selected Vendors
-        if (mode === 'vendor-selling' && sellerEnqIds && vendorIds) {
-            for (const sId of sellerEnqIds) {
-                const sRes = await pool.request().input('id', sql.Int, sId)
-                    .query(`SELECT s.*, u.username as UserEmail FROM [dbo].[SellingEnquiryTbl] s LEFT JOIN [dbo].[HRM_UserTbl] u ON s.UID = u.id WHERE s.Id = @id`);
-                
-                if (sRes.recordset.length === 0) continue;
-                const seller = sRes.recordset[0];
+        // =========================================================================
+        if (mode === 'vendor-selling' && sellerEnqIds) {
+            const cleanSellerIds = (Array.isArray(sellerEnqIds) ? sellerEnqIds : [])
+                .map(s => parseInt(s, 10))
+                .filter(s => !isNaN(s) && s > 0);
 
-                for (const vId of vendorIds) {
-                    const vRes = await pool.request().input('id', sql.Int, vId)
-                        .query(`SELECT * FROM [dbo].[Potential_Vendor] WHERE Id = @id`);
-                    
-                    if (vRes.recordset.length === 0) continue;
-                    const vendor = vRes.recordset[0];
+            if (cleanSellerIds.length === 0) {
+                return res.status(400).json({ error: "No valid selling enquiries selected." });
+            }
 
-                    if (vendor.Email) {
-                        const detailsRows = `
-                            <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Offer No:</td><td style="color: #1e293b; font-weight: 700;">${seller.OfferNo || 'N/A'}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Product Name:</td><td style="color: #1e293b; font-weight: 700;">${seller.ProdName}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${seller.ItemCat || 'N/A'}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Grade:</td><td style="color: #334155;">${seller.Grade || 'Standard'}</td></tr>
-                            <tr><td style="color: #ea580c; font-weight: 600;">Quantity Offered:</td><td style="color: #ea580c; font-weight: 700;">${seller.QuantityOffered} ${seller.UOM}</td></tr>
-                               `;
+            const sReq = pool.request();
+            cleanSellerIds.forEach((id, idx) => sReq.input(`sid_${idx}`, sql.Int, id));
+            const sQuery = `
+                SELECT s.*, u.username as UserEmail 
+                FROM [dbo].[SellingEnquiryTbl] s 
+                LEFT JOIN [dbo].[HRM_UserTbl] u ON s.UID = u.id 
+                WHERE s.Id IN (${cleanSellerIds.map((_, idx) => `@sid_${idx}`).join(', ')})
+            `;
+            const sRes = await sReq.query(sQuery);
+            const sellers = sRes.recordset;
 
-                        const mailHtml = generateStyledEmailHtml(
-                            vendor.Contact_Person || vendor.Company_Name, 
-                            'Product Offering Notice', 
-                            detailsRows, 
-                            false
-                        );
+            if (sellers.length === 0) {
+                return res.status(400).json({ error: "Selected selling enquiries not found." });
+            }
 
-                        const mailOptions = {
+            const tasks = [];
+            for (const seller of sellers) {
+                const detailsRows = `
+                    <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Offer No:</td><td style="color: #1e293b; font-weight: 700;">${seller.OfferNo || 'N/A'}</td></tr>
+                    <tr><td style="color: #ea580c; font-weight: 600;">Product Name:</td><td style="color: #1e293b; font-weight: 700;">${seller.ProdName}</td></tr>
+                    <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${seller.ItemCat || 'N/A'}</td></tr>
+                    <tr><td style="color: #ea580c; font-weight: 600;">Grade:</td><td style="color: #334155;">${seller.Grade || 'Standard'}</td></tr>
+                    <tr><td style="color: #ea580c; font-weight: 600;">Quantity Offered:</td><td style="color: #ea580c; font-weight: 700;">${seller.QuantityOffered} ${seller.UOM}</td></tr>
+                `;
+
+                for (const vendor of vendors) {
+                    const mailHtml = generateStyledEmailHtml(
+                        vendor.Contact_Person || vendor.Company_Name,
+                        'Product Offering Notice',
+                        detailsRows,
+                        false
+                    );
+
+                    tasks.push({
+                        to: vendor.Email,
+                        mailOptions: {
                             from: process.env.SMTP_USER || "sales@synergy5m.com",
                             to: vendor.Email,
                             cc: [seller.UserEmail].filter(Boolean),
                             subject: `New Selling Offer: ${seller.ProdName} (${seller.QuantityOffered} ${seller.UOM})`,
                             html: mailHtml
-                        };
-                        await transporter.sendMail(mailOptions);
-                    }
+                        }
+                    });
                 }
             }
-            return res.json({ success: true, message: "Selling offers successfully sent to selected vendors!" });
+
+            res.json({
+                success: true,
+                totalVendors: vendors.length,
+                totalEmails: tasks.length,
+                message: `Selling offers successfully dispatched to ${vendors.length} selected vendor${vendors.length === 1 ? '' : 's'}!`
+            });
+
+            dispatchEmailTasksInBackground(tasks, 'Vendor-Selling');
+            return;
+        }
+
+        // =========================================================================
+        // Mode 3: Send Collective Buying Enquiries to Selected Category Vendors to Submit Offer
+        // =========================================================================
+        if (mode === 'submit-offer' || mode === 'vendor-collective') {
+            let enquiriesToProcess = [];
+
+            // If full enquiry objects passed directly from frontend, use them
+            if (Array.isArray(enquiriesData) && enquiriesData.length > 0) {
+                enquiriesToProcess = enquiriesData;
+            } else {
+                const rawEnqIds = collectiveEnqIds || buyerEnqIds || [];
+                const cleanEnqIds = (Array.isArray(rawEnqIds) ? rawEnqIds : [])
+                    .map(e => parseInt(e, 10))
+                    .filter(e => !isNaN(e) && e > 0);
+
+                if (cleanEnqIds.length > 0) {
+                    const eReq = pool.request();
+                    cleanEnqIds.forEach((id, idx) => eReq.input(`eid_${idx}`, sql.Int, id));
+                    const eQuery = `
+                        SELECT ce.*, cp.Category AS ProdCat, cp.GradeVariant 
+                        FROM [dbo].[CollectiveEnquiries] ce 
+                        LEFT JOIN [dbo].[CollectiveProducts] cp ON ce.ProductId = cp.Id 
+                        WHERE ce.Id IN (${cleanEnqIds.map((_, idx) => `@eid_${idx}`).join(', ')})
+                    `;
+                    const eRes = await eReq.query(eQuery);
+                    enquiriesToProcess = eRes.recordset;
+                }
+            }
+
+            if (enquiriesToProcess.length === 0) {
+                return res.status(400).json({ error: "No valid enquiry requirements selected." });
+            }
+
+            // 1. Calculate Aggregate Summary across all combined buyer requirements
+            let totalAggregatedQuantity = 0;
+            const uom = enquiriesToProcess[0]?.Uom || enquiriesToProcess[0]?.uom || 'MT';
+            const prodName = enquiriesToProcess[0]?.ProductName || enquiriesToProcess[0]?.productName || 'Industrial Product';
+            const prodCat = enquiriesToProcess[0]?.ProdCat || enquiriesToProcess[0]?.Category || enquiriesToProcess[0]?.category || 'Industrial';
+            const grade = enquiriesToProcess[0]?.GradeVariant || enquiriesToProcess[0]?.Grade || enquiriesToProcess[0]?.grade || 'Commercial Grade';
+            const prodId = enquiriesToProcess[0]?.ProductId || enquiriesToProcess[0]?.productId;
+
+            const uniqueDestinations = new Set();
+            enquiriesToProcess.forEach(e => {
+                const q = parseFloat(e.RequiredQuantity || e.ReqQty || e.quantity || 0) || 0;
+                totalAggregatedQuantity += q;
+                const loc = e.DeliveryLocation || e.DelLoc || e.region;
+                if (loc) uniqueDestinations.add(loc);
+            });
+
+            const deliveryDestinationsSummary = Array.from(uniqueDestinations).join(', ') || 'As per buyer network';
+
+            // 2. Specific Itemized Table of all combined buyer requirements
+            const buyerRowsHtml = enquiriesToProcess.map((enq, idx) => {
+                const enqRef = enq.Id || enq.id ? `#CE-${enq.Id || enq.id}` : `Ref #${idx + 1}`;
+                const buyerName = enq.CompanyName || enq.companyName || 'Verified Industrial Buyer';
+                const loc = enq.DeliveryLocation || enq.DelLoc || enq.region || 'Standard Dock';
+                const q = enq.RequiredQuantity || enq.ReqQty || enq.quantity || '-';
+                const targetDate = enq.TargetDeliveryDate || enq.targetDeliveryDate;
+                const targetDateStr = targetDate 
+                    ? new Date(targetDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : 'Open / Flexible';
+                const remarks = enq.Comments || enq.comments;
+
+                return `
+                    <tr style="border-bottom: 1px solid #fed7aa; background-color: ${idx % 2 === 0 ? '#ffffff' : '#fffaf5'};">
+                        <td style="padding: 10px; font-weight: 700; color: #ea580c; white-space: nowrap;">${enqRef}</td>
+                        <td style="padding: 10px; color: #1e293b;">
+                            <strong>${buyerName}</strong>
+                            <div style="font-size: 11.5px; color: #64748b;">📍 ${loc}</div>
+                            ${remarks ? `<div style="font-size: 11px; color: #94a3b8; font-style: italic;">Note: ${remarks}</div>` : ''}
+                        </td>
+                        <td style="padding: 10px; font-weight: 700; text-align: right; color: #0f172a; white-space: nowrap;">${q} ${uom}</td>
+                        <td style="padding: 10px; color: #475569; font-size: 12px; white-space: nowrap;">${targetDateStr}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            const detailsRows = `
+                <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Product:</td><td style="color: #1e293b; font-weight: 700; font-size: 15px;">${prodName}</td></tr>
+                <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${prodCat}</td></tr>
+                <tr><td style="color: #ea580c; font-weight: 600;">Grade / Specs:</td><td style="color: #334155;">${grade}</td></tr>
+                <tr>
+                    <td style="color: #ea580c; font-weight: 600;">Total Aggregated Demand:</td>
+                    <td style="color: #087f82; font-weight: 800; font-size: 16px;">
+                        ${totalAggregatedQuantity > 0 ? totalAggregatedQuantity : 'Consolidated'} ${uom}
+                        <span style="font-size: 12px; font-weight: normal; color: #64748b;">(${enquiriesToProcess.length} verified requirement${enquiriesToProcess.length === 1 ? '' : 's'} combined)</span>
+                    </td>
+                </tr>
+                <tr><td style="color: #ea580c; font-weight: 600;">Delivery Destinations:</td><td style="color: #334155;">${deliveryDestinationsSummary}</td></tr>
+                <tr>
+                    <td colspan="2" style="padding-top: 16px;">
+                        <div style="font-weight: 700; color: #0f172a; margin-bottom: 8px; font-size: 13.5px;">
+                            📋 Consolidated Buyer Enquiries Breakdown (${enquiriesToProcess.length}):
+                        </div>
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #fed7aa; border-radius: 8px; overflow: hidden; font-size: 12.5px;">
+                            <thead>
+                                <tr style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #ffffff;">
+                                    <th style="padding: 9px 10px; text-align: left; font-size: 12px;">Ref</th>
+                                    <th style="padding: 9px 10px; text-align: left; font-size: 12px;">Buyer & Destination</th>
+                                    <th style="padding: 9px 10px; text-align: right; font-size: 12px;">Demand Qty</th>
+                                    <th style="padding: 9px 10px; text-align: left; font-size: 12px;">Target Schedule</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${buyerRowsHtml}
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+            `;
+
+            const submitOfferUrl = prodId 
+                ? `https://synergy5m.com/admin/opportunity/${encodeURIComponent(prodId)}`
+                : `https://synergy5m.com/collective-buy`;
+
+            const customIntro = `We have aggregated verified buyer demand in your product category (${prodCat}). Below is the consolidated opportunity combining all active buyer enquiries into this single RFQ. Please review the aggregate demand and specific breakdown, then submit your competitive supply quotation / offer.`;
+
+            // SEND ONLY ONE EMAIL PER VENDOR (combining all offers & aggregate into one email)
+            const tasks = [];
+            for (const vendor of vendors) {
+                const mailHtml = generateStyledEmailHtml(
+                    vendor.Contact_Person || vendor.Company_Name, 
+                    'Consolidated Procurement Opportunity - Submit Supply Offer', 
+                    detailsRows, 
+                    true,
+                    customIntro,
+                    submitOfferUrl,
+                    '🚀 Submit Supply Offer Now'
+                );
+
+                tasks.push({
+                    to: vendor.Email,
+                    mailOptions: {
+                        from: process.env.SMTP_USER || "sales@synergy5m.com",
+                        to: vendor.Email,
+                        subject: `RFQ: Consolidated Demand for ${prodName} (${totalAggregatedQuantity > 0 ? totalAggregatedQuantity + ' ' + uom : 'Aggregated'} across ${enquiriesToProcess.length} buyers)`,
+                        html: mailHtml
+                    }
+                });
+            }
+
+
+            // Immediately send HTTP success response: NO MORE 504 GATEWAY TIMEOUT!
+            res.json({
+                success: true,
+                totalEnquiries: enquiriesToProcess.length,
+                totalVendors: vendors.length,
+                totalEmails: tasks.length,
+                message: `Enquiry successfully dispatched to ${vendors.length} selected vendor${vendors.length === 1 ? '' : 's'} to submit offers!`
+            });
+
+            // Dispatch emails asynchronously in background
+            dispatchEmailTasksInBackground(tasks, 'Submit-Offer');
+            return;
         }
 
         return res.status(400).json({ error: "Invalid mode or parameters provided." });
     } catch (err) {
-        console.error("Email dispatch error:", err);
+        console.error("Email dispatch error");
         res.status(500).json({ error: err.message });
     }
 });
-// // Combined Email Dispatcher for Buying/Selling Enquiries to Potential Vendors
-// app.post('/api/send-enquiry-email', async (req, res) => {
-//     const { buyerEnqIds, sellerEnqIds, vendorIds, mode } = req.body;
-
-//     try {
-//         const pool = await poolPromise;
-//         if (!pool) return res.status(500).json({ error: "Database connection not available" });
-
-//         // Safely check if the local logo file exists on disk
-//         const logoFilePath = path.join(__dirname, 'uploads', 'synergy-logo.png');
-//         const hasLogo = fs.existsSync(logoFilePath);
-
-//         const emailAttachments = hasLogo ? [{
-//             filename: 'logo.png',
-//             path: logoFilePath,
-//             cid: 'synergylogo'
-//         }] : [];
-
-//         // Mode 1: Send Buying Enquiries to Selected Vendors
-//         if (mode === 'vendor-buying' && buyerEnqIds && vendorIds) {
-//             for (const bId of buyerEnqIds) {
-//                 const bRes = await pool.request().input('id', sql.Int, bId)
-//                     .query(`SELECT b.*, u.username as UserEmail FROM [dbo].[BuyingEnquiryTbl] b LEFT JOIN [dbo].[HRM_UserTbl] u ON b.UID = u.id WHERE b.Id = @id`);
-                
-//                 if (bRes.recordset.length === 0) continue;
-//                 const buyer = bRes.recordset[0];
-
-//                 for (const vId of vendorIds) {
-//                     const vRes = await pool.request().input('id', sql.Int, vId)
-//                         .query(`SELECT * FROM [dbo].[Potential_Vendor] WHERE Id = @id`);
-                    
-//                     if (vRes.recordset.length === 0) continue;
-//                     const vendor = vRes.recordset[0];
-
-//                     if (vendor.Email) {
-//                         const detailsRows = `
-//                             <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Enquiry No:</td><td style="color: #1e293b; font-weight: 700;">${buyer.EnqNo || 'N/A'}</td></tr>
-//                             <tr><td style="color: #ea580c; font-weight: 600;">Product Name:</td><td style="color: #1e293b; font-weight: 700;">${buyer.ProdName}</td></tr>
-//                             <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${buyer.ProdCat || 'N/A'}</td></tr>
-//                             <tr><td style="color: #ea580c; font-weight: 600;">Grade / Specs:</td><td style="color: #334155;">${buyer.Grade || 'Standard'}</td></tr>
-//                             <tr><td style="color: #ea580c; font-weight: 600;">Required Qty:</td><td style="color: #ea580c; font-weight: 700;">${buyer.ReqQty} ${buyer.UOM}</td></tr>
-//                             <tr><td style="color: #ea580c; font-weight: 600;">Target Price:</td><td style="color: #334155;">${buyer.TgtPrice || 'Negotiable'} ${buyer.Currency || ''}</td></tr>
-//                             <tr><td style="color: #ea580c; font-weight: 600;">Incoterm / Location:</td><td style="color: #334155;">${buyer.Incoterm || 'CIF'} (${buyer.DelLoc || 'Domestic'})</td></tr>
-//                         `;
-
-//                         const mailHtml = generateStyledEmailHtml(
-//                             vendor.Contact_Person || vendor.Company_Name, 
-//                             'Purchase Requirement Inquiry', 
-//                             detailsRows, 
-//                             true
-//                         );
-
-//                         const mailOptions = {
-//                             from: process.env.SMTP_USER || "sales@synergy5m.com",
-//                             to: vendor.Email,
-//                             cc: [buyer.UserEmail].filter(Boolean),
-//                             subject: `New Buy Lead: ${buyer.ProdName} (${buyer.ReqQty} ${buyer.UOM})`,
-//                             html: mailHtml,
-//                             attachments: emailAttachments
-//                         };
-//                         await transporter.sendMail(mailOptions);
-//                     }
-//                 }
-//             }
-//             return res.json({ success: true, message: "Buying enquiries successfully sent to selected vendors!" });
-//         }
-
-//         // Mode 2: Send Selling Enquiries to Selected Vendors
-//         if (mode === 'vendor-selling' && sellerEnqIds && vendorIds) {
-//             for (const sId of sellerEnqIds) {
-//                 const sRes = await pool.request().input('id', sql.Int, sId)
-//                     .query(`SELECT s.*, u.username as UserEmail FROM [dbo].[SellingEnquiryTbl] s LEFT JOIN [dbo].[HRM_UserTbl] u ON s.UID = u.id WHERE s.Id = @id`);
-                
-//                 if (sRes.recordset.length === 0) continue;
-//                 const seller = sRes.recordset[0];
-
-//                 for (const vId of vendorIds) {
-//                     const vRes = await pool.request().input('id', sql.Int, vId)
-//                         .query(`SELECT * FROM [dbo].[Potential_Vendor] WHERE Id = @id`);
-                    
-//                     if (vRes.recordset.length === 0) continue;
-//                     const vendor = vRes.recordset[0];
-
-//                     if (vendor.Email) {
-//                         const detailsRows = `
-//                             <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Offer No:</td><td style="color: #1e293b; font-weight: 700;">${seller.OfferNo || 'N/A'}</td></tr>
-//                             <tr><td style="color: #ea580c; font-weight: 600;">Product Name:</td><td style="color: #1e293b; font-weight: 700;">${seller.ProdName}</td></tr>
-//                             <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${seller.ItemCat || 'N/A'}</td></tr>
-//                             <tr><td style="color: #ea580c; font-weight: 600;">Grade:</td><td style="color: #334155;">${seller.Grade || 'Standard'}</td></tr>
-//                             <tr><td style="color: #ea580c; font-weight: 600;">Quantity Offered:</td><td style="color: #ea580c; font-weight: 700;">${seller.QuantityOffered} ${seller.UOM}</td></tr>
-//                             <tr><td style="color: #ea580c; font-weight: 600;">Price Per Unit:</td><td style="color: #334155;">${seller.PricePerUnit} ${seller.Currency}</td></tr>
-//                         `;
-
-//                         const mailHtml = generateStyledEmailHtml(
-//                             vendor.Contact_Person || vendor.Company_Name, 
-//                             'Product Offering Notice', 
-//                             detailsRows, 
-//                             false
-//                         );
-
-//                         const mailOptions = {
-//                             from: process.env.SMTP_USER || "sales@synergy5m.com",
-//                             to: vendor.Email,
-//                             cc: [seller.UserEmail].filter(Boolean),
-//                             subject: `New Selling Offer: ${seller.ProdName} (${seller.QuantityOffered} ${seller.UOM})`,
-//                             html: mailHtml,
-//                             attachments: emailAttachments
-//                         };
-//                         await transporter.sendMail(mailOptions);
-//                     }
-//                 }
-//             }
-//             return res.json({ success: true, message: "Selling offers successfully sent to selected vendors!" });
-//         }
-
-//         return res.status(400).json({ error: "Invalid mode or parameters provided." });
-//     } catch (err) {
-//         console.error("Email dispatch error:", err);
-//         res.status(500).json({ error: err.message });
-//     }
-// });
 
 
 

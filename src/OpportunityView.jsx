@@ -132,7 +132,7 @@ export default function OpportunityView() {
           }
         }
       } catch (err) {
-        console.warn('Could not fetch detailed buyer enquiries list:', err.message);
+        // Handled via fallback
       }
 
       // Fallback to enquiries in opportunity-data payload
@@ -140,7 +140,7 @@ export default function OpportunityView() {
         setBuyerEnquiries(json.buyerEnquiries);
       }
     } catch (err) {
-      console.error('Error loading opportunity data:', err);
+      // Handled via UI error state
       setOppData(null);
       setBuyerEnquiries([]);
       setDbError(err.message);
@@ -514,7 +514,7 @@ export default function OpportunityView() {
 
               <button
                 type="button"
-                onClick={() => setOfferModalOpen(true)}
+                onClick={() => navigate(`/admin/opportunity/${opp.id || id}/send-to-vendors`)}
                 disabled={!oppData || opp.status === 'Closed'}
                 className="b2b-btn-primary text-xs !min-h-[36px] !py-1.5 !px-4 flex items-center gap-1.5 shadow-xs disabled:opacity-50"
               >
@@ -640,7 +640,7 @@ export default function OpportunityView() {
                     <div className="flex items-center gap-2.5 flex-shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100">
                       <button
                         type="button"
-                        onClick={() => setOfferModalOpen(true)}
+                        onClick={() => navigate(`/admin/opportunity/${opp.id || id}/send-to-vendors`)}
                         disabled={opp.status === 'Closed'}
                         className="b2b-btn-primary text-xs !py-2.5 !px-5 flex items-center gap-2 shadow-sm font-semibold disabled:opacity-50"
                       >

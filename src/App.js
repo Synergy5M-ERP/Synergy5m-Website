@@ -14,6 +14,7 @@ import AdminAuthGuard from './AdminAuthGuard';
 import AdminAddProduct from './AdminAddProduct';
 import ProductsOpenForEnquiries from './ProductsOpenForEnquiries';
 import OpportunityView from './OpportunityView';
+import SendEnquiryToVendors from './SendEnquiryToVendors';
 
 function App() {
   return (
@@ -71,6 +72,22 @@ function App() {
             <Route path="/admin/products" element={<AdminAddProduct initialTab="table" />} />
             <Route path="/admin/opportunity-view" element={<OpportunityView />} />
             <Route path="/admin/opportunity/:id" element={<OpportunityView />} />
+            <Route
+              path="/admin/opportunity/:id/send-to-vendors"
+              element={
+                <AdminAuthGuard>
+                  <SendEnquiryToVendors />
+                </AdminAuthGuard>
+              }
+            />
+            <Route
+              path="/admin/opportunity-send-to-vendors"
+              element={
+                <AdminAuthGuard>
+                  <SendEnquiryToVendors />
+                </AdminAuthGuard>
+              }
+            />
             <Route path="/admin/opportunities" element={<OpportunityView />} />
             <Route path="/products-open-for-enquiries" element={<ProductsOpenForEnquiries embedded={false} />} />
             <Route path="/collective-buy" element={<ProductsOpenForEnquiries embedded={false} />} />

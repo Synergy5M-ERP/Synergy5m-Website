@@ -57,7 +57,7 @@ export default function ProductsOpenForEnquiries({ embedded = false }) {
           }
         }
       } catch (err) {
-        console.warn('Public products API error:', err);
+        // Fallback to local cache
       }
 
       // Check local storage only for offline edits
@@ -239,7 +239,7 @@ export default function ProductsOpenForEnquiries({ embedded = false }) {
   };
 
   return (
-    <div className={`collective-showcase-wrap ${embedded ? 'collective-embedded-section' : 'collective-standalone-page'}`}>
+    <div id="collective-products-catalog" className={`collective-showcase-wrap ${embedded ? 'collective-embedded-section' : 'collective-standalone-page'}`}>
       <div className="collective-container">
         {/* Section Header */}
         {/* <header className="showcase-header">
