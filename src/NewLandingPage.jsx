@@ -212,9 +212,55 @@ const consulting = {
 
 const erpModules = [
   {
+    title: "HRM | Human Resource Management",
+    Icon: Users,
+    tagline: "Manage your people. Strengthen your organization.",
+    about:
+      "Centralize employee-related information and gain a structured view of department-wise manpower and salary expenditure. A dashboard-driven interface helps management review workforce information and monitor key HR indicators.",
+    keyCapabilities: [
+      "Employee information and QR-code functionality",
+      "Department-wise manpower visibility",
+      "Monthly salary expenditure and financial-year trends",
+      "Employee and department information views",
+      "Dashboard summaries for management review",
+    ],
+    covers: [
+      "Employee Master",
+      "Organisation Structure",
+      "Department / Designation",
+      "Attendance",
+      "Leave",
+      "Shift Management",
+      "Employee Documents",
+      "Payroll Inputs",
+      "Performance Parameters",
+      "Training Records",
+      "Skill Matrix",
+      "Manpower MIS",
+    ],
+    businessValue: [
+      "Better visibility of manpower deployment across departments.",
+      "Improved monitoring of salary expenditure.",
+      "Structured access to employee-related information.",
+      "A common view of workforce indicators for management review.",
+    ],
+    images: [hrm3, hrm1, hrm2],
+    advantage:
+      "Know who is responsible, what capability exists, where the skill gaps are and where manpower productivity can improve.",
+  },
+  {
     title: "Material Management",
     Icon: Package,
-    tagline: "Buy Better. Stock Smarter. Control Your Cost.",
+    tagline: "Control materials. Monitor commitments. Improve visibility.",
+    about:
+      "Connect purchasing and inventory information through a structured view of purchase orders, vendors, inventory value and purchase expenditure. Dashboard summaries help teams review procurement activity and material-related information.",
+    keyCapabilities: [
+      "Purchase-order monitoring by month and financial year",
+      "Inventory item counts and inventory value",
+      "Vendor overview and procurement visibility",
+      "Purchase spend by category and subcategory",
+      "Material-group analysis and purchase dashboards",
+    ],
     covers: [
       "Purchase Requisition",
       "Enquiry & Quotation Comparison",
@@ -232,20 +278,105 @@ const erpModules = [
       "Inventory Valuation",
       "Supplier Performance",
     ],
-    images: [
-      mm1, mm2, mm3
+    businessValue: [
+      "Better visibility of purchasing commitments and inventory position.",
+      "Improved understanding of spend across material categories.",
+      "More structured monitoring of purchase-order activity.",
+      "Better-informed purchasing and inventory decisions.",
     ],
-    // images:["https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
-    //   "https://images.unsplash.com/photo-1608222351212-18fe0ec7b13b?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
-    //   "https://images.unsplash.com/photo-1666875753105-c63a6f3bdc86?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D"
-    // ],
+    images: [mm1, mm2, mm3],
     advantage:
       "Know what you are buying, from whom, at what cost, what is lying in stock and where your money is blocked.",
   },
   {
-    title: "Sales & Distribution",
+    title: "Production Management",
+    Icon: Factory,
+    tagline: "Plan better. Track progress. Improve production visibility.",
+    about:
+      "Bring production requirements and key shop-floor indicators into a consolidated view. Production dashboards help management review pending sales orders for production, work-order positions, semi-finished inventory and machine-idle information.",
+    keyCapabilities: [
+      "Production dashboard and operational indicators",
+      "Pending sales orders requiring production attention",
+      "Work-order position summaries",
+      "Machine-idle counts and related information",
+      "Semi-finished inventory quantity and value",
+    ],
+    covers: [
+      "Production Planning",
+      "Production Orders",
+      "BOM / Product Structure",
+      "Material Requirement",
+      "Work-in-Progress",
+      "Material Consumption",
+      "Production Output",
+      "Process Tracking",
+      "Rejection",
+      "Rework",
+      "Machine / Capacity Planning",
+      "Production Costing",
+      "Production MIS",
+    ],
+    businessValue: [
+      "Better visibility of production requirements and pending orders.",
+      "More structured review of work-order progress.",
+      "Improved awareness of machine-idle positions.",
+      "Greater visibility of semi-finished inventory.",
+    ],
+    images: [prod2, prod3, prod1],
+    advantage:
+      "See what should be produced, what is being produced, what material is consumed and where production efficiency is being lost.",
+  },
+  {
+    title: "Quality Management",
+    Icon: ShieldCheck,
+    tagline: "Make quality visible. Strengthen process discipline.",
+    about:
+      "Organize quality control processes across receipt, production and dispatch. Quality dashboards provide visibility into inspection activity, material acceptance, rejection tracking and inspection outcomes.",
+    keyCapabilities: [
+      "Inward, in-process and dispatch inspection views",
+      "Rejection tracking and reason-wise breakdown",
+      "Vendor-wise quality performance indicators",
+      "Material test certificate (MTC) and inspection recording",
+      "Quality summaries for management review",
+    ],
+    covers: [
+      "Incoming Material Inspection",
+      "In-Process Inspection",
+      "Final Inspection",
+      "Quality Parameters",
+      "Specification Management",
+      "Acceptance / Rejection",
+      "Non-Conformance",
+      "Rework",
+      "Rejection Analysis",
+      "Supplier Quality",
+      "Customer Complaints",
+      "Quality MIS",
+      "Traceability",
+    ],
+    businessValue: [
+      "Tighter control over material and product quality.",
+      "Earlier identification of quality issues and vendor defects.",
+      "Structured documentation of inspection and test results.",
+      "Data-driven quality reviews for process improvement.",
+    ],
+    images: [qual2, qual3, qual1],
+    advantage:
+      "Move from “detecting defects” to understanding why defects happen and where they originate.",
+  },
+  {
+    title: "Sales & Distribution Management",
     Icon: ShoppingCart,
-    tagline: "From Enquiry to Collection — One Connected Sales Cycle.",
+    tagline: "From customer enquiry to sales visibility.",
+    about:
+      "Streamline the sales cycle from quotation and sales orders to delivery tracking and dispatch monitoring. Sales dashboards help teams track customer orders, delivery performance and sales trends.",
+    keyCapabilities: [
+      "Enquiry, quotation and sales order management",
+      "Customer-wise order tracking and delivery status",
+      "Dispatch schedule and pending delivery monitoring",
+      "Sales revenue trends and financial-year performance",
+      "Customer and product sales analytics",
+    ],
     covers: [
       "Customer Master",
       "Enquiry Management",
@@ -262,82 +393,29 @@ const erpModules = [
       "Customer Profitability",
       "Sales MIS",
     ],
+    businessValue: [
+      "Faster response to customer enquiries and orders.",
+      "Improved visibility of pending deliveries and commitments.",
+      "Clearer picture of sales performance across products and customers.",
+      "Better coordination between sales, production and dispatch.",
+    ],
     images: [sd1, sd2, sd3],
     advantage:
       "Know not only how much you sold — know what you sold, to whom, at what margin and what is still to be collected.",
   },
   {
-    title: "Production Management",
-    Icon: Factory,
-    tagline: "Plan Better. Produce Better. Waste Less.",
-    covers: [
-      "Production Planning",
-      "Production Orders",
-      "BOM / Product Structure",
-      "Material Requirement",
-      "Work-in-Progress",
-      "Material Consumption",
-      "Production Output",
-      "Process Tracking",
-      "Rejection",
-      "Rework",
-      "Machine / Capacity Planning",
-      "Production Costing",
-      "Production MIS",
-    ],
-    images: [prod2, prod3, prod1],
-    advantage:
-      "See what should be produced, what is being produced, what material is consumed and where production efficiency is being lost.",
-  },
-  {
-    title: "Quality Management",
-    Icon: ShieldCheck,
-    tagline: "Quality Built Into the Process — Not Checked Only at the End.",
-    covers: [
-      "Incoming Material Inspection",
-      "In-Process Inspection",
-      "Final Inspection",
-      "Quality Parameters",
-      "Specification Management",
-      "Acceptance / Rejection",
-      "Non-Conformance",
-      "Rework",
-      "Rejection Analysis",
-      "Supplier Quality",
-      "Customer Complaints",
-      "Quality MIS",
-      "Traceability",
-    ],
-    images: [qual2, qual3, qual1],
-    advantage:
-      "Move from “detecting defects” to understanding why defects happen and where they originate.",
-  },
-  {
-    title: "HR & Manpower Management",
-    Icon: Users,
-    tagline: "Right People. Right Responsibility. Right Productivity.",
-    covers: [
-      "Employee Master",
-      "Organisation Structure",
-      "Department / Designation",
-      "Attendance",
-      "Leave",
-      "Shift Management",
-      "Employee Documents",
-      "Payroll Inputs",
-      "Performance Parameters",
-      "Training Records",
-      "Skill Matrix",
-      "Manpower MIS",
-    ],
-    images: [hrm3, hrm1, hrm2],
-    advantage:
-      "Know who is responsible, what capability exists, where the skill gaps are and where manpower productivity can improve.",
-  },
-  {
-    title: "Accounts & Finance",
+    title: "Accounts & Finance Management",
     Icon: Landmark,
-    tagline: "Don't Just Record Money. Understand Your Money.",
+    tagline: "Financial clarity. Structured records. Informed decisions.",
+    about:
+      "Integrate financial transactions with operational processes across purchases, sales, inventory and payroll. Financial dashboards give management a complete view of payables, receivables, cash flow and financial health.",
+    keyCapabilities: [
+      "Accounts payable and receivable management",
+      "General ledger, voucher entry and financial statements",
+      "Bank reconciliation and cash-flow monitoring",
+      "Tax compliance (GST, TDS) and report generation",
+      "Financial performance dashboards and management summaries",
+    ],
     covers: [
       "Chart of Accounts",
       "General Ledger",
@@ -352,6 +430,12 @@ const erpModules = [
       "Tax-related accounting processes",
       "Financial MIS",
       "Management Reports",
+    ],
+    businessValue: [
+      "Accurate and up-to-date financial records aligned with operations.",
+      "Better cash-flow visibility and tighter credit control.",
+      "Simplified tax compliance and audit readiness.",
+      "Timely financial reporting for strategic decision-making.",
     ],
     images: [acc1, acc2, acc3],
     advantage:
@@ -2462,6 +2546,7 @@ function NewLandingPage() {
                 </p>
               </div>
             </div>
+
             <div className="detail-list">
               {activeERP.covers.map((item) => (
                 <div key={item}>
@@ -2470,7 +2555,35 @@ function NewLandingPage() {
                 </div>
               ))}
             </div>
-            <div className="management-advantage">
+
+            {activeERP.about && (
+              <div style={{ marginTop: "18px", padding: "14px 16px", background: "#f8fafc", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                <b style={{ display: "block", marginBottom: "6px", fontSize: "13px", textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--teal, #0d9488)" }}>
+                  About This Module
+                </b>
+                <p style={{ margin: 0, fontSize: "13.5px", lineHeight: "1.55", color: "#334155" }}>
+                  {activeERP.about}
+                </p>
+              </div>
+            )}
+
+            {activeERP.businessValue && (
+              <div style={{ marginTop: "18px" }}>
+                <b style={{ display: "block", marginBottom: "8px", fontSize: "14px", color: "var(--navy, #0f172a)" }}>
+                  Business Value
+                </b>
+                <div className="detail-list">
+                  {activeERP.businessValue.map((bv) => (
+                    <div key={bv}>
+                      <BadgeCheck size={15} style={{ color: "#0d9488", flexShrink: 0 }} />
+                      {bv}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="management-advantage" style={{ marginTop: "18px" }}>
               <BadgeCheck size={22} />
               <div>
                 <b>Management Advantage</b>

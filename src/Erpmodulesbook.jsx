@@ -7,7 +7,7 @@ const PAGE_W = 440;
 
 /* ---------- small helpers ---------- */
 const pad = (n) => String(n).padStart(2, "0");
-const covers = (m) => m.covers || [];
+const covers = (m) => m.keyCapabilities || m.covers || [];
 const describe = (m) =>
   m.description ||
   `Manage ${m.title.toLowerCase()} in one place: ${covers(m).slice(0, 3).join(", ")} and more.`;
@@ -110,16 +110,52 @@ function RightPage({ m, onView }) {
   const list = covers(m);
   return (
     <div className="eb-pg">
+      {m.tagline && (
+        <strong
+          className="eb-tagline"
+          style={{
+            display: "block",
+            fontSize: "13.5px",
+            fontWeight: 700,
+            color: "var(--ink, #1e293b)",
+            marginBottom: "8px",
+            lineHeight: "1.35",
+          }}
+        >
+          {m.tagline}
+        </strong>
+      )}
       <small className="eb-tag">About this module</small>
-      <p className="eb-desc">{describe(m)}</p>
-      <h4>What it covers</h4>
+      <p
+        className="eb-desc"
+        style={{
+          fontSize: "13px",
+          lineHeight: "1.5",
+          color: "var(--mut, #475569)",
+          marginBottom: "12px",
+        }}
+      >
+        {describe(m)}
+      </p>
+      <h4
+        style={{
+          fontSize: "12.5px",
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: "0.5px",
+          color: "var(--o, #ff6a2b)",
+          margin: "10px 0 6px",
+        }}
+      >
+        What It Covers — Key Capabilities
+      </h4>
       <ul className="eb-list">
         {list.slice(0, 5).map((c) => (
-          <li key={c}>{c}</li>
+          <li key={c} style={{ fontSize: "13px", lineHeight: "1.35" }}>
+            {c}
+          </li>
         ))}
-        {list.length > 2 && <li className="eb-plus">+{list.length - 2}</li>}
       </ul>
-      {list.length > 5 && <small className="eb-more">+ {list.length - 5} more</small>}
       <button type="button" className="eb-view" onClick={() => onView(m)}>
         View details <ArrowRight size={15} />
       </button>
@@ -169,7 +205,19 @@ export function ERPDetailPage({ module: m, onClose, logo, onRequestDemo }) {
             <div>
               <span className="ed-badge">{Icon && <Icon size={30} />}</span>
               <h2>{m.title}</h2>
-              <p>{describe(m)}</p>
+              {m.tagline && (
+                <p style={{ fontWeight: 700, color: "var(--o, #ff6a2b)", fontSize: "16px", marginBottom: "8px" }}>
+                  {m.tagline}
+                </p>
+              )}
+              <div style={{ marginBottom: "14px" }}>
+                <strong style={{ display: "block", fontSize: "12px", textTransform: "uppercase", letterSpacing: "1px", color: "var(--o, #ff6a2b)", marginBottom: "4px" }}>
+                  About This Module
+                </strong>
+                <p style={{ color: "var(--mut, #475569)", lineHeight: "1.6", fontSize: "14.5px" }}>
+                  {describe(m)}
+                </p>
+              </div>
               <div className="ed-act">
                 <button type="button" className="eb-view" onClick={() => onRequestDemo?.(m)}>
                   Request a demo <ArrowRight size={15} />
@@ -184,14 +232,30 @@ export function ERPDetailPage({ module: m, onClose, logo, onRequestDemo }) {
             </div>
           </section>
 
-          <h3 className="ed-h">What this module covers</h3>
+          <h3 className="ed-h">What SYN ERP 10 covers</h3>
+          <p style={{ color: "var(--mut)", fontSize: "14px", marginBottom: "12px" }}>
+            Integrated process-driven functionality designed around business processes, not software limitations.
+          </p>
           <div className="ed-covers">
-            {covers(m).map((c) => (
+            {(m.covers || []).map((c) => (
               <div key={c} className="ed-cv">
                 <Check size={16} /> {c}
               </div>
             ))}
           </div>
+
+          {m.businessValue && (
+            <>
+              <h3 className="ed-h" style={{ marginTop: "24px" }}>Business Value</h3>
+              <div className="ed-covers">
+                {m.businessValue.map((bv) => (
+                  <div key={bv} className="ed-cv" style={{ background: "#f0fdf4", borderColor: "#bbf7d0" }}>
+                    <Check size={16} style={{ background: "#16a34a" }} /> {bv}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
         <footer className="ed-foot">Synergy5M · Integrating Businesses</footer>
       </div>
@@ -240,9 +304,16 @@ export default function ERPModulesBook({ modules, logo, height = 400, onViewDeta
   const cover = (
     <div className="eb-cover">
       <div className="eb-plate"><Logo logo={logo} /></div>
-      <small>Synergy5M</small>
-      <h2>ERP Modules Book</h2>
-      <p>Powerful Modules. Complete Coverage.</p>
+      <small style={{ letterSpacing: "3px", textTransform: "uppercase", fontSize: "11px", opacity: 0.9 }}>
+        Synergy5M
+      </small>
+      <h2 style={{ fontSize: "38px", margin: "4px 0" }}>SYN ERP 10</h2>
+      <p style={{ fontWeight: 700, letterSpacing: "1.5px", fontSize: "13.5px", textTransform: "uppercase", color: "var(--sun)", margin: "2px 0 6px 0" }}>
+        MODULE DETAILS
+      </p>
+      <p style={{ fontSize: "14px", lineHeight: "1.4", opacity: 0.95 }}>
+        Practical workflows. Clearer visibility. Better-informed decisions.
+      </p>
       <span className="eb-count">{n} modules inside</span>
       <button type="button" className="eb-view" onClick={() => go(1)}>
         Open the book <ArrowRight size={15} />
@@ -276,16 +347,27 @@ export default function ERPModulesBook({ modules, logo, height = 400, onViewDeta
   );
 
   const closing = (
-    <div className="eb-pg eb-center">
+    <div className="eb-pg eb-center" style={{ textAlign: "center", alignItems: "center", padding: "24px 20px" }}>
       <Logo logo={logo} />
-      <h3>Ready to connect your business?</h3>
-      <p>Let us show you these modules working together.</p>
-       <p>Synergy5M LLP <br/>
-501, Fortuna Business Centre, Opp. McDonald's, Pimple Saudagar,<br/> Pune, Maharashtra, India. PIN - 411027 <br/>
-9423579446<br/>
-info@synergy5m.com
-
-</p>
+      <h3 style={{ marginTop: "10px", marginBottom: "4px", fontSize: "24px", color: "var(--o-dark)" }}>SYN ERP 10</h3>
+      <p style={{ fontStyle: "italic", fontWeight: 600, color: "var(--ink)", margin: "0 0 8px 0", fontSize: "13.5px" }}>
+        Practical workflows. Clearer visibility. Better-informed decisions.
+      </p>
+      <p style={{ fontSize: "11px", color: "var(--mut)", lineHeight: "1.4", margin: "4px 0 10px 0", maxWidth: "320px" }}>
+        Built around your business &nbsp;|&nbsp; Industry-specific customization &nbsp;|&nbsp; Master-driven approach
+      </p>
+      <div style={{ width: "85%", borderTop: "1px solid #e9c9b3", margin: "6px 0" }} />
+      <p style={{ fontWeight: 800, fontSize: "13.5px", color: "var(--ink)", margin: "4px 0 2px 0" }}>
+        Developed by Synergy5M LLP
+      </p>
+      <p style={{ fontStyle: "italic", fontSize: "12.5px", color: "var(--o-dark)", margin: "0 0 8px 0" }}>
+        Your business. Your workflows. Your ERP.
+      </p>
+      <p style={{ fontSize: "10.5px", color: "var(--mut)", lineHeight: "1.35", margin: 0 }}>
+        501, Fortuna Business Centre, Opp. McDonald's, Pimple Saudagar,<br />
+        Pune, Maharashtra, India. PIN - 411027<br />
+        +91 94235 79446 &nbsp;·&nbsp; info@synergy5m.com
+      </p>
     </div>
   );
 

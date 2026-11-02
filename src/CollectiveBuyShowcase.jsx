@@ -247,11 +247,25 @@ export default function CollectiveBuyShowcase({ onOpenModal, onScrollToCatalog }
           </div> */}
           <div className="cb-hero-tagline">
             {/* Together We Buy Better. Together We Grow. */}
-            <div className="section-kicker teal" style={{ margin: '5px' }}>04 </div>
+            <div className="cb-hero-title-group">
+              <div className="section-kicker teal">04</div>
+              <h2 className="cb-hero-title">
+                Synergy5M <span>CollectiveBuy</span>
+              </h2>
+            </div>
 
-
-            Synergy5M <span>CollectiveBuy</span>
+            <div className="cb-hero-bottom-action">
+              <button
+                type="button"
+                className="cb-btn-explore-active"
+                onClick={handleScrollToProducts}
+              >
+                <span>Explore Active Products for Aggregation</span>
+                <ArrowDown size={13} className="cb-btn-arrow-bounce" />
+              </button>
+            </div>
           </div>
+
           <p className="cb-hero-description">
             A smarter way for industrial buyers to combine demand and for suppliers to discover consolidated business opportunities.
           </p>
@@ -300,16 +314,7 @@ export default function CollectiveBuyShowcase({ onOpenModal, onScrollToCatalog }
         </div>
 
         {/* Small space & One Button at last to Explore Active Products for Aggregation */}
-        <div className="cb-hero-bottom-action">
-          <button
-            type="button"
-            className="cb-btn-explore-active"
-            onClick={handleScrollToProducts}
-          >
-            <span>Explore Active Products for Aggregation</span>
-            <ArrowDown size={17} className="cb-btn-arrow-bounce" />
-          </button>
-        </div>
+
       </section>
 
       {/* =========================================================================

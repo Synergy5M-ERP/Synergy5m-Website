@@ -102,6 +102,10 @@ export default function AdminAddProduct({ initialTab }) {
   const [enquirySearch, setEnquirySearch] = useState('');
   const [enquiryStatusFilter, setEnquiryStatusFilter] = useState('All');
 
+  // Potential Vendor Categories state (dynamically fetched from Potential_Vendor)
+  const [categories, setCategories] = useState(CATEGORIES);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+
   // Sidebar mobile toggle
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Sidebar desktop collapse toggle (minimized to icon only)
@@ -338,10 +342,42 @@ export default function AdminAddProduct({ initialTab }) {
     }
   };
 
+  // Fetch Potential Vendor Categories (matching other pages)
+  const loadVendorCategories = async () => {
+    try {
+      setLoadingCategories(true);
+      const res = await fetch('/api/vendor-filters', { credentials: 'include', headers: getAuthHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.categories) && data.categories.length > 0) {
+          const sorted = [...data.categories].filter(Boolean).sort((a, b) => a.localeCompare(b));
+          setCategories(sorted);
+          return;
+        }
+      }
+    } catch (e) {
+      // Fallback if needed
+    }
+
+    try {
+      const fallbackRes = await fetch('/api/enquiry-categories');
+      if (fallbackRes.ok) {
+        const fallbackData = await fallbackRes.json();
+        if (Array.isArray(fallbackData) && fallbackData.length > 0) {
+          setCategories(fallbackData.filter(Boolean).sort((a, b) => a.localeCompare(b)));
+        }
+      }
+    } catch (e) {
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
+
   // Initial load from Database on mount
   useEffect(() => {
     loadDbProducts();
     loadEnquiries();
+    loadVendorCategories();
   }, []);
 
   // Sync activeAdminTab if location or initialTab changes
@@ -391,7 +427,7 @@ export default function AdminAddProduct({ initialTab }) {
           const local = JSON.parse(localStorage.getItem('s5m_published_products') || '[]');
           const updated = local.filter((p) => p.id !== id);
           localStorage.setItem('s5m_published_products', JSON.stringify(updated));
-        } catch (e) {}
+        } catch (e) { }
 
         showToast(json.message || 'Product removed from database', 'success');
         loadDbProducts();
@@ -982,7 +1018,7 @@ export default function AdminAddProduct({ initialTab }) {
             </div>
 
             {/* 4. Demand Aggregation */}
-            <div className="relative group">
+            {/* <div className="relative group">
               <a
                 href="#aggregation"
                 onClick={(e) => {
@@ -997,9 +1033,8 @@ export default function AdminAddProduct({ initialTab }) {
                 {!sidebarCollapsed && <span>Demand Aggregation</span>}
               </a>
 
-              {/* Tooltip on hover when sidebar is minimized */}
 
-            </div>
+            </div> */}
 
             {/* 5. Opportunity View */}
             <div className="relative group">
@@ -1558,8 +1593,10 @@ export default function AdminAddProduct({ initialTab }) {
                             onChange={(e) => updateField('category', e.target.value)}
                             aria-invalid={Boolean(validationErrors.category)}
                           >
-                            <option value="">-- Select Material Category --</option>
-                            {CATEGORIES.map((cat) => (
+                            <option value="">
+                              {loadingCategories ? '-- Loading Categories... --' : '-- Select Material Category --'}
+                            </option>
+                            {categories.map((cat) => (
                               <option key={cat} value={cat}>
                                 {cat}
                               </option>

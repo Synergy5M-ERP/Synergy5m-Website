@@ -146,14 +146,21 @@ router.post('/api/send-vendor-emails-attachment', verifyAdminToken, upload.singl
 
     try {
         let pool = await sql.connect(dbConfig);
-        const safeIds = parsedIds.map(id => parseInt(id)).filter(id => !isNaN(id)).join(',');
-        if (!safeIds) {
+        const validIds = parsedIds.map(id => parseInt(id, 10)).filter(id => !isNaN(id) && id > 0);
+        if (!validIds.length) {
             return res.status(400).json({ success: false, message: 'Invalid vendor IDs.' });
         }
 
-        const vendorResult = await pool.request().query(
+        const request = pool.request();
+        const paramNames = validIds.slice(0, 1000).map((id, index) => {
+            const p = 'vid_' + index;
+            request.input(p, sql.Int, id);
+            return '@' + p;
+        }).join(', ');
+
+        const vendorResult = await request.query(
             `SELECT Id, Company_Name, Email, Contact_Person, GST_Number, industry, Category 
-             FROM [dbo].[Potential_Vendor] WHERE Id IN (${safeIds})`
+             FROM [dbo].[Potential_Vendor] WHERE Id IN (${paramNames})`
         );
         const vendors = vendorResult.recordset;
 

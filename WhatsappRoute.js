@@ -31,15 +31,19 @@ router.post('/api/whatsapp/broadcast', verifyAdminToken, async (req, res) => {
 
     try {
         await sql.connect(dbConfig);
-        const safeIds = parsedIds.map(id => parseInt(id)).filter(id => !isNaN(id)).join(',');
-        
-        if (!safeIds) {
+        const validIds = parsedIds.map(id => parseInt(id, 10)).filter(id => !isNaN(id) && id > 0);
+        if (!validIds.length) {
             return res.status(400).json({ success: false, message: 'Invalid vendor IDs.' });
         }
 
-        // Fetch vendor details from SQL database (pulling Contact_Number / Phone)
+        // Fetch vendor details with parameterized query
         const request = new sql.Request();
-        const result = await request.query(`SELECT Id, Company_Name, Contact_Number, Contact_Person FROM [dbo].[Potential_Vendor] WHERE Id IN (${safeIds})`);
+        const paramNames = validIds.slice(0, 1000).map((id, index) => {
+            const p = 'wid_' + index;
+            request.input(p, sql.Int, id);
+            return '@' + p;
+        }).join(', ');
+        const result = await request.query(`SELECT Id, Company_Name, Contact_Number, Contact_Person FROM [dbo].[Potential_Vendor] WHERE Id IN (${paramNames})`);
         const vendors = result.recordset;
 
         let sentCount = 0;

@@ -6,13 +6,12 @@ require("dotenv").config();
 // Ensure a strong secret key
 const JWT_SECRET =
   process.env.JWT_SECRET ||
-  crypto
-    .createHash("sha256")
-    .update((process.env.ADMIN_PASSWORD || "synergy5m_admin") + (process.env.ADMIN_USER || "admin") + "synergy5m_jwt_salt")
-    .digest("hex");
+  (process.env.ADMIN_PASSWORD
+    ? crypto.createHash("sha256").update(process.env.ADMIN_PASSWORD + (process.env.ADMIN_USER || "admin")).digest("hex")
+    : crypto.randomBytes(32).toString("hex"));
 
 if (!process.env.JWT_SECRET) {
-  console.warn("⚠️ NOTICE: JWT_SECRET not defined in .env; generated fallback hash from admin credentials.");
+  console.warn("⚠️ NOTICE: JWT_SECRET not defined in .env; please define a persistent JWT_SECRET in production.");
 }
 
 /**

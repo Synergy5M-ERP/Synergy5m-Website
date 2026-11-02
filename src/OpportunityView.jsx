@@ -376,7 +376,7 @@ export default function OpportunityView() {
             </Link>
 
             {/* 5. Demand Aggregation */}
-            <Link
+            {/* <Link
               to="/aggregatedEnquiry"
               className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
                 }`}
@@ -384,7 +384,7 @@ export default function OpportunityView() {
             >
               <Layers className="w-4 h-4 text-slate-400 flex-shrink-0" />
               {!sidebarCollapsed && <span>Demand Aggregation</span>}
-            </Link>
+            </Link> */}
 
             {/* 6. Opportunity View (Active) */}
             <Link

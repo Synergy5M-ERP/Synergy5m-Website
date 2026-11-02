@@ -15,6 +15,7 @@ import AdminAddProduct from './AdminAddProduct';
 import ProductsOpenForEnquiries from './ProductsOpenForEnquiries';
 import OpportunityView from './OpportunityView';
 import SendEnquiryToVendors from './SendEnquiryToVendors';
+import VendorSupplyOfferForm from './VendorSupplyOfferForm';
 
 function App() {
   return (
@@ -91,6 +92,8 @@ function App() {
             <Route path="/admin/opportunities" element={<OpportunityView />} />
             <Route path="/products-open-for-enquiries" element={<ProductsOpenForEnquiries embedded={false} />} />
             <Route path="/collective-buy" element={<ProductsOpenForEnquiries embedded={false} />} />
+            <Route path="/supply-offer" element={<VendorSupplyOfferForm />} />
+            <Route path="/vendor/supply-offer" element={<VendorSupplyOfferForm />} />
             <Route path="*" element={<NewLandingPage />} />
           </Routes>
         </div>

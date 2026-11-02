@@ -17,6 +17,7 @@ const { sql, poolPromise } = require("./db");
 const { generateAdminToken, verifyAdminToken } = require("./auth");
 
 const app = express();
+app.disable("x-powered-by");
 
 app.set("trust proxy", 1);
 
@@ -34,6 +35,8 @@ const allowedOrigins = [
   "http://localhost:8080",
   "http://127.0.0.1:3000",
   "https://synergy5m-business-4-profit-platform.azurewebsites.net",
+  "https://synergy5m.com",
+  "https://www.synergy5m.com",
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
@@ -44,7 +47,7 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(null, true);
+        callback(null, false);
       }
     },
     credentials: true,
@@ -2086,15 +2089,17 @@ app.post('/api/send-enquiry-email', verifyAdminToken, async (req, res) => {
                 </tr>
             `;
 
-            const submitOfferUrl = prodId 
-                ? `https://synergy5m.com/admin/opportunity/${encodeURIComponent(prodId)}`
-                : `https://synergy5m.com/collective-buy`;
-
+            const rfqRef = `RFQ-CB-${new Date().getFullYear()}-${String(prodId || '001').padStart(4, '0')}`;
+            const appBaseUrl = process.env.APP_BASE_URL || (process.env.FRONTEND_URL ? process.env.FRONTEND_URL.replace(/\/$/, '') : 'https://synergy5m.com');
             const customIntro = `We have aggregated verified buyer demand in your product category (${prodCat}). Below is the consolidated opportunity combining all active buyer enquiries into this single RFQ. Please review the aggregate demand and specific breakdown, then submit your competitive supply quotation / offer.`;
 
             // SEND ONLY ONE EMAIL PER VENDOR (combining all offers & aggregate into one email)
             const tasks = [];
             for (const vendor of vendors) {
+                const vendorDisplayName = vendor.Company_Name || vendor.Contact_Person || '';
+                const vendorEmailAddress = vendor.Email || '';
+                const submitOfferUrl = `${appBaseUrl}/supply-offer?rfq=${encodeURIComponent(rfqRef)}&prodId=${encodeURIComponent(prodId || '')}&vendor=${encodeURIComponent(vendorDisplayName)}&email=${encodeURIComponent(vendorEmailAddress)}&product=${encodeURIComponent(prodName || '')}&category=${encodeURIComponent(prodCat || '')}&grade=${encodeURIComponent(grade || '')}&demand=${encodeURIComponent(totalAggregatedQuantity || 0)}&uom=${encodeURIComponent(uom || 'MT')}&dest=${encodeURIComponent(deliveryDestinationsSummary || '')}`;
+
                 const mailHtml = generateStyledEmailHtml(
                     vendor.Contact_Person || vendor.Company_Name, 
                     'Consolidated Procurement Opportunity - Submit Supply Offer', 
@@ -2146,6 +2151,205 @@ const WhatsappRoute = require('./WhatsappRoute');
 app.use('/whatsapp', WhatsappRoute);
 const collectiveProductRoutes = require('./collectiveProductRoutes');
 app.use('/api', collectiveProductRoutes);
+
+// -------------------------------------------------------------
+// Vendor Supply Offer Submission Endpoint -> SupplyOfffertbl
+// -------------------------------------------------------------
+app.post('/api/supply-offer/submit', publicFormLimiter, async (req, res) => {
+    try {
+        const body = req.body || {};
+
+        // Server-Side Input Validation (Allow-list, length, format & range checks)
+        if (!body.vendorQuotationNo || typeof body.vendorQuotationNo !== 'string' || body.vendorQuotationNo.trim().length === 0 || body.vendorQuotationNo.length > 100) {
+            return res.status(400).json({ success: false, message: 'Valid Vendor Quotation Number is required (max 100 characters).' });
+        }
+        if (!body.vendorEmail || typeof body.vendorEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.vendorEmail) || body.vendorEmail.length > 255) {
+            return res.status(400).json({ success: false, message: 'A valid email address is required (max 255 characters).' });
+        }
+        const numericOfferedQty = Number(body.offeredQuantity);
+        if (isNaN(numericOfferedQty) || numericOfferedQty <= 0 || numericOfferedQty > 100000000) {
+            return res.status(400).json({ success: false, message: 'Offered quantity must be a positive number up to 100,000,000.' });
+        }
+        const numericUnitPrice = Number(body.offeredUnitPrice);
+        if (isNaN(numericUnitPrice) || numericUnitPrice <= 0 || numericUnitPrice > 1000000000) {
+            return res.status(400).json({ success: false, message: 'Offered unit price must be a positive number up to 1,000,000,000.' });
+        }
+        const numericMoq = Number(body.moq);
+        if (isNaN(numericMoq) || numericMoq < 0) {
+            return res.status(400).json({ success: false, message: 'MOQ must be a non-negative number.' });
+        }
+
+        // Allow-list checks for enumerated selections
+        const allowedCurrencies = ['INR', 'USD', 'EUR', 'AED', 'Other'];
+        const safeCurrency = allowedCurrencies.includes(body.currency) ? body.currency : 'INR';
+
+        const allowedPriceBases = ['FOR Destination', 'Ex-Works', 'FOB', 'CIF', 'Delivered'];
+        const safePriceBasis = allowedPriceBases.includes(body.priceBasis) ? body.priceBasis : 'FOR Destination';
+
+        const allowedGstRates = ['0%', '5%', '12%', '18%', '28%', 'Other'];
+        const safeGstRate = allowedGstRates.includes(body.gstRate) ? body.gstRate : '18%';
+
+        const allowedAvailabilities = ['Ready Stock', 'Made to Order'];
+        const safeAvailability = allowedAvailabilities.includes(body.productAvailability) ? body.productAvailability : 'Ready Stock';
+
+        const allowedSchedules = ['Single', 'Partial', 'Multiple'];
+        const safeSchedule = allowedSchedules.includes(body.deliverySchedule) ? body.deliverySchedule : 'Single';
+        const {
+            offerReference,
+            rfqReference,
+            opportunityId,
+            vendorQuotationNo,
+            quotationDate,
+            quotationValidUntil,
+            vendorName,
+            contactPerson,
+            vendorEmail,
+            mobileNumber,
+            productName,
+            category,
+            grade,
+            totalRequiredDemand,
+            uom,
+            destination,
+            canSupplyFull,
+            offeredQuantity,
+            moq,
+            maxSupplyCapacity,
+            productAvailability,
+            packagingType,
+            offeredUnitPrice,
+            currency,
+            priceBasis,
+            gstRate,
+            gstAmount,
+            freightIncluded,
+            freightCharges,
+            otherCharges,
+            totalBasicAmount,
+            estimatedTotalValue,
+            deliveryLeadTimeDays,
+            expectedDispatchDate,
+            expectedDeliveryDate,
+            deliverySchedule,
+            transportationResponsibility,
+            paymentTerms,
+            advancePaymentPercentage,
+            creditPeriodDays,
+            enquiryAllocationsJson,
+            staggeredScheduleJson,
+            attachmentsJson,
+            commercialRemarks,
+            specialConditions,
+            declarationConfirmed,
+            status
+        } = body;
+
+        const pool = await poolPromise;
+        if (pool) {
+            try {
+                const insertQuery = `
+                    INSERT INTO [dbo].[SupplyOfffertbl] (
+                        OfferReference, RfqReference, OpportunityId, VendorQuotationNo, QuotationDate, QuotationValidUntil,
+                        VendorName, ContactPerson, VendorEmail, MobileNumber,
+                        ProductName, Category, Grade, TotalRequiredDemand, Uom, Destination,
+                        CanSupplyFull, OfferedQuantity, Moq, MaxSupplyCapacity, ProductAvailability, PackagingType,
+                        OfferedUnitPrice, Currency, PriceBasis, GstRate, GstAmount, FreightIncluded, FreightCharges, OtherCharges,
+                        TotalBasicAmount, EstimatedTotalValue,
+                        DeliveryLeadTimeDays, ExpectedDispatchDate, ExpectedDeliveryDate, DeliverySchedule, TransportationResponsibility,
+                        PaymentTerms, AdvancePaymentPercentage, CreditPeriodDays,
+                        EnquiryAllocationsJson, StaggeredScheduleJson, AttachmentsJson,
+                        CommercialRemarks, SpecialConditions, DeclarationConfirmed, Status, CreatedAt, UpdatedAt
+                    ) VALUES (
+                        @OfferReference, @RfqReference, @OpportunityId, @VendorQuotationNo, @QuotationDate, @QuotationValidUntil,
+                        @VendorName, @ContactPerson, @VendorEmail, @MobileNumber,
+                        @ProductName, @Category, @Grade, @TotalRequiredDemand, @Uom, @Destination,
+                        @CanSupplyFull, @OfferedQuantity, @Moq, @MaxSupplyCapacity, @ProductAvailability, @PackagingType,
+                        @OfferedUnitPrice, @Currency, @PriceBasis, @GstRate, @GstAmount, @FreightIncluded, @FreightCharges, @OtherCharges,
+                        @TotalBasicAmount, @EstimatedTotalValue,
+                        @DeliveryLeadTimeDays, @ExpectedDispatchDate, @ExpectedDeliveryDate, @DeliverySchedule, @TransportationResponsibility,
+                        @PaymentTerms, @AdvancePaymentPercentage, @CreditPeriodDays,
+                        @EnquiryAllocationsJson, @StaggeredScheduleJson, @AttachmentsJson,
+                        @CommercialRemarks, @SpecialConditions, @DeclarationConfirmed, @Status, GETDATE(), GETDATE()
+                    )
+                `;
+
+                const request = pool.request();
+                request.input('OfferReference', sql.NVarChar(100), offerReference || `OFFER-CB-${Date.now()}`);
+                request.input('RfqReference', sql.NVarChar(100), rfqReference || '');
+                request.input('OpportunityId', sql.NVarChar(100), String(opportunityId || ''));
+                request.input('VendorQuotationNo', sql.NVarChar(100), vendorQuotationNo || '');
+                request.input('QuotationDate', sql.Date, quotationDate ? new Date(quotationDate) : new Date());
+                request.input('QuotationValidUntil', sql.Date, quotationValidUntil ? new Date(quotationValidUntil) : new Date());
+                request.input('VendorName', sql.NVarChar(255), vendorName || '');
+                request.input('ContactPerson', sql.NVarChar(255), contactPerson || '');
+                request.input('VendorEmail', sql.NVarChar(255), vendorEmail || '');
+                request.input('MobileNumber', sql.NVarChar(50), mobileNumber || '');
+                request.input('ProductName', sql.NVarChar(255), productName || '');
+                request.input('Category', sql.NVarChar(255), category || '');
+                request.input('Grade', sql.NVarChar(255), grade || '');
+                request.input('TotalRequiredDemand', sql.Decimal(18, 2), Number(totalRequiredDemand) || 0);
+                request.input('Uom', sql.NVarChar(50), uom || 'MT');
+                request.input('Destination', sql.NVarChar(255), destination || '');
+                request.input('CanSupplyFull', sql.Bit, canSupplyFull ? 1 : 0);
+                request.input('OfferedQuantity', sql.Decimal(18, 2), Number(offeredQuantity) || 0);
+                request.input('Moq', sql.Decimal(18, 2), Number(moq) || 1);
+                request.input('MaxSupplyCapacity', sql.Decimal(18, 2), maxSupplyCapacity ? Number(maxSupplyCapacity) : null);
+                request.input('ProductAvailability', sql.NVarChar(100), safeAvailability);
+                request.input('PackagingType', sql.NVarChar(255), String(packagingType || '').slice(0, 255));
+                request.input('OfferedUnitPrice', sql.Decimal(18, 2), numericUnitPrice);
+                request.input('Currency', sql.NVarChar(20), safeCurrency);
+                request.input('PriceBasis', sql.NVarChar(100), safePriceBasis);
+                request.input('GstRate', sql.NVarChar(50), safeGstRate);
+                request.input('GstAmount', sql.Decimal(18, 2), Number(gstAmount) || 0);
+                request.input('FreightIncluded', sql.Bit, freightIncluded ? 1 : 0);
+                request.input('FreightCharges', sql.Decimal(18, 2), Number(freightCharges) || 0);
+                request.input('OtherCharges', sql.Decimal(18, 2), Number(otherCharges) || 0);
+                request.input('TotalBasicAmount', sql.Decimal(18, 2), Number(totalBasicAmount) || 0);
+                request.input('EstimatedTotalValue', sql.Decimal(18, 2), Number(estimatedTotalValue) || 0);
+                request.input('DeliveryLeadTimeDays', sql.Int, deliveryLeadTimeDays ? Number(deliveryLeadTimeDays) : null);
+                request.input('ExpectedDispatchDate', sql.Date, expectedDispatchDate ? new Date(expectedDispatchDate) : null);
+                request.input('ExpectedDeliveryDate', sql.Date, expectedDeliveryDate ? new Date(expectedDeliveryDate) : null);
+                request.input('DeliverySchedule', sql.NVarChar(100), safeSchedule);
+                request.input('TransportationResponsibility', sql.NVarChar(100), transportationResponsibility || 'Vendor');
+                request.input('PaymentTerms', sql.NVarChar(255), paymentTerms || '');
+                request.input('AdvancePaymentPercentage', sql.Decimal(5, 2), Number(advancePaymentPercentage) || 0);
+                request.input('CreditPeriodDays', sql.Int, Number(creditPeriodDays) || 0);
+                request.input('EnquiryAllocationsJson', sql.NVarChar(sql.MAX), typeof enquiryAllocationsJson === 'string' ? enquiryAllocationsJson : JSON.stringify(enquiryAllocationsJson || []));
+                request.input('StaggeredScheduleJson', sql.NVarChar(sql.MAX), typeof staggeredScheduleJson === 'string' ? staggeredScheduleJson : JSON.stringify(staggeredScheduleJson || []));
+                request.input('AttachmentsJson', sql.NVarChar(sql.MAX), typeof attachmentsJson === 'string' ? attachmentsJson : JSON.stringify(attachmentsJson || []));
+                request.input('CommercialRemarks', sql.NVarChar(sql.MAX), commercialRemarks || '');
+                request.input('SpecialConditions', sql.NVarChar(sql.MAX), specialConditions || '');
+                request.input('DeclarationConfirmed', sql.Bit, declarationConfirmed ? 1 : 0);
+                request.input('Status', sql.NVarChar(50), status || 'Quotation Received');
+
+                await request.query(insertQuery);
+
+                return res.json({
+                    success: true,
+                    offerReference: offerReference || `OFFER-CB-${Date.now()}`,
+                    vendorQuotationNo,
+                    submittedAt: new Date().toISOString(),
+                    offeredQuantity,
+                    status: 'Quotation Received',
+                    message: 'Offer successfully registered into SupplyOfffertbl.'
+                });
+            } catch (dbErr) {
+                console.error("Database error saving to SupplyOfffertbl:", dbErr.message);
+                return res.status(500).json({
+                    success: false,
+                    message: "An internal database error occurred while registering your offer. Please try again later."
+                });
+            }
+        }
+
+        return res.status(500).json({
+            success: false,
+            message: 'Database connection pool unavailable.'
+        });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: 'Server error processing supply offer.' });
+    }
+});
 
 // -------------------------------------------------------------
 // Static Frontend Catch-All Handler (MUST BE AT THE VERY BOTTOM)
