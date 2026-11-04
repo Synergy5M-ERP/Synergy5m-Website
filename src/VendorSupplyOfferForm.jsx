@@ -6,7 +6,6 @@ import {
   Truck,
   CheckCircle2,
   AlertCircle,
-  Upload,
   Trash2,
   Plus,
   ArrowRight,
@@ -107,6 +106,8 @@ export default function VendorSupplyOfferForm() {
     gstRate: '18%',
     freightIncluded: true,
     freightCharges: 0,
+    otherChargesType: 'per_unit', // 'per_unit' (Per Unit), 'percentage' (%), or 'lump_sum' (Fixed Total)
+    otherChargesValue: 0,
     otherCharges: 0,
     packagingType: 'Standard 25kg HDPE Bags',
     productAvailability: 'Ready Stock',
@@ -140,7 +141,8 @@ export default function VendorSupplyOfferForm() {
     commercialRemarks: '',
     specialConditions: '',
     termsConfirmed: false,
-    declarationConfirmed: false
+    declarationConfirmed: false,
+    platformDisclaimerConfirmed: false
   });
 
   // UI Flow States
@@ -252,16 +254,36 @@ export default function VendorSupplyOfferForm() {
       freightAmt = Math.max(0, parseFloat(formData.freightCharges) || 0);
     }
 
-    const otherChargesAmt = Math.max(0, parseFloat(formData.otherCharges) || 0);
+    // PlatForm Fee calculation (Per Unit, Percentage, or Lump-Sum)
+    const otherVal = Math.max(0, parseFloat(formData.otherChargesValue) || 0);
+    let otherChargesAmt = 0;
+    let otherChargesPerUnit = 0;
+
+    if (formData.otherChargesType === 'percentage') {
+      otherChargesAmt = (basicAmount * otherVal) / 100;
+      otherChargesPerUnit = (unitPrice * otherVal) / 100;
+    } else if (formData.otherChargesType === 'lump_sum') {
+      otherChargesAmt = otherVal;
+      otherChargesPerUnit = qty > 0 ? (otherVal / qty) : 0;
+    } else {
+      // Default: 'per_unit' (Fixed amount per unit/UOM, e.g. 1 Rs on 100 Rs = 101 Rs/MT)
+      otherChargesPerUnit = otherVal;
+      otherChargesAmt = qty * otherVal;
+    }
+
+    const effectiveUnitPrice = unitPrice + otherChargesPerUnit;
     const subtotal = basicAmount + freightAmt + otherChargesAmt;
 
-    // GST percentage
+    // GST percentage - Only applicable if currency is INR (India)
+    const isGstApplicable = formData.currency === 'INR';
     let gstPct = 0;
-    if (formData.gstRate.includes('18')) gstPct = 0.18;
-    else if (formData.gstRate.includes('12')) gstPct = 0.12;
-    else if (formData.gstRate.includes('5')) gstPct = 0.05;
-    else if (formData.gstRate.includes('28')) gstPct = 0.28;
-    else gstPct = 0;
+    if (isGstApplicable) {
+      if (formData.gstRate.includes('18')) gstPct = 0.18;
+      else if (formData.gstRate.includes('12')) gstPct = 0.12;
+      else if (formData.gstRate.includes('5')) gstPct = 0.05;
+      else if (formData.gstRate.includes('28')) gstPct = 0.28;
+      else gstPct = 0;
+    }
 
     const gstAmount = subtotal * gstPct;
     const grandTotal = subtotal + gstAmount;
@@ -283,6 +305,8 @@ export default function VendorSupplyOfferForm() {
       basicAmount,
       freightAmt,
       otherChargesAmt,
+      otherChargesPerUnit,
+      effectiveUnitPrice,
       subtotal,
       gstPct: gstPct * 100,
       gstAmount,
@@ -297,7 +321,8 @@ export default function VendorSupplyOfferForm() {
     formData.offeredUnitPrice,
     formData.freightIncluded,
     formData.freightCharges,
-    formData.otherCharges,
+    formData.otherChargesType,
+    formData.otherChargesValue,
     formData.gstRate,
     formData.currency,
     formData.allocations,
@@ -307,7 +332,7 @@ export default function VendorSupplyOfferForm() {
   // Form Progress Completion %
   const formProgress = useMemo(() => {
     let completedSteps = 0;
-    const totalSteps = 7;
+    const totalSteps = 6;
 
     // 1. RFQ verified (always 1)
     completedSteps += 1;
@@ -319,25 +344,21 @@ export default function VendorSupplyOfferForm() {
     if (formData.offeredQuantity > 0 && formData.offeredUnitPrice > 0 && formData.moq >= 0) {
       completedSteps += 1;
     }
-    // 4. Allocation
-    if (Math.abs(calculations.allocationDiff) < 0.01 && calculations.totalAllocated > 0) {
-      completedSteps += 1;
-    }
-    // 5. Delivery & Payment Terms
+    // 4. Delivery & Payment Terms
     if (formData.deliveryLeadTime && formData.expectedDispatchDate && formData.paymentTerms) {
       completedSteps += 1;
     }
-    // 6. Documents
+    // 5. Documents
     if (formData.attachments.length > 0) {
       completedSteps += 1;
     }
-    // 7. Remarks & Declarations
-    if (formData.termsConfirmed && formData.declarationConfirmed) {
+    // 6. Remarks & Declarations
+    if (formData.termsConfirmed && formData.declarationConfirmed && formData.platformDisclaimerConfirmed) {
       completedSteps += 1;
     }
 
     return Math.round((completedSteps / totalSteps) * 100);
-  }, [formData, calculations]);
+  }, [formData]);
 
   // -------------------------------------------------------------
   // 5. Change Handlers
@@ -366,36 +387,6 @@ export default function VendorSupplyOfferForm() {
     if (formErrors[field]) {
       setFormErrors((prev) => ({ ...prev, [field]: null }));
     }
-  };
-
-  // Handle individual enquiry allocation changes
-  const handleAllocationChange = (index, value) => {
-    const numericVal = parseFloat(value) || 0;
-    setFormData((prev) => {
-      const updatedAllocations = [...prev.allocations];
-      updatedAllocations[index] = {
-        ...updatedAllocations[index],
-        offeredQty: numericVal
-      };
-      return { ...prev, allocations: updatedAllocations };
-    });
-  };
-
-  // Auto-distribute offered quantity proportionally across enquiries
-  const handleAutoDistributeAllocations = () => {
-    const totalReq = rfqDetails.totalDemand || 1;
-    const availableOffered = parseFloat(formData.offeredQuantity) || 0;
-
-    setFormData((prev) => {
-      const updatedAllocations = prev.allocations.map((item) => {
-        const ratio = item.requiredQty / totalReq;
-        const allocated = Math.round(availableOffered * ratio * 100) / 100;
-        return { ...item, offeredQty: allocated };
-      });
-      return { ...prev, allocations: updatedAllocations };
-    });
-
-    triggerToast('Allocations distributed proportionally.', 'info');
   };
 
   // Staggered Delivery Schedule Handlers
@@ -505,12 +496,6 @@ export default function VendorSupplyOfferForm() {
     const moqNum = parseFloat(formData.moq);
     if (isNaN(moqNum) || moqNum < 0) errors.moq = 'MOQ cannot be negative.';
 
-    // Check allocations match offered quantity
-    const totalAllocated = formData.allocations.reduce((sum, item) => sum + (parseFloat(item.offeredQty) || 0), 0);
-    if (Math.abs(offeredQtyNum - totalAllocated) > 0.05) {
-      errors.allocations = `Total enquiry allocation (${totalAllocated.toFixed(2)} ${rfqDetails.uom}) must match the total offered quantity (${offeredQtyNum.toFixed(2)} ${rfqDetails.uom}).`;
-    }
-
     // Required documents check (vendor quotation document recommended)
     if (formData.attachments.length === 0) {
       errors.attachments = 'Please upload at least one quotation or technical verification document.';
@@ -518,6 +503,7 @@ export default function VendorSupplyOfferForm() {
 
     if (!formData.termsConfirmed) errors.termsConfirmed = 'Please confirm acceptance of commercial terms.';
     if (!formData.declarationConfirmed) errors.declarationConfirmed = 'Please declare that the submitted terms are authorized and accurate.';
+    if (!formData.platformDisclaimerConfirmed) errors.platformDisclaimerConfirmed = 'Please accept the Synergy5M platform terms and non-liability condition.';
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -568,8 +554,8 @@ export default function VendorSupplyOfferForm() {
       offeredUnitPrice: calculations.unitPrice,
       currency: formData.currency,
       priceBasis: formData.priceBasis,
-      gstRate: formData.gstRate,
-      gstAmount: calculations.gstAmount,
+      gstRate: formData.currency === 'INR' ? formData.gstRate : '0%',
+      gstAmount: formData.currency === 'INR' ? calculations.gstAmount : 0,
       freightIncluded: formData.freightIncluded,
       freightCharges: calculations.freightAmt,
       otherCharges: calculations.otherChargesAmt,
@@ -588,7 +574,9 @@ export default function VendorSupplyOfferForm() {
       attachmentsJson: formData.attachments.map((a) => ({ name: a.name, size: a.size, category: a.category })),
       commercialRemarks: formData.commercialRemarks,
       specialConditions: formData.specialConditions,
+      termsConfirmed: formData.termsConfirmed,
       declarationConfirmed: formData.declarationConfirmed,
+      platformDisclaimerConfirmed: formData.platformDisclaimerConfirmed,
       status: 'Quotation Received'
     };
 
@@ -608,12 +596,15 @@ export default function VendorSupplyOfferForm() {
         } catch (e) { }
 
         setSubmittedOffer({
+          offerReference: data.offerReference || payload.offerReference,
           rfqReference: rfqDetails.rfqReference,
           vendorQuotationNo: formData.vendorQuotationNo,
           submittedAt: new Date().toLocaleString(),
           offeredQuantity: `${calculations.qty} ${rfqDetails.uom}`,
           grandTotalFormatted: `${calculations.currencySymbol} ${calculations.grandTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
-          status: 'Quotation Received'
+          status: 'Quotation Received',
+          viewOfferUrl: data.viewOfferUrl || `/supply-offer/view?offerRef=${encodeURIComponent(data.offerReference || payload.offerReference)}`,
+          emailSentTo: formData.emailAddress
         });
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
@@ -656,7 +647,31 @@ export default function VendorSupplyOfferForm() {
               Our procurement committee and buyers have received your offer and will evaluate it against the consolidated requirement.
             </p>
 
+            <div style={{
+              background: 'rgba(14, 165, 233, 0.1)',
+              border: '1px solid rgba(14, 165, 233, 0.3)',
+              borderRadius: '8px',
+              padding: '12px 18px',
+              margin: '0 0 20px 0',
+              color: '#0284c7',
+              fontSize: '13px',
+              textAlign: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}>
+              <Send size={16} />
+              <span>
+                Quotation copy & PDF link have been emailed to <b>{submittedOffer.emailSentTo}</b> and the Synergy5M sales desk.
+              </span>
+            </div>
+
             <div className="syn-receipt-grid">
+              <div className="syn-receipt-item">
+                <span className="syn-receipt-label">Offer Reference</span>
+                <span className="syn-receipt-value syn-mono">{submittedOffer.offerReference}</span>
+              </div>
               <div className="syn-receipt-item">
                 <span className="syn-receipt-label">RFQ Reference</span>
                 <span className="syn-receipt-value syn-mono">{submittedOffer.rfqReference}</span>
@@ -677,28 +692,49 @@ export default function VendorSupplyOfferForm() {
                 <span className="syn-receipt-label">Quotation Grand Total</span>
                 <span className="syn-receipt-value syn-highlight">{submittedOffer.grandTotalFormatted}</span>
               </div>
-              <div className="syn-receipt-item">
-                <span className="syn-receipt-label">Quotation Status</span>
-                <span className="syn-status-pill syn-status-pill-success">
-                  <span className="syn-dot syn-dot-green"></span> {submittedOffer.status}
-                </span>
-              </div>
             </div>
 
             <div className="syn-success-actions">
               <button
                 type="button"
-                className="syn-btn syn-btn-secondary"
-                onClick={() => window.print()}
+                className="syn-btn syn-btn-primary"
+                onClick={() => navigate(`/supply-offer/view?offerRef=${encodeURIComponent(submittedOffer.offerReference)}`)}
+                style={{
+                  background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
+                  boxShadow: '0 4px 14px rgba(14, 165, 233, 0.4)',
+                  padding: '11px 20px',
+                  fontWeight: 700
+                }}
               >
-                <Printer size={16} /> Print / Save Confirmation PDF
+                <FileText size={16} /> 📄 View Official Quotation Document (PDF)
               </button>
               <button
                 type="button"
-                className="syn-btn syn-btn-primary"
+                className="syn-btn syn-btn-secondary"
+                onClick={() => navigate('/submittedoffer')}
+              >
+                <FileText size={16} /> View All Submitted Offers
+              </button>
+              <button
+                type="button"
+                className="syn-btn syn-btn-secondary"
+                onClick={() => navigate('/supply-offers')}
+              >
+                <Layers size={16} /> All Dispatched RFQs
+              </button>
+              <button
+                type="button"
+                className="syn-btn syn-btn-secondary"
+                onClick={() => window.print()}
+              >
+                <Printer size={16} /> Print Confirmation
+              </button>
+              <button
+                type="button"
+                className="syn-btn syn-btn-secondary"
                 onClick={() => navigate('/')}
               >
-                Return to  Portal <ChevronRight size={16} />
+                Return to Portal <ChevronRight size={16} />
               </button>
             </div>
           </div>
@@ -732,6 +768,22 @@ export default function VendorSupplyOfferForm() {
           </div>
 
           <div className="syn-nav-meta">
+            <button
+              type="button"
+              className="syn-btn-nav-link"
+              onClick={() => navigate('/supply-offers')}
+              title="View all dispatched RFQ offers"
+            >
+              Dispatched RFQs
+            </button>
+            <button
+              type="button"
+              className="syn-btn-nav-link"
+              onClick={() => navigate('/submittedoffer')}
+              title="View all submitted vendor quotations"
+            >
+              Submitted Offers
+            </button>
             {loadingData && (
               <div className="syn-status-tag">
                 <RefreshCw size={12} className="syn-spin" />
@@ -858,9 +910,9 @@ export default function VendorSupplyOfferForm() {
                       <thead>
                         <tr>
                           <th>Enquiry Reference</th>
-                          <th>Buyer</th>
+                          <th>Buyer </th>
                           <th className="syn-text-right">Required Quantity</th>
-                          <th>Destination</th>
+                          {/* <th>Destination</th> */}
                           <th>Status</th>
                         </tr>
                       </thead>
@@ -868,11 +920,11 @@ export default function VendorSupplyOfferForm() {
                         {rfqDetails.buyerEnquiries.map((enq, index) => (
                           <tr key={index}>
                             <td className="syn-mono font-medium">{enq.enquiryRef}</td>
-                            <td>{enq.buyerName}</td>
+                            <td>Verified Buyer From {enq.destination}</td>
                             <td className="syn-text-right font-semibold">
                               {enq.requiredQty} {rfqDetails.uom}
                             </td>
-                            <td>{enq.destination}</td>
+                            {/* <td>{enq.destination}</td> */}
                             <td>
                               <span className="syn-status-mini syn-status-mini-cyan">Verified</span>
                             </td>
@@ -1040,7 +1092,7 @@ export default function VendorSupplyOfferForm() {
                   </div>
                   {!formData.canSupplyFull && (
                     <div className="syn-inline-alert syn-alert-warning">
-                      <span>You can allocate custom partial supply quantities against buyer enquiries in Section 4 below.</span>
+                      <span>You are offering a partial supply quantity against this aggregated procurement.</span>
                     </div>
                   )}
                 </div>
@@ -1108,7 +1160,7 @@ export default function VendorSupplyOfferForm() {
                 </div>
 
                 {/* Pricing & Commercial Terms */}
-                <div className="syn-field-grid syn-cols-4">
+                <div className={`syn-field-grid ${formData.currency === 'INR' ? 'syn-cols-4' : 'syn-cols-3'}`}>
                   <div className="syn-form-group">
                     <label className="syn-input-label">
                       Offered Unit Price <span className="syn-required">*</span>
@@ -1156,23 +1208,34 @@ export default function VendorSupplyOfferForm() {
                     </select>
                   </div>
 
-                  <div className="syn-form-group">
-                    <label className="syn-input-label">GST Rate</label>
-                    <select
-                      className="syn-select"
-                      value={formData.gstRate}
-                      onChange={(e) => handleInputChange('gstRate', e.target.value)}
-                    >
-                      <option value="18%">18% (Standard Industrial)</option>
-                      <option value="12%">12%</option>
-                      <option value="5%">5%</option>
-                      <option value="28%">28%</option>
-                      <option value="0%">0% / Exempt / SEZ</option>
-                    </select>
-                  </div>
+                  {formData.currency === 'INR' && (
+                    <div className="syn-form-group">
+                      <label className="syn-input-label">GST Rate</label>
+                      <select
+                        className="syn-select"
+                        value={formData.gstRate}
+                        onChange={(e) => handleInputChange('gstRate', e.target.value)}
+                      >
+                        <option value="18%">18% (Standard Industrial)</option>
+                        <option value="12%">12%</option>
+                        <option value="5%">5%</option>
+                        <option value="28%">28%</option>
+                        <option value="0%">0% / Exempt / SEZ</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
 
-                <div className="syn-field-grid syn-cols-3">
+                {formData.currency !== 'INR' && (
+                  <div className="syn-inline-alert syn-alert-info" style={{ marginTop: '-8px', marginBottom: '16px' }}>
+                    <ShieldCheck size={16} />
+                    <span>
+                      <strong>Overseas / Export Offer ({formData.currency}):</strong> Domestic Indian GST is not applicable (0% tax applied).
+                    </span>
+                  </div>
+                )}
+
+                <div className="syn-field-grid syn-cols-4">
                   <div className="syn-form-group">
                     <label className="syn-input-label">Freight Included in Price?</label>
                     <select
@@ -1191,6 +1254,7 @@ export default function VendorSupplyOfferForm() {
                       <input
                         type="number"
                         min="0"
+                        step="any"
                         className="syn-input"
                         placeholder="Lump-sum or Total Freight"
                         value={formData.freightCharges}
@@ -1200,15 +1264,67 @@ export default function VendorSupplyOfferForm() {
                   )}
 
                   <div className="syn-form-group">
-                    <label className="syn-input-label">Other Charges ({calculations.currencySymbol})</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="syn-input"
-                      placeholder="Packaging / Handling / Loading"
-                      value={formData.otherCharges}
-                      onChange={(e) => handleInputChange('otherCharges', e.target.value)}
-                    />
+                    <label className="syn-input-label">Platform Fee</label>
+                    <select
+                      className="syn-select"
+                      value={formData.otherChargesType}
+                      onChange={(e) => handleInputChange('otherChargesType', e.target.value)}
+                    >
+                      <option value="per_unit">Per {rfqDetails.uom} ({calculations.currencySymbol} / {rfqDetails.uom})</option>
+                      <option value="percentage">Percentage (%) of Unit Price</option>
+                      <option value="lump_sum">Total Lump-Sum ({calculations.currencySymbol})</option>
+                    </select>
+                  </div>
+
+                  <div className="syn-form-group">
+                    <label className="syn-input-label">
+                      {formData.otherChargesType === 'percentage'
+                        ? 'PlatForm Fee Rate (%)'
+                        : formData.otherChargesType === 'lump_sum'
+                          ? `PlatForm Fee (${calculations.currencySymbol} Lump-Sum)`
+                          : `PlatForm Fee (${calculations.currencySymbol} / ${rfqDetails.uom})`}
+                    </label>
+                    <div className="syn-input-addon-wrap">
+                      <span className="syn-addon">
+                        {formData.otherChargesType === 'percentage'
+                          ? '%'
+                          : formData.otherChargesType === 'lump_sum'
+                            ? calculations.currencySymbol
+                            : `${calculations.currencySymbol}/${rfqDetails.uom}`}
+                      </span>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        className="syn-input syn-input-with-addon"
+                        placeholder={formData.otherChargesType === 'percentage' ? 'e.g. 2 or 3.5' : formData.otherChargesType === 'lump_sum' ? 'e.g. 5000' : 'e.g. 1 or 25'}
+                        value={formData.otherChargesValue}
+                        onChange={(e) => handleInputChange('otherChargesValue', e.target.value)}
+                      />
+                    </div>
+                    {formData.otherChargesType === 'per_unit' ? (
+                      Number(formData.otherChargesValue) > 0 && (
+                        <span className="syn-field-hint">
+                          = {calculations.currencySymbol}{' '}
+                          {calculations.otherChargesAmt.toLocaleString('en-IN', { maximumFractionDigits: 2 })}{' '}
+                          total ({calculations.currencySymbol}{formData.otherChargesValue}/{rfqDetails.uom} × {calculations.qty} {rfqDetails.uom}) • Effective Unit Price: <strong>{calculations.currencySymbol} {calculations.effectiveUnitPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })} / {rfqDetails.uom}</strong>
+                        </span>
+                      )
+                    ) : formData.otherChargesType === 'percentage' ? (
+                      Number(formData.otherChargesValue) > 0 && (
+                        <span className="syn-field-hint">
+                          = {calculations.currencySymbol}{' '}
+                          {calculations.otherChargesAmt.toLocaleString('en-IN', { maximumFractionDigits: 2 })}{' '}
+                          total ({formData.otherChargesValue}% of base) • Effective Unit Price: <strong>{calculations.currencySymbol} {calculations.effectiveUnitPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })} / {rfqDetails.uom}</strong>
+                        </span>
+                      )
+                    ) : (
+                      Number(formData.otherChargesValue) > 0 && (
+                        <span className="syn-field-hint" style={{ color: '#64748b' }}>
+                          Flat Lump-Sum: {calculations.currencySymbol} {Number(formData.otherChargesValue).toLocaleString('en-IN')} • Effective Unit Price: <strong>{calculations.currencySymbol} {calculations.effectiveUnitPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })} / {rfqDetails.uom}</strong>
+                        </span>
+                      )
+                    )}
                   </div>
 
                   <div className="syn-form-group">
@@ -1231,135 +1347,11 @@ export default function VendorSupplyOfferForm() {
             </div>
 
             {/* SECTION 4: Enquiry-wise Supply Allocation */}
+            {/* SECTION 4: Delivery & Payment Terms */}
             <div className="syn-card">
               <div className="syn-card-header">
                 <div className="syn-card-title-group">
                   <div className="syn-section-num">4</div>
-                  <div>
-                    <h2 className="syn-card-title">Enquiry-wise Supply Allocation</h2>
-                    <p className="syn-card-desc">
-                      Distribute your offered quantity across verified buyer requirements.
-                    </p>
-                  </div>
-                </div>
-                {!formData.canSupplyFull && (
-                  <button
-                    type="button"
-                    className="syn-btn-text"
-                    onClick={handleAutoDistributeAllocations}
-                  >
-                    ⚡ Auto-Distribute Pro-Rata
-                  </button>
-                )}
-              </div>
-
-              <div className="syn-card-body">
-                <div className="syn-table-responsive">
-                  <table className="syn-table syn-table-interactive">
-                    <thead>
-                      <tr>
-                        <th>Buyer Enquiry</th>
-                        <th>Buyer Name</th>
-                        <th className="syn-text-right">Required Demand</th>
-                        <th className="syn-text-right" style={{ width: '180px' }}>
-                          Offered Quantity ({rfqDetails.uom}) <span className="syn-required">*</span>
-                        </th>
-                        <th>Destination</th>
-                        <th>Fulfillment</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {formData.allocations.map((item, idx) => {
-                        const req = item.requiredQty || 0;
-                        const off = parseFloat(item.offeredQty) || 0;
-                        const pct = req > 0 ? Math.min(100, Math.round((off / req) * 100)) : 100;
-                        return (
-                          <tr key={item.enquiryRef}>
-                            <td className="syn-mono font-medium">{item.enquiryRef}</td>
-                            <td>{item.buyerName}</td>
-                            <td className="syn-text-right font-medium">
-                              {req} {rfqDetails.uom}
-                            </td>
-                            <td className="syn-text-right">
-                              <input
-                                type="number"
-                                step="any"
-                                min="0"
-                                max={req * 1.5}
-                                disabled={formData.canSupplyFull}
-                                className="syn-input syn-input-sm syn-text-right"
-                                value={item.offeredQty}
-                                onChange={(e) => handleAllocationChange(idx, e.target.value)}
-                              />
-                            </td>
-                            <td>{item.destination}</td>
-                            <td>
-                              <span
-                                className={`syn-status-mini ${pct >= 100
-                                  ? 'syn-status-mini-green'
-                                  : pct > 0
-                                    ? 'syn-status-mini-amber'
-                                    : 'syn-status-mini-red'
-                                  }`}
-                              >
-                                {pct}% Covered
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {formErrors.allocations && (
-                  <div className="syn-inline-alert syn-alert-error" style={{ marginTop: '12px' }}>
-                    <AlertCircle size={16} />
-                    <span>{formErrors.allocations}</span>
-                  </div>
-                )}
-
-                {/* Allocation Summary Metrics Bar */}
-                <div className="syn-alloc-metric-bar">
-                  <div className="syn-alloc-metric">
-                    <span className="syn-metric-label">Total Required Demand</span>
-                    <strong className="syn-metric-val">
-                      {rfqDetails.totalDemand} {rfqDetails.uom}
-                    </strong>
-                  </div>
-                  <div className="syn-alloc-metric">
-                    <span className="syn-metric-label">Total Offered Quantity</span>
-                    <strong className="syn-metric-val syn-text-cyan">
-                      {calculations.qty} {rfqDetails.uom}
-                    </strong>
-                  </div>
-                  <div className="syn-alloc-metric">
-                    <span className="syn-metric-label">Enquiry Allocation Sum</span>
-                    <strong
-                      className={`syn-metric-val ${Math.abs(calculations.allocationDiff) < 0.01 ? 'syn-text-green' : 'syn-text-amber'
-                        }`}
-                    >
-                      {calculations.totalAllocated.toFixed(2)} {rfqDetails.uom}
-                    </strong>
-                  </div>
-                  <div className="syn-alloc-metric">
-                    <span className="syn-metric-label">Demand Shortfall</span>
-                    <strong
-                      className={`syn-metric-val ${calculations.shortfall > 0 ? 'syn-text-amber' : 'syn-text-green'
-                        }`}
-                    >
-                      {calculations.shortfall > 0 ? `${calculations.shortfall.toFixed(2)} ${rfqDetails.uom}` : 'Zero (Fully Covered)'}
-                    </strong>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* SECTION 5: Delivery & Payment Terms */}
-            <div className="syn-card">
-              <div className="syn-card-header">
-                <div className="syn-card-title-group">
-                  <div className="syn-section-num">5</div>
                   <div>
                     <h2 className="syn-card-title">Delivery & Payment Terms</h2>
                     <p className="syn-card-desc">
@@ -1563,11 +1555,11 @@ export default function VendorSupplyOfferForm() {
               </div>
             </div>
 
-            {/* SECTION 6: Documents & Attachments */}
+            {/* SECTION 5: Documents & Attachments */}
             <div className="syn-card">
               <div className="syn-card-header">
                 <div className="syn-card-title-group">
-                  <div className="syn-section-num">6</div>
+                  <div className="syn-section-num">5</div>
                   <div>
                     <h2 className="syn-card-title">Documents & Attachments</h2>
                     <p className="syn-card-desc">
@@ -1597,53 +1589,7 @@ export default function VendorSupplyOfferForm() {
                     </label>
                   </div>
 
-                  {/* Slot 2: Technical Data Sheet (TDS) */}
-                  <div className="syn-upload-slot">
-                    <span className="syn-slot-title">Technical Data Sheet (TDS)</span>
-                    <label className="syn-dropzone">
-                      <input
-                        type="file"
-                        accept=".pdf,.doc,.docx"
-                        className="syn-file-input"
-                        onChange={(e) => handleFileUpload(e, 'Technical Data Sheet')}
-                      />
-                      <FileText size={24} className="syn-upload-icon" />
-                      <span className="syn-drop-main">Upload TDS</span>
-                      <span className="syn-drop-sub">PDF or DOCX</span>
-                    </label>
-                  </div>
 
-                  {/* Slot 3: Certificate of Analysis (COA) */}
-                  <div className="syn-upload-slot">
-                    <span className="syn-slot-title">Certificate of Analysis (COA)</span>
-                    <label className="syn-dropzone">
-                      <input
-                        type="file"
-                        accept=".pdf,.jpg,.png"
-                        className="syn-file-input"
-                        onChange={(e) => handleFileUpload(e, 'Certificate of Analysis')}
-                      />
-                      <ShieldCheck size={24} className="syn-upload-icon" />
-                      <span className="syn-drop-main">Upload COA</span>
-                      <span className="syn-drop-sub">PDF or Image</span>
-                    </label>
-                  </div>
-
-                  {/* Slot 4: Additional Supporting Documents */}
-                  <div className="syn-upload-slot">
-                    <span className="syn-slot-title">Product Test Certificate / Other</span>
-                    <label className="syn-dropzone">
-                      <input
-                        type="file"
-                        multiple
-                        className="syn-file-input"
-                        onChange={(e) => handleFileUpload(e, 'Supporting Document')}
-                      />
-                      <Upload size={24} className="syn-upload-icon" />
-                      <span className="syn-drop-main">Upload Other Files</span>
-                      <span className="syn-drop-sub">Any supporting specifications</span>
-                    </label>
-                  </div>
                 </div>
 
                 {formErrors.attachments && (
@@ -1685,11 +1631,11 @@ export default function VendorSupplyOfferForm() {
               </div>
             </div>
 
-            {/* SECTION 7: Remarks & Confirmation */}
+            {/* SECTION 6: Remarks & Confirmation */}
             <div className="syn-card">
               <div className="syn-card-header">
                 <div className="syn-card-title-group">
-                  <div className="syn-section-num">7</div>
+                  <div className="syn-section-num">6</div>
                   <div>
                     <h2 className="syn-card-title">Remarks & Declarations</h2>
                     <p className="syn-card-desc">
@@ -1700,27 +1646,6 @@ export default function VendorSupplyOfferForm() {
               </div>
 
               <div className="syn-card-body">
-                <div className="syn-form-group">
-                  <label className="syn-input-label">Additional Commercial Remarks</label>
-                  <textarea
-                    rows={3}
-                    className="syn-textarea"
-                    placeholder="Provide details regarding delivery flexibilities, batch sizes, test report inclusions, etc."
-                    value={formData.commercialRemarks}
-                    onChange={(e) => handleInputChange('commercialRemarks', e.target.value)}
-                  />
-                </div>
-
-                <div className="syn-form-group">
-                  <label className="syn-input-label">Special Conditions / Quality Tolerances</label>
-                  <textarea
-                    rows={2}
-                    className="syn-textarea"
-                    placeholder="Specify packing tolerances, sampling methods, or demurrage provisions, if any."
-                    value={formData.specialConditions}
-                    onChange={(e) => handleInputChange('specialConditions', e.target.value)}
-                  />
-                </div>
 
                 <div className="syn-declarations-box">
                   <label className={`syn-checkbox-label ${formErrors.termsConfirmed ? 'syn-label-error' : ''}`}>
@@ -1730,9 +1655,10 @@ export default function VendorSupplyOfferForm() {
                       onChange={(e) => handleInputChange('termsConfirmed', e.target.checked)}
                     />
                     <span>
-                      <strong>Commercial Terms Acceptance:</strong> We confirm that our company can deliver the offered quantities according to the indicated specifications, timelines, and commercial conditions above.
+                      <strong>Commercial Terms Acceptance:</strong> We confirm that our company can deliver the offered quantities according to the indicated specifications, timelines, and commercial conditions above. <span className="syn-required">*</span>
                     </span>
                   </label>
+                  {formErrors.termsConfirmed && <span className="syn-err-msg">{formErrors.termsConfirmed}</span>}
 
                   <label className={`syn-checkbox-label ${formErrors.declarationConfirmed ? 'syn-label-error' : ''}`}>
                     <input
@@ -1741,9 +1667,24 @@ export default function VendorSupplyOfferForm() {
                       onChange={(e) => handleInputChange('declarationConfirmed', e.target.checked)}
                     />
                     <span>
-                      <strong>Authorized Declaration:</strong> We declare that the submitted prices, quantities, GST/freight provisions, and validity terms are accurate, binding, and authorized by our management.
+                      <strong>Authorized Declaration:</strong> We declare that the submitted prices, quantities, GST/freight provisions, and validity terms are accurate, binding, and authorized by our management. <span className="syn-required">*</span>
                     </span>
                   </label>
+                  {formErrors.declarationConfirmed && <span className="syn-err-msg">{formErrors.declarationConfirmed}</span>}
+
+                  <label className={`syn-checkbox-label ${formErrors.platformDisclaimerConfirmed ? 'syn-label-error' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={formData.platformDisclaimerConfirmed}
+                      onChange={(e) => handleInputChange('platformDisclaimerConfirmed', e.target.checked)}
+                    />
+                    <span>
+                      <strong>Synergy5M Platform Disclaimer & Limitation of Liability:</strong> We explicitly acknowledge and agree that Synergy5M LLP operates purely as an enterprise technology and demand aggregation portal connecting verified buyers and suppliers. Synergy5M LLP is not a merchant, broker, buyer, seller, or guarantor of this commercial transaction, and assumes no financial responsibility or legal liability whatsoever for any business outcomes, commercial disputes, payment delays, default in fulfillment, financial profits, or financial losses incurred by any party arising out of or related to this quotation, subsequent negotiations, or resulting purchase orders. <span className="syn-required">*</span>
+                    </span>
+                  </label>
+                  {formErrors.platformDisclaimerConfirmed && (
+                    <span className="syn-err-msg">{formErrors.platformDisclaimerConfirmed}</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -1842,20 +1783,49 @@ export default function VendorSupplyOfferForm() {
 
                   {calculations.otherChargesAmt > 0 && (
                     <div className="syn-sum-row">
-                      <span>Other Charges</span>
+                      <span>
+                        PlatForm Fee{' '}
+                        <small className="syn-text-muted">
+                          ({formData.otherChargesType === 'percentage'
+                            ? `${formData.otherChargesValue}%`
+                            : formData.otherChargesType === 'lump_sum'
+                              ? 'Lump-Sum'
+                              : `+${calculations.currencySymbol}${formData.otherChargesValue}/${rfqDetails.uom}`})
+                        </small>
+                      </span>
                       <span className="syn-mono">
-                        {calculations.currencySymbol} {calculations.otherChargesAmt.toLocaleString('en-IN')}
+                        {calculations.currencySymbol}{' '}
+                        {calculations.otherChargesAmt.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   )}
 
-                  <div className="syn-sum-row">
-                    <span>GST ({formData.gstRate})</span>
-                    <span className="syn-mono">
-                      {calculations.currencySymbol}{' '}
-                      {calculations.gstAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
+                  {calculations.otherChargesAmt > 0 && (
+                    <div className="syn-sum-row" style={{ background: '#f0fdfa', border: '1px solid #ccfbf1', padding: '6px 10px', borderRadius: '6px' }}>
+                      <span style={{ color: '#0f766e', fontWeight: 600, fontSize: '13px' }}>
+                        Effective Price / {rfqDetails.uom}
+                      </span>
+                      <span className="syn-mono" style={{ color: '#0f766e', fontWeight: 700, fontSize: '13.5px' }}>
+                        {calculations.currencySymbol}{' '}
+                        {calculations.effectiveUnitPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })} / {rfqDetails.uom}
+                      </span>
+                    </div>
+                  )}
+
+                  {formData.currency === 'INR' ? (
+                    <div className="syn-sum-row">
+                      <span>GST ({formData.gstRate})</span>
+                      <span className="syn-mono">
+                        {calculations.currencySymbol}{' '}
+                        {calculations.gstAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="syn-sum-row">
+                      <span>GST (Overseas / Export)</span>
+                      <span className="syn-mono syn-text-muted">0% (Not Applicable)</span>
+                    </div>
+                  )}
 
                   <div className="syn-grand-total-box">
                     <span className="syn-grand-label">Estimated Total Quotation Value</span>
@@ -1869,7 +1839,7 @@ export default function VendorSupplyOfferForm() {
                       </span>
                     </div>
                     <span className="syn-grand-note">
-                      Price basis: {formData.priceBasis} • Tax: {formData.gstRate}
+                      Price basis: {formData.priceBasis} • Tax: {formData.currency === 'INR' ? formData.gstRate : '0% (Overseas)'}
                     </span>
                   </div>
 
@@ -2108,14 +2078,42 @@ export default function VendorSupplyOfferForm() {
                   )}
                   {calculations.otherChargesAmt > 0 && (
                     <div className="syn-quot-fin-row">
-                      <span>Other Charges:</span>
-                      <span>{calculations.currencySymbol} {calculations.otherChargesAmt.toLocaleString('en-IN')}</span>
+                      <span>
+                        PlatForm Fee ({formData.otherChargesType === 'percentage'
+                          ? `${formData.otherChargesValue}%`
+                          : formData.otherChargesType === 'lump_sum'
+                            ? 'Lump-Sum'
+                            : `+${calculations.currencySymbol}${formData.otherChargesValue}/${rfqDetails.uom}`}):
+                      </span>
+                      <span>
+                        {calculations.currencySymbol}{' '}
+                        {calculations.otherChargesAmt.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      </span>
                     </div>
                   )}
-                  <div className="syn-quot-fin-row">
-                    <span>GST ({formData.gstRate}):</span>
-                    <span>{calculations.currencySymbol} {calculations.gstAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-                  </div>
+                  {calculations.otherChargesAmt > 0 && (
+                    <div className="syn-quot-fin-row" style={{ fontWeight: 600, color: '#0f766e', background: '#f0fdfa', padding: '4px 8px', borderRadius: '4px' }}>
+                      <span>Effective Unit Price:</span>
+                      <span>
+                        {calculations.currencySymbol}{' '}
+                        {calculations.effectiveUnitPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })} / {rfqDetails.uom}
+                      </span>
+                    </div>
+                  )}
+                  {formData.currency === 'INR' ? (
+                    <div className="syn-quot-fin-row">
+                      <span>GST ({formData.gstRate}):</span>
+                      <span>
+                        {calculations.currencySymbol}{' '}
+                        {calculations.gstAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="syn-quot-fin-row">
+                      <span>GST (Overseas / Export):</span>
+                      <span style={{ color: '#64748b' }}>0% (Exempt)</span>
+                    </div>
+                  )}
                   <div className="syn-quot-fin-total">
                     <span>Grand Total:</span>
                     <strong>{calculations.currencySymbol} {calculations.grandTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</strong>

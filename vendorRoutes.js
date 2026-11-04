@@ -180,7 +180,22 @@ router.post('/api/send-vendor-emails-attachment', verifyAdminToken, upload.singl
             let personalizedBody = (bodyTemplate || '')
                 .replace(/{{Company_Name}}/g, vendor.Company_Name || '')
                 .replace(/{{Contact_Person}}/g, vendor.Contact_Person || 'Valued Partner')
-                .replace(/{{GST_Number}}/g, vendor.GST_Number || 'N/A');
+                .replace(/{{GST_Number}}/g, vendor.GST_Number || 'N/A')
+                .replace(
+                    /<a\s+[^>]*href=["'](https:\/\/synergy5m\.com\/?|https:\/\/synergy5m\.com\/#collective-buy|https:\/\/synergy5m\.com\/products-open-for-enquiries)["'][^>]*>([\s\S]*?)<\/a>/gi,
+                    (match, url, text) => {
+                        const cleanText = text.replace(/<[^>]*>/g, '').trim() || '📄 View Buying Enquiry';
+                        return `<table width="100%" border="0" cellspacing="0" cellpadding="0" style="text-align: center; margin: 24px 0;">
+                          <tr>
+                            <td align="center">
+                              <a href="https://synergy5m.com/#collective-buy" target="_blank" rel="noopener noreferrer" style="background: #f97316; background-image: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #ffffff !important; padding: 14px 34px; font-size: 15px; font-weight: 700; text-decoration: none; border-radius: 8px; display: inline-block; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; box-shadow: 0 4px 14px rgba(249, 115, 22, 0.4); text-align: center; letter-spacing: 0.3px;">
+                                ${cleanText}
+                              </a>
+                            </td>
+                          </tr>
+                        </table>`;
+                    }
+                );
 
             let mailOptions = {
                 from: `"Synergy 5M" <${process.env.SMTP_USER}>`,

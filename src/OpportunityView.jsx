@@ -25,7 +25,9 @@ import {
   Warehouse,
   Database,
   Inbox,
-  FileCheck
+  FileCheck,
+  FileText,
+  AppWindowMacIcon
 } from 'lucide-react';
 import './AdminAddProduct.css';
 
@@ -400,6 +402,83 @@ export default function OpportunityView() {
               {!sidebarCollapsed && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-900/60 text-teal-200 font-bold uppercase tracking-wider">
                   Active
+                </span>
+              )}
+            </Link>
+
+            {/* Section Divider: Procurement & Offers */}
+            <div className="pt-3 pb-1 border-t border-slate-700/60 mt-3">
+              {!sidebarCollapsed && (
+                <div className="px-3 text-[10.5px] font-bold uppercase tracking-wider text-teal-400/80 mb-1">
+                  Procurement & Offers
+                </div>
+              )}
+            </div>
+
+            {/* 7. Dispatch RFQ */}
+            <Link
+              to="/supply-offers"
+              className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
+                }`}
+              title="Dispatch RFQ"
+            >
+              <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+                <Send className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                {!sidebarCollapsed && <span>Dispatch RFQ</span>}
+              </div>
+              {!sidebarCollapsed && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold uppercase tracking-wider">
+                  Sent
+                </span>
+              )}
+            </Link>
+
+
+            {/* 7. Admin Panel */}
+            <div className="relative group">
+              <a
+                href="/admin"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/admin');
+                  setSidebarOpen(false);
+                }}
+                className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
+                  }`}
+                title="Admin Panel"
+              >
+                <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+                  <AppWindowMacIcon className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                  {!sidebarCollapsed && <span>Admin Panel</span>}
+                </div>
+                {!sidebarCollapsed && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold uppercase tracking-wider">
+                    Admin
+                  </span>
+                )}
+              </a>
+              {sidebarCollapsed && (
+                <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden lg:flex items-center z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <div className="bg-[#0A1E33] text-white text-xs font-semibold px-2.5 py-1.5 rounded shadow-lg border border-slate-700 whitespace-nowrap">
+                    Admin Panel
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* 9. Submitted Offer */}
+            <Link
+              to="/submittedoffer"
+              className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
+                }`}
+              title="Submitted Offer"
+            >
+              <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+                <FileText className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                {!sidebarCollapsed && <span>Submitted Offer</span>}
+              </div>
+              {!sidebarCollapsed && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase tracking-wider">
+                  Quotes
                 </span>
               )}
             </Link>

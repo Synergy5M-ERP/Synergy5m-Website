@@ -1,0 +1,1176 @@
+/* -------------------------------------------------------------
+   Synergy5M Supply Offers Hub Stylesheet
+   Theme: White with Enterprise Orange Accent (#F97316 / #EA580C)
+   Layout: Full-Screen Fluid Width + Highly Responsive
+   ------------------------------------------------------------- */
+
+/* 1. Base Container */
+.soh-container {
+  width: 100%;
+  min-height: 100vh;
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  padding-bottom: 48px;
+}
+
+/* 2. Top Navigation Bar */
+.soh-navbar {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04);
+  width: 100%;
+}
+
+.soh-nav-inner {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+.soh-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.soh-logo-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 15px;
+  box-shadow: 0 3px 10px rgba(234, 88, 12, 0.3);
+  flex-shrink: 0;
+}
+
+.soh-brand-name {
+  display: block;
+  font-size: 16.5px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.soh-brand-sub {
+  display: block;
+  font-size: 11px;
+  color: #ea580c;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 1px;
+}
+
+.soh-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.soh-btn-secondary {
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.soh-btn-secondary:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.soh-btn-primary {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: #ffffff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.25);
+  white-space: nowrap;
+}
+
+.soh-btn-primary:hover {
+  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.35);
+}
+
+/* 3. Main Header Banner */
+.soh-banner {
+  background: linear-gradient(180deg, #fff7ed 0%, #ffffff 100%);
+  border-bottom: 1px solid #fed7aa;
+  padding: 24px 24px 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.soh-banner-content {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+}
+
+.soh-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #ffedd5;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  margin-bottom: 10px;
+}
+
+.soh-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.4px;
+  margin: 0 0 6px;
+}
+
+.soh-subtitle {
+  color: #475569;
+  font-size: 14px;
+  margin: 0 0 20px;
+  max-width: 820px;
+  line-height: 1.5;
+}
+
+/* Tab Switcher in Banner */
+.soh-tab-switch {
+  display: inline-flex;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  padding: 4px;
+  border-radius: 12px;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.soh-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: #64748b;
+  border: none;
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.soh-tab-btn:hover {
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+.soh-tab-btn.active {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: #ffffff;
+  box-shadow: 0 3px 12px rgba(234, 88, 12, 0.3);
+}
+
+.soh-tab-btn.active:hover {
+  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+}
+
+.soh-tab-badge {
+  background: rgba(0, 0, 0, 0.12);
+  color: inherit;
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.soh-tab-btn.active .soh-tab-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+/* 4. Main Content Wrapper - Full Screen Fluid */
+.soh-content {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+/* 5. Toolbar (Search, Filter, Refresh) */
+.soh-toolbar {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.soh-search-box {
+  flex: 1;
+  min-width: 260px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.soh-search-icon {
+  position: absolute;
+  left: 12px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.soh-search-input {
+  width: 100%;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 9px 34px 9px 36px;
+  color: #0f172a;
+  font-size: 13.5px;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.soh-search-input::placeholder {
+  color: #94a3b8;
+}
+
+.soh-search-input:focus {
+  background: #ffffff;
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
+}
+
+.soh-clear-btn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 3px;
+  display: flex;
+}
+
+.soh-clear-btn:hover {
+  color: #475569;
+}
+
+.soh-filter-group {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.soh-filter-btn {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.soh-filter-btn:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.soh-filter-btn.active {
+  background: #fff7ed;
+  color: #ea580c;
+  border-color: #f97316;
+  font-weight: 700;
+}
+
+.soh-refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.soh-refresh-btn:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.soh-spin {
+  animation: sohSpin 1s linear infinite;
+}
+
+@keyframes sohSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.soh-error-banner {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #be123c;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+}
+
+/* 6. Card & Table Container - White with Orange Accent */
+.soh-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px -2px rgba(15, 23, 42, 0.05);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.soh-card-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.soh-card-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 4px;
+}
+
+.soh-card-subtitle {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+.soh-table-count {
+  font-size: 12.5px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.soh-table-count b {
+  color: #ea580c;
+}
+
+/* Full Screen Responsive Table */
+.soh-table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.soh-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  text-align: left;
+  min-width: 920px;
+}
+
+.soh-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 13px 18px;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.soh-table td {
+  padding: 15px 18px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+  color: #1e293b;
+  background: #ffffff;
+}
+
+.soh-row:hover td {
+  background: #fffbf7;
+}
+
+/* Cell content components */
+.soh-ref-badge {
+  display: inline-block;
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: monospace;
+}
+
+.soh-rfq-pill {
+  display: inline-block;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: monospace;
+}
+
+.soh-timestamp {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: #64748b;
+  margin-top: 5px;
+}
+
+.soh-sub-tag {
+  font-size: 11px;
+  color: #475569;
+  margin-top: 3px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.soh-vendor-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.soh-vendor-contact {
+  font-size: 12px;
+  color: #475569;
+  margin-top: 2px;
+}
+
+.soh-vendor-email {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #ea580c;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.soh-inline-icon {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.soh-product-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.soh-product-title strong {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.soh-cat-pill {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.soh-product-specs {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 3px;
+}
+
+.soh-demand-metric b {
+  color: #ea580c;
+  font-weight: 700;
+}
+
+.soh-grade {
+  color: #64748b;
+}
+
+.soh-dest-text {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: #64748b;
+  margin-top: 3px;
+}
+
+/* Submission Count Badges */
+.soh-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.soh-count-badge.success {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.soh-count-badge.pending {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.soh-value-sub {
+  font-size: 11px;
+  color: #059669;
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+/* Action Buttons in Cell */
+.soh-actions-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.soh-btn-submit-action {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: #ffffff;
+  border: none;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.25);
+  text-decoration: none;
+}
+
+.soh-btn-submit-action:hover {
+  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35);
+}
+
+.soh-btn-icon-copy {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  padding: 7px 11px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.soh-btn-icon-copy:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.soh-btn-icon-copy.copied {
+  background: #ecfdf5;
+  color: #059669;
+  border-color: #a7f3d0;
+}
+
+.soh-btn-view-details {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #c2410c;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.soh-btn-view-details:hover {
+  background: #ffedd5;
+  color: #9a3412;
+  border-color: #fdba74;
+}
+
+/* Submitted Tab specific styles */
+.soh-quotation-no {
+  font-size: 11.5px;
+  color: #64748b;
+  margin-top: 3px;
+}
+
+.soh-status-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #059669;
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.soh-offered-qty {
+  font-size: 12.5px;
+  color: #334155;
+  margin-top: 2px;
+}
+
+.soh-offered-qty b {
+  color: #0f172a;
+}
+
+.soh-full-badge {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+}
+
+.soh-partial-badge {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+}
+
+.soh-unit-price {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.soh-gst-info {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.soh-grand-total {
+  font-size: 12.5px;
+  color: #ea580c;
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.soh-grand-total b {
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+/* Empty / Loading States */
+.soh-loading,
+.soh-empty {
+  text-align: center;
+  padding: 56px 24px;
+  color: #64748b;
+  background: #ffffff;
+}
+
+.soh-empty-icon {
+  color: #ea580c;
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+
+.soh-empty h3 {
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.soh-empty p {
+  font-size: 13.5px;
+  max-width: 480px;
+  margin: 0 auto 20px;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+/* ========================================================================= */
+/* 7. Modal Preview - Clean White + Orange Theme                             */
+/* ========================================================================= */
+.soh-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.soh-modal-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.2);
+  animation: sohModalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes sohModalPop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.soh-modal-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.soh-modal-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.soh-modal-badge {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.soh-modal-header h2 {
+  font-size: 17px;
+  color: #0f172a;
+  margin: 0;
+  font-weight: 800;
+}
+
+.soh-modal-close {
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.soh-modal-close:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+.soh-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: #ffffff;
+}
+
+.soh-modal-summary-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  padding: 14px 18px;
+}
+
+.soh-sum-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.soh-sum-label {
+  font-size: 11px;
+  color: #9a3412;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 600;
+}
+
+.soh-sum-value {
+  font-size: 13.5px;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.soh-section-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+
+.soh-section-box.highlight {
+  background: #fffbf7;
+  border-color: #fed7aa;
+}
+
+.soh-section-title {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #c2410c;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 14px;
+}
+
+.soh-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.soh-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.soh-detail-label {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 3px;
+  font-weight: 500;
+}
+
+.soh-detail-val {
+  margin: 0;
+  font-size: 13.5px;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.soh-detail-val.price {
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.soh-detail-val.total {
+  color: #ea580c;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.soh-detail-val.remarks {
+  font-style: italic;
+  font-weight: normal;
+  color: #475569;
+}
+
+.soh-disclaimer-note {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  font-size: 11.5px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.45;
+}
+
+.soh-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ========================================================================= */
+/* 8. Responsive Design Breakpoints                                          */
+/* ========================================================================= */
+
+@media (max-width: 1024px) {
+  .soh-content {
+    padding: 18px 20px;
+  }
+
+  .soh-banner {
+    padding: 22px 20px 18px;
+  }
+
+  .soh-nav-inner {
+    padding: 12px 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .soh-nav-inner {
+    padding: 12px 16px;
+    gap: 12px;
+  }
+
+  .soh-nav-actions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .soh-nav-actions .soh-btn-secondary,
+  .soh-nav-actions .soh-btn-primary {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  .soh-banner {
+    padding: 18px 16px 16px;
+  }
+
+  .soh-title {
+    font-size: 22px;
+  }
+
+  .soh-subtitle {
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  .soh-tab-switch {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .soh-tab-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 14px;
+  }
+
+  .soh-content {
+    padding: 16px;
+  }
+
+  .soh-toolbar {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .soh-search-box {
+    width: 100%;
+    min-width: 100%;
+  }
+
+  .soh-filter-group {
+    width: 100%;
+    display: flex;
+  }
+
+  .soh-filter-btn {
+    flex: 1;
+    text-align: center;
+    padding: 7px 8px;
+    font-size: 12px;
+  }
+
+  .soh-refresh-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .soh-card-header {
+    padding: 14px 16px;
+  }
+
+  .soh-card-title {
+    font-size: 16px;
+  }
+
+  .soh-table th,
+  .soh-table td {
+    padding: 12px 14px;
+  }
+
+  .soh-actions-cell {
+    justify-content: flex-start;
+  }
+
+  .soh-modal-card {
+    max-height: 94vh;
+  }
+
+  .soh-modal-header,
+  .soh-modal-body,
+  .soh-modal-footer {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .soh-brand-name {
+    font-size: 15px;
+  }
+
+  .soh-brand-sub {
+    font-size: 10px;
+  }
+
+  .soh-title {
+    font-size: 19px;
+  }
+
+  .soh-btn-submit-action {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .soh-actions-cell {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

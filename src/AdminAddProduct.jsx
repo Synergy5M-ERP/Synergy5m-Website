@@ -35,7 +35,10 @@ import {
   List,
   LayoutDashboard,
   ArrowRight,
-  FileCheck
+  FileCheck,
+  Send,
+  TrendingUp,
+  ArrowUpRight
 } from 'lucide-react';
 import './AdminAddProduct.css';
 
@@ -373,12 +376,50 @@ export default function AdminAddProduct({ initialTab }) {
     }
   };
 
+  // Live Supply Offer & RFQ Metrics state
+  const [supplyMetrics, setSupplyMetrics] = useState({
+    totalSent: 0,
+    distinctProducts: 0,
+    totalSubmitted: 0,
+    responseRate: 0
+  });
+
+  const loadSupplyMetrics = useCallback(async () => {
+    try {
+      const [sentRes, subRes] = await Promise.all([
+        fetch('/api/supply-offers/sent').then(r => r.json()).catch(() => ({ success: false, data: [] })),
+        fetch('/api/supply-offers/submitted').then(r => r.json()).catch(() => ({ success: false, data: [] }))
+      ]);
+
+      const sentData = (sentRes.success && Array.isArray(sentRes.data)) ? sentRes.data : [];
+      const subData = (subRes.success && Array.isArray(subRes.data)) ? subRes.data : [];
+
+      const totalSent = sentData.length;
+      const totalSubmitted = subData.length;
+      const distinctProducts = new Set([
+        ...sentData.map(s => s.ProductName),
+        ...subData.map(o => o.ProductName)
+      ].filter(Boolean)).size;
+
+      const sentWithSubmissions = sentData.filter(s => (s.SubmittedOffersCount || 0) > 0).length;
+      const responseRate = totalSent > 0 ? Math.round((sentWithSubmissions / totalSent) * 100) : (totalSubmitted > 0 ? 100 : 0);
+
+      setSupplyMetrics({
+        totalSent,
+        distinctProducts,
+        totalSubmitted,
+        responseRate
+      });
+    } catch (e) { }
+  }, []);
+
   // Initial load from Database on mount
   useEffect(() => {
     loadDbProducts();
     loadEnquiries();
     loadVendorCategories();
-  }, []);
+    loadSupplyMetrics();
+  }, [loadSupplyMetrics]);
 
   // Sync activeAdminTab if location or initialTab changes
   useEffect(() => {
@@ -387,12 +428,13 @@ export default function AdminAddProduct({ initialTab }) {
     if (tab === 'dashboard') {
       loadDbProducts();
       loadEnquiries();
+      loadSupplyMetrics();
     } else if (tab === 'enquiries') {
       loadEnquiries();
     } else if (tab === 'table') {
       loadDbProducts();
     }
-  }, [getTabFromLocation]);
+  }, [getTabFromLocation, loadSupplyMetrics]);
 
   // Tab switch handler with URL synchronization
   const switchTab = (tab) => {
@@ -400,6 +442,7 @@ export default function AdminAddProduct({ initialTab }) {
     if (tab === 'dashboard') {
       loadDbProducts();
       loadEnquiries();
+      loadSupplyMetrics();
       navigate('/admin/dashboard', { replace: false });
     } else if (tab === 'enquiries') {
       loadEnquiries();
@@ -1017,24 +1060,6 @@ export default function AdminAddProduct({ initialTab }) {
               )}
             </div>
 
-            {/* 4. Demand Aggregation */}
-            {/* <div className="relative group">
-              <a
-                href="#aggregation"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate('/aggregatedEnquiry');
-                }}
-                className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
-                  }`}
-                title="Demand Aggregation"
-              >
-                <Layers className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                {!sidebarCollapsed && <span>Demand Aggregation</span>}
-              </a>
-
-
-            </div> */}
 
             {/* 5. Opportunity View */}
             <div className="relative group">
@@ -1068,6 +1093,111 @@ export default function AdminAddProduct({ initialTab }) {
                     <span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
                       Live Pool
                     </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Section Divider: Procurement & Offers */}
+            <div className="pt-3 pb-1 border-t border-slate-700/60 mt-3">
+              {!sidebarCollapsed && (
+                <div className="px-3 text-[10.5px] font-bold uppercase tracking-wider text-teal-400/80 mb-1">
+                  Procurement & Offers
+                </div>
+              )}
+            </div>
+
+            {/* 6. Dispatch RFQ */}
+            <div className="relative group">
+              <a
+                href="/supply-offers"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/supply-offers');
+                  setSidebarOpen(false);
+                }}
+                className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
+                  }`}
+                title="Dispatch RFQ"
+              >
+                <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+                  <Send className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                  {!sidebarCollapsed && <span>Dispatch RFQ</span>}
+                </div>
+                {!sidebarCollapsed && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold uppercase tracking-wider">
+                    Sent
+                  </span>
+                )}
+              </a>
+              {sidebarCollapsed && (
+                <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden lg:flex items-center z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <div className="bg-[#0A1E33] text-white text-xs font-semibold px-2.5 py-1.5 rounded shadow-lg border border-slate-700 whitespace-nowrap">
+                    Dispatch RFQ
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 7. Admin Panel */}
+            <div className="relative group">
+              <a
+                href="/admin"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/admin');
+                  setSidebarOpen(false);
+                }}
+                className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
+                  }`}
+                title="Admin Panel"
+              >
+                <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+                  <Send className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                  {!sidebarCollapsed && <span>Admin Panel</span>}
+                </div>
+                {!sidebarCollapsed && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold uppercase tracking-wider">
+                    Admin
+                  </span>
+                )}
+              </a>
+              {sidebarCollapsed && (
+                <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden lg:flex items-center z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <div className="bg-[#0A1E33] text-white text-xs font-semibold px-2.5 py-1.5 rounded shadow-lg border border-slate-700 whitespace-nowrap">
+                    Admin Panel
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 8. Submitted Offer */}
+            <div className="relative group">
+              <a
+                href="/submittedoffer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/submittedoffer');
+                  setSidebarOpen(false);
+                }}
+                className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
+                  }`}
+                title="Submitted Offer"
+              >
+                <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+                  <FileText className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  {!sidebarCollapsed && <span>Submitted Offer</span>}
+                </div>
+                {!sidebarCollapsed && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase tracking-wider">
+                    Quotes
+                  </span>
+                )}
+              </a>
+              {sidebarCollapsed && (
+                <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden lg:flex items-center z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <div className="bg-[#0A1E33] text-white text-xs font-semibold px-2.5 py-1.5 rounded shadow-lg border border-slate-700 whitespace-nowrap">
+                    Submitted Offer
                   </div>
                 </div>
               )}
@@ -1333,6 +1463,152 @@ export default function AdminAddProduct({ initialTab }) {
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Buyer Enquiries</p>
                       <h4 className="text-2xl font-bold text-[#0F2A47] mt-0.5">{enquiries.length}</h4>
                       <p className="text-xs text-amber-700 font-medium mt-0.5">Aggregated Leads</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Interactive Collective Procurement & RFQ Lifecycle Metric Block */}
+                <div className="bg-gradient-to-r from-[#0F2A47] via-[#133357] to-[#0A1E33] p-5 sm:p-6 rounded-2xl border border-slate-700/60 shadow-lg text-white">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 pb-3 border-b border-white/10">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-teal-400 animate-pulse"></span>
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-teal-300">
+                          RFQ Dispatches & Supplier Quotes Pipeline
+                        </h3>
+                      </div>
+                      <p className="text-xs text-slate-300 mt-0.5">
+                        Interactive metrics linked directly to your collective procurement & supplier response records.
+                      </p>
+                    </div>
+                    <span className="text-[11px] text-teal-200 font-medium self-start sm:self-auto bg-teal-500/10 px-3 py-1 rounded-full border border-teal-500/30">
+                      Click any card to open specific data view
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Card 1: Dispatched RFQ Emails -> /supply-offers */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate('/supply-offers')}
+                      onKeyDown={(e) => { if (e.key === 'Enter') navigate('/supply-offers'); }}
+                      className="group cursor-pointer bg-white/5 hover:bg-white/10 border border-white/10 hover:border-teal-400/60 rounded-xl p-4 transition-all duration-200 transform hover:-translate-y-0.5 hover:shadow-lg relative overflow-hidden focus:outline-none focus:ring-2 focus:ring-teal-400"
+                      title="Click to view all Dispatched RFQ Emails"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="w-10 h-10 rounded-lg bg-teal-500/20 text-teal-300 flex items-center justify-center border border-teal-500/30 group-hover:scale-105 transition-transform">
+                          <Send className="w-5 h-5" />
+                        </div>
+                        <div className="flex items-center gap-1 text-[11px] text-teal-300 opacity-80 group-hover:opacity-100 transition-opacity">
+                          <span>View</span>
+                          <ArrowUpRight className="w-3.5 h-3.5 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <p className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
+                          Dispatched RFQ Emails
+                        </p>
+                        <h4 className="text-3xl font-extrabold text-white mt-1 group-hover:text-teal-300 transition-colors">
+                          {supplyMetrics.totalSent}
+                        </h4>
+                        <p className="text-xs text-teal-200/90 font-medium mt-1">
+                          Vendor procurement invites sent
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Card 2: Active Aggregated Products -> /admin/opportunity-view */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate('/admin/opportunity-view')}
+                      onKeyDown={(e) => { if (e.key === 'Enter') navigate('/admin/opportunity-view'); }}
+                      className="group cursor-pointer bg-white/5 hover:bg-white/10 border border-white/10 hover:border-amber-400/60 rounded-xl p-4 transition-all duration-200 transform hover:-translate-y-0.5 hover:shadow-lg relative overflow-hidden focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      title="Click to view Active Aggregated Products and live pooling"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="w-10 h-10 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center border border-amber-500/30 group-hover:scale-105 transition-transform">
+                          <Package className="w-5 h-5" />
+                        </div>
+                        <div className="flex items-center gap-1 text-[11px] text-amber-300 opacity-80 group-hover:opacity-100 transition-opacity">
+                          <span>View</span>
+                          <ArrowUpRight className="w-3.5 h-3.5 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <p className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
+                          Active Aggregated Products
+                        </p>
+                        <h4 className="text-3xl font-extrabold text-white mt-1 group-hover:text-amber-300 transition-colors">
+                          {supplyMetrics.distinctProducts}
+                        </h4>
+                        <p className="text-xs text-amber-200/90 font-medium mt-1">
+                          Categories undergoing pooling
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Card 3: Offers Submitted -> /submittedoffer */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate('/submittedoffer')}
+                      onKeyDown={(e) => { if (e.key === 'Enter') navigate('/submittedoffer'); }}
+                      className="group cursor-pointer bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-400/60 rounded-xl p-4 transition-all duration-200 transform hover:-translate-y-0.5 hover:shadow-lg relative overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                      title="Click to view all Submitted Offers and formal supplier quotations"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center border border-emerald-500/30 group-hover:scale-105 transition-transform">
+                          <CheckCircle2 className="w-5 h-5" />
+                        </div>
+                        <div className="flex items-center gap-1 text-[11px] text-emerald-300 opacity-80 group-hover:opacity-100 transition-opacity">
+                          <span>View</span>
+                          <ArrowUpRight className="w-3.5 h-3.5 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <p className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
+                          Offers Submitted
+                        </p>
+                        <h4 className="text-3xl font-extrabold text-white mt-1 group-hover:text-emerald-300 transition-colors">
+                          {supplyMetrics.totalSubmitted}
+                        </h4>
+                        <p className="text-xs text-emerald-200/90 font-medium mt-1">
+                          Formal supplier quotations
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Card 4: Supplier Response Rate -> /submittedoffer */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate('/submittedoffer')}
+                      onKeyDown={(e) => { if (e.key === 'Enter') navigate('/submittedoffer'); }}
+                      className="group cursor-pointer bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-400/60 rounded-xl p-4 transition-all duration-200 transform hover:-translate-y-0.5 hover:shadow-lg relative overflow-hidden focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      title="Click to view supplier response quotations and rate breakdown"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="w-10 h-10 rounded-lg bg-blue-500/20 text-blue-300 flex items-center justify-center border border-blue-500/30 group-hover:scale-105 transition-transform">
+                          <TrendingUp className="w-5 h-5" />
+                        </div>
+                        <div className="flex items-center gap-1 text-[11px] text-blue-300 opacity-80 group-hover:opacity-100 transition-opacity">
+                          <span>View</span>
+                          <ArrowUpRight className="w-3.5 h-3.5 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <p className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
+                          Supplier Response Rate
+                        </p>
+                        <h4 className="text-3xl font-extrabold text-white mt-1 group-hover:text-blue-300 transition-colors">
+                          {supplyMetrics.responseRate}%
+                        </h4>
+                        <p className="text-xs text-blue-200/90 font-medium mt-1">
+                          RFQs with active quotations
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

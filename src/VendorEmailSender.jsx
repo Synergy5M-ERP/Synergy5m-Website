@@ -193,6 +193,22 @@ export default function VendorEmailSender() {
     if (editorInstance.current) {
       const range = editorInstance.current.getSelection() || { index: editorInstance.current.getLength() };
       editorInstance.current.clipboard.dangerouslyPasteHTML(range.index, myDetailsBlock);
+      if (editorInstance.current.root) {
+        setBodyHtml(editorInstance.current.root.innerHTML);
+      }
+    }
+  };
+
+  const handleInsertBuyerFormButton = () => {
+    // Target the Collective Buy & Products block on the live website so users land directly on the block and can also scroll up/down to see the full site
+    const liveTargetUrl = 'https://synergy5m.com/#collective-buy';
+    const buyerButtonBlock = `<p><br></p><p style="text-align: center; margin: 20px 0;"><a href="${liveTargetUrl}" target="_blank" rel="noopener noreferrer" style="background: #f97316; background-image: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #ffffff !important; padding: 14px 32px; font-size: 15px; font-weight: 700; text-decoration: none; border-radius: 8px; display: inline-block; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; box-shadow: 0 4px 14px rgba(249, 115, 22, 0.4); text-align: center; letter-spacing: 0.3px;">📄 View Buying Enquiry</a></p><p><br></p>`;
+    if (editorInstance.current) {
+      const range = editorInstance.current.getSelection() || { index: editorInstance.current.getLength() };
+      editorInstance.current.clipboard.dangerouslyPasteHTML(range.index, buyerButtonBlock);
+      if (editorInstance.current.root) {
+        setBodyHtml(editorInstance.current.root.innerHTML);
+      }
     }
   };
 
@@ -247,7 +263,25 @@ export default function VendorEmailSender() {
     const formData = new FormData();
     formData.append('vendorIds', JSON.stringify(selectedIds));
     formData.append('subject', subject);
-    formData.append('bodyTemplate', bodyHtml);
+
+    let preparedBody = editorInstance.current ? editorInstance.current.root.innerHTML : bodyHtml;
+    // Format CTA button into bulletproof responsive HTML email table
+    preparedBody = preparedBody.replace(
+      /<a\s+[^>]*href=["'](https:\/\/synergy5m\.com\/?|https:\/\/synergy5m\.com\/#collective-buy|https:\/\/synergy5m\.com\/products-open-for-enquiries)["'][^>]*>([\s\S]*?)<\/a>/gi,
+      (match, url, text) => {
+        const cleanText = text.replace(/<[^>]*>/g, '').trim() || '📄 View Buying Enquiry';
+        return `<table width="100%" border="0" cellspacing="0" cellpadding="0" style="text-align: center; margin: 24px 0;">
+          <tr>
+            <td align="center">
+              <a href="https://synergy5m.com/#collective-buy" target="_blank" rel="noopener noreferrer" style="background: #f97316; background-image: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #ffffff !important; padding: 14px 34px; font-size: 15px; font-weight: 700; text-decoration: none; border-radius: 8px; display: inline-block; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; box-shadow: 0 4px 14px rgba(249, 115, 22, 0.4); text-align: center; letter-spacing: 0.3px;">
+                ${cleanText}
+              </a>
+            </td>
+          </tr>
+        </table>`;
+      }
+    );
+    formData.append('bodyTemplate', preparedBody);
     if (attachmentFile) {
       formData.append('attachment', attachmentFile);
     }
@@ -463,6 +497,27 @@ export default function VendorEmailSender() {
                     <button type="button" onClick={() => insertToken('{{Contact_Person}}')} style={styles.tokenBtn}>+ Contact Person</button>
                     <button type="button" onClick={() => insertToken('{{GST_Number}}')} style={styles.tokenBtn}>+ GST No</button>
                     <button type="button" onClick={handleInsertMyDetails} style={{ ...styles.tokenBtn, background: "#14524A", color: "#fff", borderColor: "#14524A" }}>+ Add My Details</button>
+                    <button 
+                      type="button" 
+                      onClick={handleInsertBuyerFormButton} 
+                      style={{ 
+                        background: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)", 
+                        color: "#fff", 
+                        border: "none", 
+                        padding: "5px 13px", 
+                        borderRadius: "6px", 
+                        fontWeight: 700, 
+                        fontSize: "12px", 
+                        boxShadow: "0 2px 8px rgba(249, 115, 22, 0.35)", 
+                        cursor: "pointer", 
+                        display: "inline-flex", 
+                        alignItems: "center", 
+                        gap: "5px" 
+                      }} 
+                      title="Insert attractive 'View Buying Enquiry' button linking to https://synergy5m.com/#collective-buy"
+                    >
+                      📄 + View Buying Enquiry
+                    </button>
                   </div>
                 </div>
 
@@ -550,6 +605,41 @@ function GlobalStyle() {
       .ap-input:focus { outline: none; border-color: #14524A !important; box-shadow: 0 0 0 3px rgba(20, 82, 74, 0.12); }
       .ql-container { font-family: 'Inter', sans-serif; font-size: 14px; }
       @media (max-width: 768px) { .ap-email-grid { grid-template-columns: 1fr !important; } }
+
+      /* Attractive Email CTA Button styling inside Quill Editor */
+      .ql-editor a[href*="synergy5m.com"],
+      .ql-editor a[href*="collective-buy"],
+      .ql-editor a[href*="products-open-for-enquiries"],
+      .ql-editor .s5m-cta-btn {
+        display: inline-block !important;
+        background: linear-gradient(135deg, #f97316 0%, #ea580c 100%) !important;
+        background-color: #ea580c !important;
+        color: #ffffff !important;
+        padding: 13px 32px !important;
+        font-size: 15px !important;
+        font-weight: 700 !important;
+        text-decoration: none !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 14px rgba(249, 115, 22, 0.4) !important;
+        margin: 10px auto !important;
+        text-align: center !important;
+        letter-spacing: 0.3px !important;
+        line-height: 1.4 !important;
+        cursor: pointer !important;
+      }
+      .ql-editor a[href*="collective-buy"]:hover,
+      .ql-editor a[href*="products-open-for-enquiries"]:hover,
+      .ql-editor .s5m-cta-btn:hover {
+        background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%) !important;
+        box-shadow: 0 6px 18px rgba(234, 88, 12, 0.55) !important;
+        color: #ffffff !important;
+      }
+      .ql-editor a[href*="collective-buy"] span,
+      .ql-editor a[href*="products-open-for-enquiries"] span,
+      .ql-editor .s5m-cta-btn span {
+        background-color: transparent !important;
+        color: #ffffff !important;
+      }
     `}</style>
   );
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useSearchParams } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-next';
 import NewLandingPage from './NewLandingPage';
 import VendorEmailSender from './VendorEmailSender';
@@ -16,6 +16,23 @@ import ProductsOpenForEnquiries from './ProductsOpenForEnquiries';
 import OpportunityView from './OpportunityView';
 import SendEnquiryToVendors from './SendEnquiryToVendors';
 import VendorSupplyOfferForm from './VendorSupplyOfferForm';
+import SupplyOffersHub from './SupplyOffersHub';
+import SupplyOfferViewPage from './SupplyOfferViewPage';
+
+// Dispatches /supply-offer route:
+// - If ?offerRef=... or ?view=... is present, load the specific SupplyOfferViewPage (Official Document & PDF)
+// - If ?rfq=... query param is present (e.g. from vendor email link or open action), load VendorSupplyOfferForm
+// - If no rfq/offer param is present, load the SupplyOffersHub showing all dispatched RFQs
+function SupplyOfferRouteDispatcher() {
+  const [searchParams] = useSearchParams();
+  if (searchParams.has('offerRef') || searchParams.has('view')) {
+    return <SupplyOfferViewPage />;
+  }
+  if (searchParams.has('rfq')) {
+    return <VendorSupplyOfferForm />;
+  }
+  return <SupplyOffersHub defaultTab="sent" />;
+}
 
 function App() {
   return (
@@ -92,8 +109,17 @@ function App() {
             <Route path="/admin/opportunities" element={<OpportunityView />} />
             <Route path="/products-open-for-enquiries" element={<ProductsOpenForEnquiries embedded={false} />} />
             <Route path="/collective-buy" element={<ProductsOpenForEnquiries embedded={false} />} />
-            <Route path="/supply-offer" element={<VendorSupplyOfferForm />} />
+
+            {/* Supply Offers, Dispatched RFQs & Specific Offer View Routes */}
+            <Route path="/supply-offers" element={<SupplyOffersHub defaultTab="sent" />} />
+            <Route path="/supply-offer" element={<SupplyOfferRouteDispatcher />} />
+            <Route path="/supply-offer/view" element={<SupplyOfferViewPage />} />
+            <Route path="/offer-view/:offerRef" element={<SupplyOfferViewPage />} />
+            <Route path="/submittedoffer" element={<SupplyOffersHub defaultTab="submitted" />} />
+            <Route path="/submitted-offers" element={<SupplyOffersHub defaultTab="submitted" />} />
+            <Route path="/submitted-offer" element={<SupplyOffersHub defaultTab="submitted" />} />
             <Route path="/vendor/supply-offer" element={<VendorSupplyOfferForm />} />
+
             <Route path="*" element={<NewLandingPage />} />
           </Routes>
         </div>

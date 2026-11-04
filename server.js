@@ -112,7 +112,7 @@ function dispatchEmailTasksInBackground(tasks) {
         await new Promise(r => setTimeout(r, 150));
       }
     }
-  })().catch(() => {});
+  })().catch(() => { });
 }
 
 // Resilient filesystem handling
@@ -1188,9 +1188,8 @@ app.post("/api/admin/approve", verifyAdminToken, async (req, res) => {
           * Please change your password upon your initial login for security purposes.
         </p>
 
-        ${
-          isErp
-            ? `
+        ${isErp
+        ? `
             <div style="margin-top: 24px; padding: 16px; background-color: #f0f7ff; border: 1px dashed #0b5ed7; border-radius: 6px;">
               <h4 style="margin: 0 0 6px 0; color: #0b5ed7; font-size: 14px;">Did you know? Synergy 5M also features a Buyer-Seller Portal</h4>
               <p style="margin: 0 0 10px 0; font-size: 13.5px; line-height: 1.5; color: #444;">
@@ -1198,7 +1197,7 @@ app.post("/api/admin/approve", verifyAdminToken, async (req, res) => {
               </p>
             </div>
             `
-            : `
+        : `
             <div style="margin-top: 24px; padding: 16px; background-color: #fcf9f2; border: 1px dashed #d97706; border-radius: 6px;">
               <h4 style="margin: 0 0 6px 0; color: #b45309; font-size: 14px;">Streamline Factory Operations with SYN ERP 10</h4>
               <p style="margin: 0 0 10px 0; font-size: 13.5px; line-height: 1.5; color: #444;">
@@ -1206,7 +1205,7 @@ app.post("/api/admin/approve", verifyAdminToken, async (req, res) => {
               </p>
             </div>
             `
-        }
+      }
 
         <p style="margin-top: 24px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 14px;">
           This is an automated notification from Synergy 5M LLP. If you have questions, reach out to our team at 
@@ -1293,26 +1292,26 @@ app.post("/api/admin/reject", verifyAdminToken, async (req, res) => {
 
 // GET /api/admin/demo-requests (Paginated & Filtered)
 app.get('/api/admin/demo-requests', verifyAdminToken, async (req, res) => {
-    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
-    const statusFilter = (req.query.status || 'All').trim();
-    const offset = (page - 1) * limit;
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const limit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
+  const statusFilter = (req.query.status || 'All').trim();
+  const offset = (page - 1) * limit;
 
-    try {
-        const pool = await poolPromise;
-        if (!pool) throw new Error("Database pool not available");
+  try {
+    const pool = await poolPromise;
+    if (!pool) throw new Error("Database pool not available");
 
-        let request = pool.request()
-            .input('Offset', sql.Int, offset)
-            .input('Limit', sql.Int, limit);
+    let request = pool.request()
+      .input('Offset', sql.Int, offset)
+      .input('Limit', sql.Int, limit);
 
-        let whereClause = "WHERE 1=1";
-        if (statusFilter !== 'All') {
-            request.input('StatusFilter', sql.NVarChar, statusFilter);
-            whereClause += " AND [DemoStatus] = @StatusFilter";
-        }
+    let whereClause = "WHERE 1=1";
+    if (statusFilter !== 'All') {
+      request.input('StatusFilter', sql.NVarChar, statusFilter);
+      whereClause += " AND [DemoStatus] = @StatusFilter";
+    }
 
-        const result = await request.query(`
+    const result = await request.query(`
             SELECT [Id], [fullName], [Email], [BusinessEmail], [CompanyName], [OfficialMobile], [PreferredDate], [TimeSlot], [MeetingPlatform], [Requirement], [DemoStatus], [CreatedAt], [UpdatedAt],
                    COUNT(*) OVER() AS TotalCount
             FROM [dbo].[DemoRequests]
@@ -1322,73 +1321,73 @@ app.get('/api/admin/demo-requests', verifyAdminToken, async (req, res) => {
             FETCH NEXT @Limit ROWS ONLY;
         `);
 
-        const records = result.recordset;
-        const totalRecords = records.length > 0 ? records[0].TotalCount : 0;
-        const totalPages = Math.ceil(totalRecords / limit);
+    const records = result.recordset;
+    const totalRecords = records.length > 0 ? records[0].TotalCount : 0;
+    const totalPages = Math.ceil(totalRecords / limit);
 
-        res.status(200).json({
-            success: true,
-            data: records,
-            pagination: {
-                totalRecords,
-                totalPages,
-                currentPage: page,
-                limit
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching demo requests:', error.message);
-        res.status(500).json({ error: error.message });
-    }
+    res.status(200).json({
+      success: true,
+      data: records,
+      pagination: {
+        totalRecords,
+        totalPages,
+        currentPage: page,
+        limit
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching demo requests:', error.message);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // POST /api/admin/demo-requests/:id/approve
 app.post('/api/admin/demo-requests/:id/approve', verifyAdminToken, async (req, res) => {
-    const { id } = req.params;
-    const { meetingDate, meetingTime, meetingLink, hostName, ccEmails } = req.body;
+  const { id } = req.params;
+  const { meetingDate, meetingTime, meetingLink, hostName, ccEmails } = req.body;
 
-    try {
-        const pool = await poolPromise;
-        if (!pool) throw new Error("Database pool not available");
+  try {
+    const pool = await poolPromise;
+    if (!pool) throw new Error("Database pool not available");
 
-        // 1. Fetch user details and current DemoStatus
-        const userResult = await pool.request()
-            .input('Id', sql.Int, id)
-            .query('SELECT Email, BusinessEmail, fullName, DemoStatus FROM [dbo].[DemoRequests] WHERE Id = @Id');
+    // 1. Fetch user details and current DemoStatus
+    const userResult = await pool.request()
+      .input('Id', sql.Int, id)
+      .query('SELECT Email, BusinessEmail, fullName, DemoStatus FROM [dbo].[DemoRequests] WHERE Id = @Id');
 
-        if (userResult.recordset.length === 0) {
-            return res.status(404).json({ error: 'Demo request not found' });
-        }
+    if (userResult.recordset.length === 0) {
+      return res.status(404).json({ error: 'Demo request not found' });
+    }
 
-        const user = userResult.recordset[0];
+    const user = userResult.recordset[0];
 
-        // Validation: Check if already submitted or done
-        if (user.DemoStatus === 'Submitted' || user.DemoStatus === 'Done') {
-            return res.status(400).json({ 
-                error: `Meeting email is already submitted. Current status is '${user.DemoStatus}'.` 
-            });
-        }
+    // Validation: Check if already submitted or done
+    if (user.DemoStatus === 'Submitted' || user.DemoStatus === 'Done') {
+      return res.status(400).json({
+        error: `Meeting email is already submitted. Current status is '${user.DemoStatus}'.`
+      });
+    }
 
-        const targetEmail = user.BusinessEmail && user.BusinessEmail.trim() !== '' 
-            ? user.BusinessEmail 
-            : user.Email;
+    const targetEmail = user.BusinessEmail && user.BusinessEmail.trim() !== ''
+      ? user.BusinessEmail
+      : user.Email;
 
-        if (!targetEmail) {
-            return res.status(400).json({ error: 'No valid email address found for this user.' });
-        }
+    if (!targetEmail) {
+      return res.status(400).json({ error: 'No valid email address found for this user.' });
+    }
 
-        // 2. Update DemoStatus to 'Submitted'
-        await pool.request()
-            .input('Id', sql.Int, id)
-            .query("UPDATE [dbo].[DemoRequests] SET [DemoStatus] = 'Submitted', [UpdatedAt] = GETDATE() WHERE [Id] = @Id");
+    // 2. Update DemoStatus to 'Submitted'
+    await pool.request()
+      .input('Id', sql.Int, id)
+      .query("UPDATE [dbo].[DemoRequests] SET [DemoStatus] = 'Submitted', [UpdatedAt] = GETDATE() WHERE [Id] = @Id");
 
-        // 3. Send Email to User with CC
-        const mailOptions = {
-            from: `"Synergy Support" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
-            to: targetEmail,
-            cc: ccEmails && ccEmails.length > 0 ? ccEmails : ['sales@synergy5m.com', 'accounts@synergy5m.com'],
-            subject: 'Your Demo is Approved - Meeting Details Inside',
-       html: `
+    // 3. Send Email to User with CC
+    const mailOptions = {
+      from: `"Synergy Support" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
+      to: targetEmail,
+      cc: ccEmails && ccEmails.length > 0 ? ccEmails : ['sales@synergy5m.com', 'accounts@synergy5m.com'],
+      subject: 'Your Demo is Approved - Meeting Details Inside',
+      html: `
     <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #333333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
         
         <!-- Header Banner Area -->
@@ -1446,54 +1445,54 @@ app.post('/api/admin/demo-requests/:id/approve', verifyAdminToken, async (req, r
         </div>
     </div>
 `
-        };
+    };
 
-        await transporter.sendMail(mailOptions);
-        res.status(200).json({ message: 'Demo approved and email sent successfully.' });
-    } catch (error) {
-        console.error('Error approving demo:', error.message);
-        res.status(500).json({ error: error.message });
-    }
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: 'Demo approved and email sent successfully.' });
+  } catch (error) {
+    console.error('Error approving demo:', error.message);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // POST /api/admin/demo-requests/:id/feedback
 // (The old duplicate of this route has been removed - Express only ever used the first one.)
 app.post('/api/admin/demo-requests/:id/feedback', verifyAdminToken, async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    try {
-        const pool = await poolPromise;
-        if (!pool) throw new Error("Database pool not available");
+  try {
+    const pool = await poolPromise;
+    if (!pool) throw new Error("Database pool not available");
 
-        const userResult = await pool.request()
-            .input('Id', sql.Int, id)
-            .query('SELECT Email, BusinessEmail, fullName, DemoStatus FROM [dbo].[DemoRequests] WHERE Id = @Id');
+    const userResult = await pool.request()
+      .input('Id', sql.Int, id)
+      .query('SELECT Email, BusinessEmail, fullName, DemoStatus FROM [dbo].[DemoRequests] WHERE Id = @Id');
 
-        if (userResult.recordset.length === 0) {
-            return res.status(404).json({ error: 'Demo request not found' });
-        }
+    if (userResult.recordset.length === 0) {
+      return res.status(404).json({ error: 'Demo request not found' });
+    }
 
-        const user = userResult.recordset[0];
+    const user = userResult.recordset[0];
 
-        // Validation: Check if demo is already given / done
-        if (user.DemoStatus === 'Done') {
-            return res.status(400).json({ error: 'The demo is already given (marked as Done).' });
-        }
+    // Validation: Check if demo is already given / done
+    if (user.DemoStatus === 'Done') {
+      return res.status(400).json({ error: 'The demo is already given (marked as Done).' });
+    }
 
-        const targetEmail = user.BusinessEmail || user.Email;
+    const targetEmail = user.BusinessEmail || user.Email;
 
-        // Update status to 'Done'
-        await pool.request()
-            .input('Id', sql.Int, id)
-            .query("UPDATE [dbo].[DemoRequests] SET [DemoStatus] = 'Done', [UpdatedAt] = GETDATE() WHERE [Id] = @Id");
+    // Update status to 'Done'
+    await pool.request()
+      .input('Id', sql.Int, id)
+      .query("UPDATE [dbo].[DemoRequests] SET [DemoStatus] = 'Done', [UpdatedAt] = GETDATE() WHERE [Id] = @Id");
 
-        // Send Feedback Form Email
-        const feedbackUrl = `https://docs.google.com/forms/d/e/1FAIpQLSfOjo33zKew6F9sGSm1yjPDX9W48rDCSlDjndpv5C2uNPz2qA/viewform?usp=publish-editor`; 
-        const mailOptions = {
-            from: `"Synergy Support" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
-            to: targetEmail,
-            subject: 'We value your feedback on the demo',
-           html: `
+    // Send Feedback Form Email
+    const feedbackUrl = `https://docs.google.com/forms/d/e/1FAIpQLSfOjo33zKew6F9sGSm1yjPDX9W48rDCSlDjndpv5C2uNPz2qA/viewform?usp=publish-editor`;
+    const mailOptions = {
+      from: `"Synergy Support" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
+      to: targetEmail,
+      subject: 'We value your feedback on the demo',
+      html: `
     <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #333333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
         
         <!-- Header Banner Area -->
@@ -1539,23 +1538,23 @@ app.post('/api/admin/demo-requests/:id/feedback', verifyAdminToken, async (req, 
         </div>
     </div>
 `
-        };
+    };
 
-        await transporter.sendMail(mailOptions);
-        res.status(200).json({ message: 'Status updated to Done and feedback email sent.' });
-    } catch (error) {
-        console.error('Error sending feedback mail:', error.message);
-        res.status(500).json({ error: error.message });
-    }
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: 'Status updated to Done and feedback email sent.' });
+  } catch (error) {
+    console.error('Error sending feedback mail:', error.message);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Get unique categories for Buying and Selling Enquiries
 app.get('/api/enquiry-categories', async (req, res) => {
-    try {
-        const pool = await poolPromise;
-        if (!pool) return res.status(500).json({ error: "Database connection not available" });
+  try {
+    const pool = await poolPromise;
+    if (!pool) return res.status(500).json({ error: "Database connection not available" });
 
-        const result = await pool.request().query(`
+    const result = await pool.request().query(`
             SELECT DISTINCT ProdCat AS Category FROM [dbo].[BuyingEnquiryTbl] WHERE ProdCat IS NOT NULL AND LTRIM(RTRIM(ProdCat)) <> ''
             UNION
             SELECT DISTINCT ItemCat AS Category FROM [dbo].[SellingEnquiryTbl] WHERE ItemCat IS NOT NULL AND LTRIM(RTRIM(ItemCat)) <> ''
@@ -1566,98 +1565,98 @@ app.get('/api/enquiry-categories', async (req, res) => {
             ORDER BY Category ASC
         `);
 
-        const categories = result.recordset.map(row => row.Category);
-        return res.json(categories);
-    } catch (err) {
-        console.error("Error fetching enquiry categories:", err.message);
-        return res.status(500).json({ error: err.message });
-    }
+    const categories = result.recordset.map(row => row.Category);
+    return res.json(categories);
+  } catch (err) {
+    console.error("Error fetching enquiry categories:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // 1. Get Buying Enquiries (with optional Category filter & Mapped Email)
 app.get('/api/buying', verifyAdminToken, async (req, res) => {
-    try {
-        const { category } = req.query;
-        const pool = await poolPromise;
-        let query = `
+  try {
+    const { category } = req.query;
+    const pool = await poolPromise;
+    let query = `
             SELECT b.*, u.username AS UserEmail 
             FROM [dbo].[BuyingEnquiryTbl] b
             LEFT JOIN [dbo].[HRM_UserTbl] u ON b.UID = u.id
             WHERE b.IsActive = 1
         `;
-        
-        const request = pool.request();
-        if (category) {
-            query += ` AND b.ProdCat = @category`;
-            request.input('category', sql.VarChar, category);
-        }
-        
-        const result = await request.query(query);
-        res.json(result.recordset);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+
+    const request = pool.request();
+    if (category) {
+      query += ` AND b.ProdCat = @category`;
+      request.input('category', sql.VarChar, category);
     }
+
+    const result = await request.query(query);
+    res.json(result.recordset);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // 2. Get Selling Enquiries (with optional Category filter & Mapped Email)
 app.get('/api/selling', verifyAdminToken, async (req, res) => {
-    try {
-        const { category } = req.query;
-        const pool = await poolPromise;
-        let query = `
+  try {
+    const { category } = req.query;
+    const pool = await poolPromise;
+    let query = `
             SELECT s.*, u.username AS UserEmail 
             FROM [dbo].[SellingEnquiryTbl] s
             LEFT JOIN [dbo].[HRM_UserTbl] u ON s.UID = u.id
             WHERE s.IsActive = 1
         `;
-        
-        const request = pool.request();
-        if (category) {
-            query += ` AND s.ItemCat = @category`;
-            request.input('category', sql.VarChar, category);
-        }
-        
-        const result = await request.query(query);
-        res.json(result.recordset);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+
+    const request = pool.request();
+    if (category) {
+      query += ` AND s.ItemCat = @category`;
+      request.input('category', sql.VarChar, category);
     }
+
+    const result = await request.query(query);
+    res.json(result.recordset);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Get Potential Vendors filtered by Category (Robust against case, spaces, and null IsActive)
 app.get('/api/potential-vendors', verifyAdminToken, async (req, res) => {
-    try {
-        const { category } = req.query;
-        const pool = await poolPromise;
-        if (!pool) return res.status(500).json({ error: "Database connection not available" });
+  try {
+    const { category } = req.query;
+    const pool = await poolPromise;
+    if (!pool) return res.status(500).json({ error: "Database connection not available" });
 
-        let query = `
+    let query = `
             SELECT * FROM [dbo].[Potential_Vendor] 
             WHERE (IsActive = 1 OR IsActive IS NULL)
         `;
-        
-        const request = pool.request();
-        if (category) {
-            query += ` AND UPPER(LTRIM(RTRIM(Category))) = UPPER(LTRIM(RTRIM(@category)))`;
-            request.input('category', sql.VarChar, category);
-        }
-        
-        const result = await request.query(query);
-        res.json(result.recordset);
-    } catch (err) {
-        console.error("Error fetching potential vendors:", err.message);
-        res.status(500).json({ error: err.message });
+
+    const request = pool.request();
+    if (category) {
+      query += ` AND UPPER(LTRIM(RTRIM(Category))) = UPPER(LTRIM(RTRIM(@category)))`;
+      request.input('category', sql.VarChar, category);
     }
+
+    const result = await request.query(query);
+    res.json(result.recordset);
+  } catch (err) {
+    console.error("Error fetching potential vendors:", err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Get Collective Buying Enquiries for EnquiryMapper (Submit Offer dispatch)
 app.get('/api/collective-enquiries-for-vendors', verifyAdminToken, async (req, res) => {
-    try {
-        const { category } = req.query;
-        const pool = await poolPromise;
-        if (!pool) return res.status(500).json({ error: "Database connection not available" });
+  try {
+    const { category } = req.query;
+    const pool = await poolPromise;
+    if (!pool) return res.status(500).json({ error: "Database connection not available" });
 
-        let query = `
+    let query = `
             SELECT 
                 ce.Id,
                 ce.ProductId,
@@ -1684,28 +1683,28 @@ app.get('/api/collective-enquiries-for-vendors', verifyAdminToken, async (req, r
             WHERE (ce.Status = 'Submitted' OR ce.Status = 'In Review' OR ce.Status IS NULL OR ce.Status = 'Allocated to Pool')
         `;
 
-        const request = pool.request();
-        if (category) {
-            query += ` AND UPPER(LTRIM(RTRIM(COALESCE(cp.Category, '')))) = UPPER(LTRIM(RTRIM(@category)))`;
-            request.input('category', sql.VarChar, category);
-        }
-
-        query += ` ORDER BY ce.Id DESC`;
-
-        const result = await request.query(query);
-        return res.json(result.recordset || []);
-    } catch (err) {
-        console.error("Error fetching collective enquiries for vendors:", err);
-        return res.status(500).json({ error: err.message });
+    const request = pool.request();
+    if (category) {
+      query += ` AND UPPER(LTRIM(RTRIM(COALESCE(cp.Category, '')))) = UPPER(LTRIM(RTRIM(@category)))`;
+      request.input('category', sql.VarChar, category);
     }
+
+    query += ` ORDER BY ce.Id DESC`;
+
+    const result = await request.query(query);
+    return res.json(result.recordset || []);
+  } catch (err) {
+    console.error("Error fetching collective enquiries for vendors:", err);
+    return res.status(500).json({ error: err.message });
+  }
 });
 // Helper function for professional HTML email structure
 
 
- // If using ES modules / React, or use require in Node.js: 
+// If using ES modules / React, or use require in Node.js: 
 
 const generateStyledEmailHtml = (recipientName, enquiryTitle, detailsHtml, isBuyerLead, customIntro, customCtaUrl, customCtaText) => {
-    return `
+  return `
     <!DOCTYPE html>
     <html>
     <head>
@@ -1746,10 +1745,10 @@ const generateStyledEmailHtml = (recipientName, enquiryTitle, detailsHtml, isBuy
                                 </h2>
                                 
                                 <p style="font-size: 14.5px; line-height: 1.6; color: #475569; margin-bottom: 24px;">
-                                    ${customIntro || (isBuyerLead 
-                                        ? `We have identified a new purchase requirement matching your business profile and product category. Please review the specifications below and submit your competitive quotation.`
-                                        : `We have an active product offering available in your category. Please review the offer specifications below if interested in procurement.`
-                                    )}
+                                    ${customIntro || (isBuyerLead
+      ? `We have identified a new purchase requirement matching your business profile and product category. Please review the specifications below and submit your competitive quotation.`
+      : `We have an active product offering available in your category. Please review the offer specifications below if interested in procurement.`
+    )}
                                 </p>
 
                                 <!-- Specification Card Grid -->
@@ -1807,62 +1806,64 @@ const generateStyledEmailHtml = (recipientName, enquiryTitle, detailsHtml, isBuy
 
 // Combined Email Dispatcher for Buying/Selling Enquiries to Potential Vendors
 app.post('/api/send-enquiry-email', verifyAdminToken, async (req, res) => {
-    const { buyerEnqIds, sellerEnqIds, collectiveEnqIds, vendorIds, mode, enquiriesData } = req.body;
+  const { buyerEnqIds, sellerEnqIds, collectiveEnqIds, vendorIds, mode, enquiriesData } = req.body;
 
-    try {
-        const pool = await poolPromise;
-        if (!pool) return res.status(500).json({ error: "Database connection not available" });
+  try {
+    const pool = await poolPromise;
+    if (!pool) return res.status(500).json({ error: "Database connection not available" });
 
-        // Clean and validate vendor IDs
-        const cleanVendorIds = (Array.isArray(vendorIds) ? vendorIds : [])
-            .map(v => parseInt(v, 10))
-            .filter(v => !isNaN(v) && v > 0);
+    // Clean and validate vendor IDs
+    const cleanVendorIds = (Array.isArray(vendorIds) ? vendorIds : [])
+      .map(v => parseInt(v, 10))
+      .filter(v => !isNaN(v) && v > 0);
 
-        if (cleanVendorIds.length === 0) {
-            return res.status(400).json({ error: "Please select at least one vendor." });
-        }
+    if (cleanVendorIds.length === 0) {
+      return res.status(400).json({ error: "Please select at least one vendor." });
+    }
 
-        // Fetch selected vendors in ONE bulk query
-        const vReq = pool.request();
-        cleanVendorIds.forEach((id, idx) => vReq.input(`vid_${idx}`, sql.Int, id));
-        const vQuery = `SELECT * FROM [dbo].[Potential_Vendor] WHERE Id IN (${cleanVendorIds.map((_, idx) => `@vid_${idx}`).join(', ')})`;
-        const vRes = await vReq.query(vQuery);
-        const vendors = vRes.recordset.filter(v => v.Email && v.Email.includes('@'));
+    // Fetch selected vendors in ONE bulk query
+    const vReq = pool.request();
+    cleanVendorIds.forEach((id, idx) => vReq.input(`vid_${idx}`, sql.Int, id));
+    const vQuery = `SELECT * FROM [dbo].[Potential_Vendor] WHERE Id IN (${cleanVendorIds.map((_, idx) => `@vid_${idx}`).join(', ')})`;
+    const vRes = await vReq.query(vQuery);
+    const vendors = vRes.recordset.filter(v => v.Email && v.Email.includes('@'));
 
-        if (vendors.length === 0) {
-            return res.status(400).json({ error: "None of the selected vendors have a valid email address." });
-        }
+    if (vendors.length === 0) {
+      return res.status(400).json({ error: "None of the selected vendors have a valid email address." });
+    }
 
-        // =========================================================================
-        // Mode 1: Send Buying Enquiries to Selected Vendors
-        // =========================================================================
-        if (mode === 'vendor-buying' && buyerEnqIds) {
-            const cleanBuyerIds = (Array.isArray(buyerEnqIds) ? buyerEnqIds : [])
-                .map(b => parseInt(b, 10))
-                .filter(b => !isNaN(b) && b > 0);
+    const salesEmail = process.env.SALES_EMAIL || process.env.SMTP_USER || "sales@synergy5m.com";
 
-            if (cleanBuyerIds.length === 0) {
-                return res.status(400).json({ error: "No valid buying enquiries selected." });
-            }
+    // =========================================================================
+    // Mode 1: Send Buying Enquiries to Selected Vendors
+    // =========================================================================
+    if (mode === 'vendor-buying' && buyerEnqIds) {
+      const cleanBuyerIds = (Array.isArray(buyerEnqIds) ? buyerEnqIds : [])
+        .map(b => parseInt(b, 10))
+        .filter(b => !isNaN(b) && b > 0);
 
-            const bReq = pool.request();
-            cleanBuyerIds.forEach((id, idx) => bReq.input(`bid_${idx}`, sql.Int, id));
-            const bQuery = `
+      if (cleanBuyerIds.length === 0) {
+        return res.status(400).json({ error: "No valid buying enquiries selected." });
+      }
+
+      const bReq = pool.request();
+      cleanBuyerIds.forEach((id, idx) => bReq.input(`bid_${idx}`, sql.Int, id));
+      const bQuery = `
                 SELECT b.*, u.username as UserEmail 
                 FROM [dbo].[BuyingEnquiryTbl] b 
                 LEFT JOIN [dbo].[HRM_UserTbl] u ON b.UID = u.id 
                 WHERE b.Id IN (${cleanBuyerIds.map((_, idx) => `@bid_${idx}`).join(', ')})
             `;
-            const bRes = await bReq.query(bQuery);
-            const buyers = bRes.recordset;
+      const bRes = await bReq.query(bQuery);
+      const buyers = bRes.recordset;
 
-            if (buyers.length === 0) {
-                return res.status(400).json({ error: "Selected buying enquiries not found." });
-            }
+      if (buyers.length === 0) {
+        return res.status(400).json({ error: "Selected buying enquiries not found." });
+      }
 
-            const tasks = [];
-            for (const buyer of buyers) {
-                const detailsRows = `
+      const tasks = [];
+      for (const buyer of buyers) {
+        const detailsRows = `
                     <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Enquiry No:</td><td style="color: #1e293b; font-weight: 700;">${buyer.EnqNo || 'N/A'}</td></tr>
                     <tr><td style="color: #ea580c; font-weight: 600;">Product Name:</td><td style="color: #1e293b; font-weight: 700;">${buyer.ProdName}</td></tr>
                     <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${buyer.ProdCat || 'N/A'}</td></tr>
@@ -1875,70 +1876,74 @@ app.post('/api/send-enquiry-email', verifyAdminToken, async (req, res) => {
                     <tr><td style="color: #ea580c; font-weight: 600;">Enquiry Valid Till:</td><td style="color: #334155;">${buyer.EnqValDate || 'Standard'}</td></tr>
                 `;
 
-                for (const vendor of vendors) {
-                    const mailHtml = generateStyledEmailHtml(
-                        vendor.Contact_Person || vendor.Company_Name,
-                        'Purchase Requirement Inquiry',
-                        detailsRows,
-                        true
-                    );
+        for (const vendor of vendors) {
+          const mailHtml = generateStyledEmailHtml(
+            vendor.Contact_Person || vendor.Company_Name,
+            'Purchase Requirement Inquiry',
+            detailsRows,
+            true
+          );
 
-                    tasks.push({
-                        to: vendor.Email,
-                        mailOptions: {
-                            from: process.env.SMTP_USER || "sales@synergy5m.com",
-                            to: vendor.Email,
-                            cc: [buyer.UserEmail].filter(Boolean),
-                            subject: `New Buy Lead: ${buyer.ProdName} (${buyer.ReqQty} ${buyer.UOM})`,
-                            html: mailHtml
-                        }
-                    });
-                }
+          const buyingCc = [salesEmail, buyer.UserEmail].filter(
+            (em, idx, arr) => em && em.toLowerCase() !== (vendor.Email || '').toLowerCase() && arr.indexOf(em) === idx
+          );
+
+          tasks.push({
+            to: vendor.Email,
+            mailOptions: {
+              from: process.env.SMTP_USER || "sales@synergy5m.com",
+              to: vendor.Email,
+              cc: buyingCc.length > 0 ? buyingCc : undefined,
+              subject: `New Buy Lead: ${buyer.ProdName} (${buyer.ReqQty} ${buyer.UOM})`,
+              html: mailHtml
             }
-
-            // Immediately send HTTP success response to prevent ANY gateway timeout
-            res.json({
-                success: true,
-                totalVendors: vendors.length,
-                totalEmails: tasks.length,
-                message: `Buying enquiries successfully dispatched to ${vendors.length} selected vendor${vendors.length === 1 ? '' : 's'}!`
-            });
-
-            // Dispatch emails asynchronously in background
-            dispatchEmailTasksInBackground(tasks, 'Vendor-Buying');
-            return;
+          });
         }
+      }
 
-        // =========================================================================
-        // Mode 2: Send Selling Enquiries to Selected Vendors
-        // =========================================================================
-        if (mode === 'vendor-selling' && sellerEnqIds) {
-            const cleanSellerIds = (Array.isArray(sellerEnqIds) ? sellerEnqIds : [])
-                .map(s => parseInt(s, 10))
-                .filter(s => !isNaN(s) && s > 0);
+      // Immediately send HTTP success response to prevent ANY gateway timeout
+      res.json({
+        success: true,
+        totalVendors: vendors.length,
+        totalEmails: tasks.length,
+        message: `Buying enquiries successfully dispatched to ${vendors.length} selected vendor${vendors.length === 1 ? '' : 's'}!`
+      });
 
-            if (cleanSellerIds.length === 0) {
-                return res.status(400).json({ error: "No valid selling enquiries selected." });
-            }
+      // Dispatch emails asynchronously in background
+      dispatchEmailTasksInBackground(tasks, 'Vendor-Buying');
+      return;
+    }
 
-            const sReq = pool.request();
-            cleanSellerIds.forEach((id, idx) => sReq.input(`sid_${idx}`, sql.Int, id));
-            const sQuery = `
+    // =========================================================================
+    // Mode 2: Send Selling Enquiries to Selected Vendors
+    // =========================================================================
+    if (mode === 'vendor-selling' && sellerEnqIds) {
+      const cleanSellerIds = (Array.isArray(sellerEnqIds) ? sellerEnqIds : [])
+        .map(s => parseInt(s, 10))
+        .filter(s => !isNaN(s) && s > 0);
+
+      if (cleanSellerIds.length === 0) {
+        return res.status(400).json({ error: "No valid selling enquiries selected." });
+      }
+
+      const sReq = pool.request();
+      cleanSellerIds.forEach((id, idx) => sReq.input(`sid_${idx}`, sql.Int, id));
+      const sQuery = `
                 SELECT s.*, u.username as UserEmail 
                 FROM [dbo].[SellingEnquiryTbl] s 
                 LEFT JOIN [dbo].[HRM_UserTbl] u ON s.UID = u.id 
                 WHERE s.Id IN (${cleanSellerIds.map((_, idx) => `@sid_${idx}`).join(', ')})
             `;
-            const sRes = await sReq.query(sQuery);
-            const sellers = sRes.recordset;
+      const sRes = await sReq.query(sQuery);
+      const sellers = sRes.recordset;
 
-            if (sellers.length === 0) {
-                return res.status(400).json({ error: "Selected selling enquiries not found." });
-            }
+      if (sellers.length === 0) {
+        return res.status(400).json({ error: "Selected selling enquiries not found." });
+      }
 
-            const tasks = [];
-            for (const seller of sellers) {
-                const detailsRows = `
+      const tasks = [];
+      for (const seller of sellers) {
+        const detailsRows = `
                     <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Offer No:</td><td style="color: #1e293b; font-weight: 700;">${seller.OfferNo || 'N/A'}</td></tr>
                     <tr><td style="color: #ea580c; font-weight: 600;">Product Name:</td><td style="color: #1e293b; font-weight: 700;">${seller.ProdName}</td></tr>
                     <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${seller.ItemCat || 'N/A'}</td></tr>
@@ -1946,102 +1951,106 @@ app.post('/api/send-enquiry-email', verifyAdminToken, async (req, res) => {
                     <tr><td style="color: #ea580c; font-weight: 600;">Quantity Offered:</td><td style="color: #ea580c; font-weight: 700;">${seller.QuantityOffered} ${seller.UOM}</td></tr>
                 `;
 
-                for (const vendor of vendors) {
-                    const mailHtml = generateStyledEmailHtml(
-                        vendor.Contact_Person || vendor.Company_Name,
-                        'Product Offering Notice',
-                        detailsRows,
-                        false
-                    );
+        for (const vendor of vendors) {
+          const mailHtml = generateStyledEmailHtml(
+            vendor.Contact_Person || vendor.Company_Name,
+            'Product Offering Notice',
+            detailsRows,
+            false
+          );
 
-                    tasks.push({
-                        to: vendor.Email,
-                        mailOptions: {
-                            from: process.env.SMTP_USER || "sales@synergy5m.com",
-                            to: vendor.Email,
-                            cc: [seller.UserEmail].filter(Boolean),
-                            subject: `New Selling Offer: ${seller.ProdName} (${seller.QuantityOffered} ${seller.UOM})`,
-                            html: mailHtml
-                        }
-                    });
-                }
+          const sellingCc = [salesEmail, seller.UserEmail].filter(
+            (em, idx, arr) => em && em.toLowerCase() !== (vendor.Email || '').toLowerCase() && arr.indexOf(em) === idx
+          );
+
+          tasks.push({
+            to: vendor.Email,
+            mailOptions: {
+              from: process.env.SMTP_USER || "sales@synergy5m.com",
+              to: vendor.Email,
+              cc: sellingCc.length > 0 ? sellingCc : undefined,
+              subject: `New Selling Offer: ${seller.ProdName} (${seller.QuantityOffered} ${seller.UOM})`,
+              html: mailHtml
             }
-
-            res.json({
-                success: true,
-                totalVendors: vendors.length,
-                totalEmails: tasks.length,
-                message: `Selling offers successfully dispatched to ${vendors.length} selected vendor${vendors.length === 1 ? '' : 's'}!`
-            });
-
-            dispatchEmailTasksInBackground(tasks, 'Vendor-Selling');
-            return;
+          });
         }
+      }
 
-        // =========================================================================
-        // Mode 3: Send Collective Buying Enquiries to Selected Category Vendors to Submit Offer
-        // =========================================================================
-        if (mode === 'submit-offer' || mode === 'vendor-collective') {
-            let enquiriesToProcess = [];
+      res.json({
+        success: true,
+        totalVendors: vendors.length,
+        totalEmails: tasks.length,
+        message: `Selling offers successfully dispatched to ${vendors.length} selected vendor${vendors.length === 1 ? '' : 's'}!`
+      });
 
-            // If full enquiry objects passed directly from frontend, use them
-            if (Array.isArray(enquiriesData) && enquiriesData.length > 0) {
-                enquiriesToProcess = enquiriesData;
-            } else {
-                const rawEnqIds = collectiveEnqIds || buyerEnqIds || [];
-                const cleanEnqIds = (Array.isArray(rawEnqIds) ? rawEnqIds : [])
-                    .map(e => parseInt(e, 10))
-                    .filter(e => !isNaN(e) && e > 0);
+      dispatchEmailTasksInBackground(tasks, 'Vendor-Selling');
+      return;
+    }
 
-                if (cleanEnqIds.length > 0) {
-                    const eReq = pool.request();
-                    cleanEnqIds.forEach((id, idx) => eReq.input(`eid_${idx}`, sql.Int, id));
-                    const eQuery = `
+    // =========================================================================
+    // Mode 3: Send Collective Buying Enquiries to Selected Category Vendors to Submit Offer
+    // =========================================================================
+    if (mode === 'submit-offer' || mode === 'vendor-collective') {
+      let enquiriesToProcess = [];
+
+      // If full enquiry objects passed directly from frontend, use them
+      if (Array.isArray(enquiriesData) && enquiriesData.length > 0) {
+        enquiriesToProcess = enquiriesData;
+      } else {
+        const rawEnqIds = collectiveEnqIds || buyerEnqIds || [];
+        const cleanEnqIds = (Array.isArray(rawEnqIds) ? rawEnqIds : [])
+          .map(e => parseInt(e, 10))
+          .filter(e => !isNaN(e) && e > 0);
+
+        if (cleanEnqIds.length > 0) {
+          const eReq = pool.request();
+          cleanEnqIds.forEach((id, idx) => eReq.input(`eid_${idx}`, sql.Int, id));
+          const eQuery = `
                         SELECT ce.*, cp.Category AS ProdCat, cp.GradeVariant 
                         FROM [dbo].[CollectiveEnquiries] ce 
                         LEFT JOIN [dbo].[CollectiveProducts] cp ON ce.ProductId = cp.Id 
                         WHERE ce.Id IN (${cleanEnqIds.map((_, idx) => `@eid_${idx}`).join(', ')})
                     `;
-                    const eRes = await eReq.query(eQuery);
-                    enquiriesToProcess = eRes.recordset;
-                }
-            }
+          const eRes = await eReq.query(eQuery);
+          enquiriesToProcess = eRes.recordset;
+        }
+      }
 
-            if (enquiriesToProcess.length === 0) {
-                return res.status(400).json({ error: "No valid enquiry requirements selected." });
-            }
+      if (enquiriesToProcess.length === 0) {
+        return res.status(400).json({ error: "No valid enquiry requirements selected." });
+      }
 
-            // 1. Calculate Aggregate Summary across all combined buyer requirements
-            let totalAggregatedQuantity = 0;
-            const uom = enquiriesToProcess[0]?.Uom || enquiriesToProcess[0]?.uom || 'MT';
-            const prodName = enquiriesToProcess[0]?.ProductName || enquiriesToProcess[0]?.productName || 'Industrial Product';
-            const prodCat = enquiriesToProcess[0]?.ProdCat || enquiriesToProcess[0]?.Category || enquiriesToProcess[0]?.category || 'Industrial';
-            const grade = enquiriesToProcess[0]?.GradeVariant || enquiriesToProcess[0]?.Grade || enquiriesToProcess[0]?.grade || 'Commercial Grade';
-            const prodId = enquiriesToProcess[0]?.ProductId || enquiriesToProcess[0]?.productId;
+      // 1. Calculate Aggregate Summary across all combined buyer requirements
+      let totalAggregatedQuantity = 0;
+      const uom = enquiriesToProcess[0]?.Uom || enquiriesToProcess[0]?.uom || 'MT';
+      const prodName = enquiriesToProcess[0]?.ProductName || enquiriesToProcess[0]?.productName || 'Industrial Product';
+      const prodCat = enquiriesToProcess[0]?.ProdCat || enquiriesToProcess[0]?.Category || enquiriesToProcess[0]?.category || 'Industrial';
+      const grade = enquiriesToProcess[0]?.GradeVariant || enquiriesToProcess[0]?.Grade || enquiriesToProcess[0]?.grade || 'Commercial Grade';
+      const prodId = enquiriesToProcess[0]?.ProductId || enquiriesToProcess[0]?.productId;
 
-            const uniqueDestinations = new Set();
-            enquiriesToProcess.forEach(e => {
-                const q = parseFloat(e.RequiredQuantity || e.ReqQty || e.quantity || 0) || 0;
-                totalAggregatedQuantity += q;
-                const loc = e.DeliveryLocation || e.DelLoc || e.region;
-                if (loc) uniqueDestinations.add(loc);
-            });
+      const uniqueDestinations = new Set();
+      enquiriesToProcess.forEach(e => {
+        const q = parseFloat(e.RequiredQuantity || e.ReqQty || e.quantity || 0) || 0;
+        totalAggregatedQuantity += q;
+        const loc = e.DeliveryLocation || e.DelLoc || e.region;
+        if (loc) uniqueDestinations.add(loc);
+      });
 
-            const deliveryDestinationsSummary = Array.from(uniqueDestinations).join(', ') || 'As per buyer network';
+      const deliveryDestinationsSummary = Array.from(uniqueDestinations).join(', ') || 'As per buyer network';
 
-            // 2. Specific Itemized Table of all combined buyer requirements
-            const buyerRowsHtml = enquiriesToProcess.map((enq, idx) => {
-                const enqRef = enq.Id || enq.id ? `#CE-${enq.Id || enq.id}` : `Ref #${idx + 1}`;
-                const buyerName = enq.CompanyName || enq.companyName || 'Verified Industrial Buyer';
-                const loc = enq.DeliveryLocation || enq.DelLoc || enq.region || 'Standard Dock';
-                const q = enq.RequiredQuantity || enq.ReqQty || enq.quantity || '-';
-                const targetDate = enq.TargetDeliveryDate || enq.targetDeliveryDate;
-                const targetDateStr = targetDate 
-                    ? new Date(targetDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-                    : 'Open / Flexible';
-                const remarks = enq.Comments || enq.comments;
+      // 2. Specific Itemized Table of all combined buyer requirements
+      const buyerRowsHtml = enquiriesToProcess.map((enq, idx) => {
+        const enqRef = enq.Id || enq.id ? `#CE-${enq.Id || enq.id}` : `Ref #${idx + 1}`;
+        const buyerName = 'Verified  Buyer from ';
+        const loc = enq.DeliveryLocation || enq.DelLoc || enq.region || 'Standard Dock';
+        const q = enq.RequiredQuantity || enq.ReqQty || enq.quantity || '-';
+        const targetDate = enq.TargetDeliveryDate || enq.targetDeliveryDate;
+        const targetDateStr = targetDate
+          ? new Date(targetDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+          : 'Open / Flexible';
+        const remarks = enq.Comments || enq.comments;
 
-                return `
+        return `
                     <tr style="border-bottom: 1px solid #fed7aa; background-color: ${idx % 2 === 0 ? '#ffffff' : '#fffaf5'};">
                         <td style="padding: 10px; font-weight: 700; color: #ea580c; white-space: nowrap;">${enqRef}</td>
                         <td style="padding: 10px; color: #1e293b;">
@@ -2053,9 +2062,9 @@ app.post('/api/send-enquiry-email', verifyAdminToken, async (req, res) => {
                         <td style="padding: 10px; color: #475569; font-size: 12px; white-space: nowrap;">${targetDateStr}</td>
                     </tr>
                 `;
-            }).join('');
+      }).join('');
 
-            const detailsRows = `
+      const detailsRows = `
                 <tr><td style="color: #ea580c; width: 35%; font-weight: 600;">Product:</td><td style="color: #1e293b; font-weight: 700; font-size: 15px;">${prodName}</td></tr>
                 <tr><td style="color: #ea580c; font-weight: 600;">Category:</td><td style="color: #334155;">${prodCat}</td></tr>
                 <tr><td style="color: #ea580c; font-weight: 600;">Grade / Specs:</td><td style="color: #334155;">${grade}</td></tr>
@@ -2089,165 +2098,487 @@ app.post('/api/send-enquiry-email', verifyAdminToken, async (req, res) => {
                 </tr>
             `;
 
-            const rfqRef = `RFQ-CB-${new Date().getFullYear()}-${String(prodId || '001').padStart(4, '0')}`;
-            const appBaseUrl = process.env.APP_BASE_URL || (process.env.FRONTEND_URL ? process.env.FRONTEND_URL.replace(/\/$/, '') : 'https://synergy5m.com');
-            const customIntro = `We have aggregated verified buyer demand in your product category (${prodCat}). Below is the consolidated opportunity combining all active buyer enquiries into this single RFQ. Please review the aggregate demand and specific breakdown, then submit your competitive supply quotation / offer.`;
+      const rfqRef = `RFQ-CB-${new Date().getFullYear()}-${String(prodId || '001').padStart(4, '0')}`;
+      const appBaseUrl = process.env.APP_BASE_URL || (process.env.FRONTEND_URL ? process.env.FRONTEND_URL.replace(/\/$/, '') : 'https://synergy5m.com');
+      const customIntro = `We have aggregated verified buyer demand in your product category (${prodCat}). Below is the consolidated opportunity combining all active buyer enquiries into this single RFQ. Please review the aggregate demand and specific breakdown, then submit your competitive supply quotation / offer.`;
 
-            // SEND ONLY ONE EMAIL PER VENDOR (combining all offers & aggregate into one email)
-            const tasks = [];
-            for (const vendor of vendors) {
-                const vendorDisplayName = vendor.Company_Name || vendor.Contact_Person || '';
-                const vendorEmailAddress = vendor.Email || '';
-                const submitOfferUrl = `${appBaseUrl}/supply-offer?rfq=${encodeURIComponent(rfqRef)}&prodId=${encodeURIComponent(prodId || '')}&vendor=${encodeURIComponent(vendorDisplayName)}&email=${encodeURIComponent(vendorEmailAddress)}&product=${encodeURIComponent(prodName || '')}&category=${encodeURIComponent(prodCat || '')}&grade=${encodeURIComponent(grade || '')}&demand=${encodeURIComponent(totalAggregatedQuantity || 0)}&uom=${encodeURIComponent(uom || 'MT')}&dest=${encodeURIComponent(deliveryDestinationsSummary || '')}`;
+      // SEND ONLY ONE EMAIL PER VENDOR (combining all offers & aggregate into one email)
+      const tasks = [];
+      const sentOfferRecords = [];
 
-                const mailHtml = generateStyledEmailHtml(
-                    vendor.Contact_Person || vendor.Company_Name, 
-                    'Consolidated Procurement Opportunity - Submit Supply Offer', 
-                    detailsRows, 
-                    true,
-                    customIntro,
-                    submitOfferUrl,
-                    '🚀 Submit Supply Offer Now'
-                );
+      for (const vendor of vendors) {
+        const vendorDisplayName = vendor.Company_Name || vendor.Contact_Person || '';
+        const vendorEmailAddress = vendor.Email || '';
+        const submitOfferUrl = `${appBaseUrl}/supply-offer?rfq=${encodeURIComponent(rfqRef)}&prodId=${encodeURIComponent(prodId || '')}&vendor=${encodeURIComponent(vendorDisplayName)}&email=${encodeURIComponent(vendorEmailAddress)}&product=${encodeURIComponent(prodName || '')}&category=${encodeURIComponent(prodCat || '')}&grade=${encodeURIComponent(grade || '')}&demand=${encodeURIComponent(totalAggregatedQuantity || 0)}&uom=${encodeURIComponent(uom || 'MT')}&dest=${encodeURIComponent(deliveryDestinationsSummary || '')}`;
 
-                tasks.push({
-                    to: vendor.Email,
-                    mailOptions: {
-                        from: process.env.SMTP_USER || "sales@synergy5m.com",
-                        to: vendor.Email,
-                        subject: `RFQ: Consolidated Demand for ${prodName} (${totalAggregatedQuantity > 0 ? totalAggregatedQuantity + ' ' + uom : 'Aggregated'} across ${enquiriesToProcess.length} buyers)`,
-                        html: mailHtml
-                    }
-                });
-            }
+        const mailHtml = generateStyledEmailHtml(
+          vendor.Contact_Person || vendor.Company_Name,
+          'Consolidated Procurement Opportunity - Submit Supply Offer',
+          detailsRows,
+          true,
+          customIntro,
+          submitOfferUrl,
+          '🚀 Submit Supply Offer Now'
+        );
 
-
-            // Immediately send HTTP success response: NO MORE 504 GATEWAY TIMEOUT!
-            res.json({
-                success: true,
-                totalEnquiries: enquiriesToProcess.length,
-                totalVendors: vendors.length,
-                totalEmails: tasks.length,
-                message: `Enquiry successfully dispatched to ${vendors.length} selected vendor${vendors.length === 1 ? '' : 's'} to submit offers!`
-            });
-
-            // Dispatch emails asynchronously in background
-            dispatchEmailTasksInBackground(tasks, 'Submit-Offer');
-            return;
+        const rfqMailOpts = {
+          from: process.env.SMTP_USER || "sales@synergy5m.com",
+          to: vendor.Email,
+          subject: `RFQ: Consolidated Demand for ${prodName} (${totalAggregatedQuantity > 0 ? totalAggregatedQuantity + ' ' + uom : 'Aggregated'} across ${enquiriesToProcess.length} buyers)`,
+          html: mailHtml
+        };
+        // Add Sales in CC when emailing Seller / Vendor
+        if (salesEmail && vendor.Email && salesEmail.toLowerCase() !== vendor.Email.toLowerCase()) {
+          rfqMailOpts.cc = salesEmail;
         }
 
-        return res.status(400).json({ error: "Invalid mode or parameters provided." });
-    } catch (err) {
-        console.error("Email dispatch error");
-        res.status(500).json({ error: err.message });
+        tasks.push({
+          to: vendor.Email,
+          mailOptions: rfqMailOpts
+        });
+
+        sentOfferRecords.push({
+          rfqRef,
+          prodId: String(prodId || ''),
+          vendorId: vendor.Id ? parseInt(vendor.Id, 10) : null,
+          vendorDisplayName,
+          vendorEmailAddress,
+          prodName,
+          prodCat,
+          grade,
+          demand: Number(totalAggregatedQuantity) || 0,
+          uom: uom || 'MT',
+          destination: deliveryDestinationsSummary || '',
+          enquiryCount: enquiriesToProcess.length || 1,
+          submitOfferUrl
+        });
+      }
+
+      // Record dispatched offers into database asynchronously
+      (async () => {
+        try {
+          const pool = await poolPromise;
+          if (pool && sentOfferRecords.length > 0) {
+            await pool.request().query(`
+              IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='SentSupplyOffers' AND xtype='U')
+              CREATE TABLE [dbo].[SentSupplyOffers] (
+                  [Id] INT IDENTITY(1,1) PRIMARY KEY,
+                  [RfqReference] NVARCHAR(100) NOT NULL,
+                  [OpportunityId] NVARCHAR(100) NULL,
+                  [VendorId] INT NULL,
+                  [VendorName] NVARCHAR(255) NOT NULL,
+                  [VendorEmail] NVARCHAR(255) NOT NULL,
+                  [ProductName] NVARCHAR(255) NOT NULL,
+                  [Category] NVARCHAR(255) NULL,
+                  [Grade] NVARCHAR(255) NULL,
+                  [TotalDemand] DECIMAL(18, 2) NOT NULL,
+                  [Uom] NVARCHAR(50) DEFAULT 'MT',
+                  [Destination] NVARCHAR(255) NULL,
+                  [BuyerEnquiriesCount] INT DEFAULT 1,
+                  [SubmitOfferUrl] NVARCHAR(MAX) NOT NULL,
+                  [Status] NVARCHAR(50) DEFAULT 'Sent',
+                  [SentAt] DATETIME DEFAULT GETDATE(),
+                  [CreatedAt] DATETIME DEFAULT GETDATE()
+              );
+            `);
+
+            for (const rec of sentOfferRecords) {
+              const req = pool.request();
+              req.input('RfqReference', sql.NVarChar(100), rec.rfqRef);
+              req.input('OpportunityId', sql.NVarChar(100), rec.prodId);
+              req.input('VendorId', sql.Int, rec.vendorId);
+              req.input('VendorName', sql.NVarChar(255), rec.vendorDisplayName);
+              req.input('VendorEmail', sql.NVarChar(255), rec.vendorEmailAddress);
+              req.input('ProductName', sql.NVarChar(255), rec.prodName);
+              req.input('Category', sql.NVarChar(255), rec.prodCat);
+              req.input('Grade', sql.NVarChar(255), rec.grade);
+              req.input('TotalDemand', sql.Decimal(18, 2), rec.demand);
+              req.input('Uom', sql.NVarChar(50), rec.uom);
+              req.input('Destination', sql.NVarChar(255), rec.destination);
+              req.input('BuyerEnquiriesCount', sql.Int, rec.enquiryCount);
+              req.input('SubmitOfferUrl', sql.NVarChar(sql.MAX), rec.submitOfferUrl);
+
+              await req.query(`
+                INSERT INTO [dbo].[SentSupplyOffers] (
+                  RfqReference, OpportunityId, VendorId, VendorName, VendorEmail,
+                  ProductName, Category, Grade, TotalDemand, Uom, Destination,
+                  BuyerEnquiriesCount, SubmitOfferUrl, Status, SentAt, CreatedAt
+                ) VALUES (
+                  @RfqReference, @OpportunityId, @VendorId, @VendorName, @VendorEmail,
+                  @ProductName, @Category, @Grade, @TotalDemand, @Uom, @Destination,
+                  @BuyerEnquiriesCount, @SubmitOfferUrl, 'Sent', GETDATE(), GETDATE()
+                )
+              `);
+            }
+          }
+        } catch (dbErr) {
+          console.error("SentSupplyOffers logging warning:", dbErr.message);
+        }
+      })().catch(() => { });
+
+
+      // Immediately send HTTP success response: NO MORE 504 GATEWAY TIMEOUT!
+      res.json({
+        success: true,
+        totalEnquiries: enquiriesToProcess.length,
+        totalVendors: vendors.length,
+        totalEmails: tasks.length,
+        message: `Enquiry successfully dispatched to ${vendors.length} selected vendor${vendors.length === 1 ? '' : 's'} to submit offers!`
+      });
+
+      // Dispatch emails asynchronously in background
+      dispatchEmailTasksInBackground(tasks, 'Submit-Offer');
+      return;
     }
+
+    return res.status(400).json({ error: "Invalid mode or parameters provided." });
+  } catch (err) {
+    console.error("Email dispatch error");
+    res.status(500).json({ error: err.message });
+  }
 });
 
 
 
-const vendorRoutes = require('./vendorRoutes'); 
+const vendorRoutes = require('./vendorRoutes');
 app.use('/', vendorRoutes);
 const WhatsappRoute = require('./WhatsappRoute');
 app.use('/whatsapp', WhatsappRoute);
 const collectiveProductRoutes = require('./collectiveProductRoutes');
 app.use('/api', collectiveProductRoutes);
 
+// Safe HTML escape helper for email templates
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// Generate styled HTML quotation confirmation email sent to Seller and Sales
+function generateSupplyOfferQuotationEmailHtml(data) {
+  const currencySymbol = data.currency === 'USD' ? '$' : (data.currency === 'EUR' ? '€' : (data.currency === 'AED' ? 'AED ' : '₹'));
+  const safeOfferRef = escapeHtml(data.offerReference);
+  const safeQuotationNo = escapeHtml(data.vendorQuotationNo);
+  const safeRfqRef = escapeHtml(data.rfqReference);
+  const safeVendorName = escapeHtml(data.vendorName);
+  const safeContact = escapeHtml(data.contactPerson);
+  const safeEmail = escapeHtml(data.vendorEmail);
+  const safeMobile = escapeHtml(data.mobileNumber);
+  const safeProduct = escapeHtml(data.productName);
+  const safeCategory = escapeHtml(data.category);
+  const safeGrade = escapeHtml(data.grade);
+  const safeUom = escapeHtml(data.uom || 'MT');
+  const safeDest = escapeHtml(data.destination);
+  const safePackaging = escapeHtml(data.packagingType);
+  const safeAvailability = escapeHtml(data.productAvailability);
+  const safePriceBasis = escapeHtml(data.priceBasis);
+  const safePaymentTerms = escapeHtml(data.paymentTerms);
+  const safeRemarks = escapeHtml(data.commercialRemarks);
+  const safeViewUrl = data.viewOfferUrl;
+
+  const formattedUnitPrice = `${currencySymbol}${Number(data.offeredUnitPrice || 0).toLocaleString('en-IN')}`;
+  const formattedOtherCharges = Number(data.otherCharges) > 0 ? `${currencySymbol}${Number(data.otherCharges).toLocaleString('en-IN')}/${safeUom}` : 'Nil';
+  const effectiveUnitRate = Number(data.offeredUnitPrice || 0) + Number(data.otherCharges || 0);
+  const formattedEffectivePrice = `${currencySymbol}${effectiveUnitRate.toLocaleString('en-IN')}`;
+  const formattedBasic = `${currencySymbol}${Number(data.totalBasicAmount || 0).toLocaleString('en-IN')}`;
+  const formattedGst = data.currency === 'INR' ? `${currencySymbol}${Number(data.gstAmount || 0).toLocaleString('en-IN')} (${escapeHtml(data.gstRate)})` : 'N/A';
+  const formattedFreight = data.freightIncluded ? 'Included in Unit Price' : (Number(data.freightCharges) > 0 ? `${currencySymbol}${Number(data.freightCharges).toLocaleString('en-IN')}` : 'To be billed extra at actuals');
+  const formattedGrandTotal = `${currencySymbol}${Number(data.estimatedTotalValue || 0).toLocaleString('en-IN')}`;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Quotation: ${safeOfferRef}</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 30px 15px;">
+        <tr>
+          <td align="center">
+            <table width="680" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 14px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">
+              
+              <!-- Header -->
+              <tr>
+                <td style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 24px 32px; border-bottom: 3px solid #f97316;">
+                  <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                    <tr>
+                      <td>
+                        <span style="display: inline-block; background: #f97316; color: #ffffff; font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 4px; letter-spacing: 0.5px; text-transform: uppercase;">
+                          CollectiveBuy • Official Supply Offer
+                        </span>
+                        <h1 style="color: #ffffff; margin: 8px 0 2px 0; font-size: 22px; font-weight: 800; letter-spacing: -0.4px;">
+                          Synergy5M Procurement Consortium
+                        </h1>
+                        <p style="color: #94a3b8; margin: 0; font-size: 12.5px;">
+                          Demand Aggregation & Industrial B2B Sourcing
+                        </p>
+                      </td>
+                      <td align="right" style="vertical-align: top;">
+                        <div style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 8px 14px; text-align: right;">
+                          <div style="color: #f97316; font-size: 11px; font-weight: 700;">OFFER REFERENCE</div>
+                          <div style="color: #ffffff; font-size: 13.5px; font-weight: 800; font-family: monospace;">${safeOfferRef}</div>
+                        </div>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- Quotation Meta Strip -->
+              <tr>
+                <td style="background-color: #f1f5f9; padding: 14px 32px; border-bottom: 1px solid #e2e8f0;">
+                  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 12px; color: #475569;">
+                    <tr>
+                      <td width="25%"><strong>Quote No:</strong> <span style="font-family: monospace; color: #0f172a;">${safeQuotationNo}</span></td>
+                      <td width="25%"><strong>Date:</strong> ${escapeHtml(data.quotationDate)}</td>
+                      <td width="25%"><strong>Validity:</strong> ${escapeHtml(data.quotationValidUntil)}</td>
+                      <td width="25%"><strong>RFQ Ref:</strong> <span style="font-family: monospace; color: #ea580c;">${safeRfqRef}</span></td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- Main Content Body -->
+              <tr>
+                <td style="padding: 28px 32px;">
+                  
+                  <h2 style="color: #0f172a; font-size: 18px; margin: 0 0 8px 0;">Official Commercial Quotation Details</h2>
+                  <p style="color: #475569; font-size: 14px; line-height: 1.5; margin: 0 0 24px 0;">
+                    A formal supply quotation has been submitted by <strong>${safeVendorName}</strong> against RFQ <strong>${safeRfqRef}</strong>. Both the supplier and the Synergy5M procurement team have received this record.
+                  </p>
+
+                  <!-- 2-Column Vendor & Product Summary -->
+                  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
+                    <tr>
+                      <td width="48%" style="vertical-align: top; background: #fffaf5; border: 1px solid #fed7aa; border-radius: 8px; padding: 16px;">
+                        <div style="color: #ea580c; font-size: 11.5px; font-weight: 800; text-transform: uppercase; margin-bottom: 8px;">
+                          Supplier / Seller Details
+                        </div>
+                        <div style="font-size: 14px; font-weight: 700; color: #0f172a;">${safeVendorName}</div>
+                        <div style="font-size: 12.5px; color: #475569; margin-top: 3px;">Contact Person: ${safeContact}</div>
+                        <div style="font-size: 12.5px; color: #0ea5e9; margin-top: 2px;">✉ ${safeEmail}</div>
+                        <div style="font-size: 12.5px; color: #475569; margin-top: 2px;">📞 ${safeMobile}</div>
+                      </td>
+                      <td width="4%"></td>
+                      <td width="48%" style="vertical-align: top; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px;">
+                        <div style="color: #16a34a; font-size: 11.5px; font-weight: 800; text-transform: uppercase; margin-bottom: 8px;">
+                          Product & Supply Scope
+                        </div>
+                        <div style="font-size: 14px; font-weight: 700; color: #0f172a;">${safeProduct}</div>
+                        <div style="font-size: 12.5px; color: #475569; margin-top: 3px;">Category / Grade: ${safeCategory} • ${safeGrade}</div>
+                        <div style="font-size: 12.5px; color: #16a34a; font-weight: 700; margin-top: 2px;">
+                          Offered Qty: ${data.offeredQuantity} ${safeUom} (${data.canSupplyFull ? 'Full Demand' : 'Partial Supply'})
+                        </div>
+                        <div style="font-size: 12.5px; color: #475569; margin-top: 2px;">Packaging: ${safePackaging} • ${safeAvailability}</div>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- Commercial Table -->
+                  <div style="color: #0f172a; font-size: 13.5px; font-weight: 700; margin-bottom: 8px;">
+                    💰 Commercial Valuation Breakdown
+                  </div>
+                  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; margin-bottom: 24px; font-size: 13px;">
+                    <tr style="background: #0f172a; color: #ffffff;">
+                      <th style="padding: 10px 14px; text-align: left; font-size: 12px;">Component</th>
+                      <th style="padding: 10px 14px; text-align: right; font-size: 12px;">Rate / Parameter</th>
+                      <th style="padding: 10px 14px; text-align: right; font-size: 12px;">Total Value</th>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
+                      <td style="padding: 10px 14px; font-weight: 600;">Offered Unit Price (${safePriceBasis})</td>
+                      <td style="padding: 10px 14px; text-align: right; font-family: monospace;">${formattedUnitPrice} / ${safeUom}</td>
+                      <td style="padding: 10px 14px; text-align: right; font-weight: 700; font-family: monospace;">${formattedBasic}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
+                      <td style="padding: 10px 14px;">Platform Fee</td>
+                      <td style="padding: 10px 14px; text-align: right; font-family: monospace;">${formattedOtherCharges}</td>
+                      <td style="padding: 10px 14px; text-align: right; color: #64748b;">Included in Effective Rate</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
+                      <td style="padding: 10px 14px;">GST / Taxes (${escapeHtml(data.gstRate)})</td>
+                      <td style="padding: 10px 14px; text-align: right;">${escapeHtml(data.gstRate)}</td>
+                      <td style="padding: 10px 14px; text-align: right; font-family: monospace;">${formattedGst}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
+                      <td style="padding: 10px 14px;">Freight / Transportation</td>
+                      <td style="padding: 10px 14px; text-align: right;">${data.freightIncluded ? 'Included' : 'Extra'}</td>
+                      <td style="padding: 10px 14px; text-align: right; font-family: monospace;">${formattedFreight}</td>
+                    </tr>
+                    <tr style="background: #fff7ed; color: #ea580c; font-weight: 800; font-size: 14.5px;">
+                      <td style="padding: 12px 14px;">Grand Estimated Valuation</td>
+                      <td style="padding: 12px 14px; text-align: right; font-size: 12px; color: #64748b;">Effective: ${formattedEffectivePrice}/${safeUom}</td>
+                      <td style="padding: 12px 14px; text-align: right; font-family: monospace; font-size: 16px;">${formattedGrandTotal}</td>
+                    </tr>
+                  </table>
+
+                  <!-- Logistics & Payment Terms -->
+                  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 24px; font-size: 12.5px;">
+                    <tr>
+                      <td width="50%" style="padding-bottom: 8px;">
+                        <span style="color: #64748b;">Delivery Lead Time:</span> <strong>${escapeHtml(String(data.deliveryLeadTimeDays || '7-14'))} Days</strong>
+                      </td>
+                      <td width="50%" style="padding-bottom: 8px;">
+                        <span style="color: #64748b;">Payment Terms:</span> <strong>${safePaymentTerms}</strong>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <span style="color: #64748b;">Transport Scope:</span> <strong>${escapeHtml(data.transportationResponsibility)}</strong>
+                      </td>
+                      <td>
+                        <span style="color: #64748b;">Destination:</span> <strong>${safeDest}</strong>
+                      </td>
+                    </tr>
+                    ${safeRemarks ? `
+                    <tr>
+                      <td colspan="2" style="padding-top: 8px; border-top: 1px dashed #cbd5e1; color: #475569; font-style: italic;">
+                        Remarks: "${safeRemarks}"
+                      </td>
+                    </tr>` : ''}
+                  </table>
+
+                  <!-- Action CTA Button -->
+                  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="text-align: center; margin-bottom: 24px;">
+                    <tr>
+                      <td>
+                        <a href="${safeViewUrl}" target="_blank" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #ffffff; padding: 14px 28px; font-size: 14px; font-weight: 700; text-decoration: none; border-radius: 8px; display: inline-block; box-shadow: 0 4px 14px rgba(249, 115, 22, 0.4);">
+                          📄 View Official Quotation & Print PDF
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- Non-Liability Platform Disclaimer -->
+                  <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 14px; font-size: 11.5px; color: #92400e; line-height: 1.45;">
+                    <strong>⚖️ Platform Notice & Non-Liability Clause:</strong>
+                    Synergy5M operates strictly as a B2B demand pooling, aggregation, and facilitation technology platform. Synergy5M is not a contracting principal, buyer, reseller, or guarantor. Synergy5M shall not be liable for any direct, indirect, or consequential commercial or financial losses, default in payments, or delivery failure. All commercial agreements are executed directly between matched buyers and suppliers.
+                  </div>
+
+                </td>
+              </tr>
+
+              <!-- Footer -->
+              <tr>
+                <td style="background-color: #f1f5f9; padding: 18px 32px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b;">
+                  <div>Synergy5M LLP — B2B Collective Procurement Portal</div>
+                  <div style="font-size: 11px; color: #94a3b8; margin-top: 3px;">Pune, Maharashtra, India • sales@synergy5m.com</div>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+}
+
 // -------------------------------------------------------------
 // Vendor Supply Offer Submission Endpoint -> SupplyOfffertbl
 // -------------------------------------------------------------
 app.post('/api/supply-offer/submit', publicFormLimiter, async (req, res) => {
-    try {
-        const body = req.body || {};
+  try {
+    const body = req.body || {};
 
-        // Server-Side Input Validation (Allow-list, length, format & range checks)
-        if (!body.vendorQuotationNo || typeof body.vendorQuotationNo !== 'string' || body.vendorQuotationNo.trim().length === 0 || body.vendorQuotationNo.length > 100) {
-            return res.status(400).json({ success: false, message: 'Valid Vendor Quotation Number is required (max 100 characters).' });
-        }
-        if (!body.vendorEmail || typeof body.vendorEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.vendorEmail) || body.vendorEmail.length > 255) {
-            return res.status(400).json({ success: false, message: 'A valid email address is required (max 255 characters).' });
-        }
-        const numericOfferedQty = Number(body.offeredQuantity);
-        if (isNaN(numericOfferedQty) || numericOfferedQty <= 0 || numericOfferedQty > 100000000) {
-            return res.status(400).json({ success: false, message: 'Offered quantity must be a positive number up to 100,000,000.' });
-        }
-        const numericUnitPrice = Number(body.offeredUnitPrice);
-        if (isNaN(numericUnitPrice) || numericUnitPrice <= 0 || numericUnitPrice > 1000000000) {
-            return res.status(400).json({ success: false, message: 'Offered unit price must be a positive number up to 1,000,000,000.' });
-        }
-        const numericMoq = Number(body.moq);
-        if (isNaN(numericMoq) || numericMoq < 0) {
-            return res.status(400).json({ success: false, message: 'MOQ must be a non-negative number.' });
-        }
+    // Server-Side Input Validation (Allow-list, length, format & range checks)
+    if (!body.vendorQuotationNo || typeof body.vendorQuotationNo !== 'string' || body.vendorQuotationNo.trim().length === 0 || body.vendorQuotationNo.length > 100) {
+      return res.status(400).json({ success: false, message: 'Valid Vendor Quotation Number is required (max 100 characters).' });
+    }
+    if (!body.vendorEmail || typeof body.vendorEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.vendorEmail) || body.vendorEmail.length > 255) {
+      return res.status(400).json({ success: false, message: 'A valid email address is required (max 255 characters).' });
+    }
+    const numericOfferedQty = Number(body.offeredQuantity);
+    if (isNaN(numericOfferedQty) || numericOfferedQty <= 0 || numericOfferedQty > 100000000) {
+      return res.status(400).json({ success: false, message: 'Offered quantity must be a positive number up to 100,000,000.' });
+    }
+    const numericUnitPrice = Number(body.offeredUnitPrice);
+    if (isNaN(numericUnitPrice) || numericUnitPrice <= 0 || numericUnitPrice > 1000000000) {
+      return res.status(400).json({ success: false, message: 'Offered unit price must be a positive number up to 1,000,000,000.' });
+    }
+    const numericMoq = Number(body.moq);
+    if (isNaN(numericMoq) || numericMoq < 0) {
+      return res.status(400).json({ success: false, message: 'MOQ must be a non-negative number.' });
+    }
+    if (!body.declarationConfirmed || !body.platformDisclaimerConfirmed) {
+      return res.status(400).json({ success: false, message: 'Declaration and acceptance of Synergy5M non-liability platform terms are required.' });
+    }
 
-        // Allow-list checks for enumerated selections
-        const allowedCurrencies = ['INR', 'USD', 'EUR', 'AED', 'Other'];
-        const safeCurrency = allowedCurrencies.includes(body.currency) ? body.currency : 'INR';
+    // Allow-list checks for enumerated selections
+    const allowedCurrencies = ['INR', 'USD', 'EUR', 'AED', 'Other'];
+    const safeCurrency = allowedCurrencies.includes(body.currency) ? body.currency : 'INR';
 
-        const allowedPriceBases = ['FOR Destination', 'Ex-Works', 'FOB', 'CIF', 'Delivered'];
-        const safePriceBasis = allowedPriceBases.includes(body.priceBasis) ? body.priceBasis : 'FOR Destination';
+    const allowedPriceBases = ['FOR Destination', 'Ex-Works', 'FOB', 'CIF', 'Delivered'];
+    const safePriceBasis = allowedPriceBases.includes(body.priceBasis) ? body.priceBasis : 'FOR Destination';
 
-        const allowedGstRates = ['0%', '5%', '12%', '18%', '28%', 'Other'];
-        const safeGstRate = allowedGstRates.includes(body.gstRate) ? body.gstRate : '18%';
+    const allowedGstRates = ['0%', '5%', '12%', '18%', '28%', 'Other', 'Not Applicable'];
+    const safeGstRate = (safeCurrency === 'INR') ? (allowedGstRates.includes(body.gstRate) ? body.gstRate : '18%') : '0%';
 
-        const allowedAvailabilities = ['Ready Stock', 'Made to Order'];
-        const safeAvailability = allowedAvailabilities.includes(body.productAvailability) ? body.productAvailability : 'Ready Stock';
+    const allowedAvailabilities = ['Ready Stock', 'Made to Order'];
+    const safeAvailability = allowedAvailabilities.includes(body.productAvailability) ? body.productAvailability : 'Ready Stock';
 
-        const allowedSchedules = ['Single', 'Partial', 'Multiple'];
-        const safeSchedule = allowedSchedules.includes(body.deliverySchedule) ? body.deliverySchedule : 'Single';
-        const {
-            offerReference,
-            rfqReference,
-            opportunityId,
-            vendorQuotationNo,
-            quotationDate,
-            quotationValidUntil,
-            vendorName,
-            contactPerson,
-            vendorEmail,
-            mobileNumber,
-            productName,
-            category,
-            grade,
-            totalRequiredDemand,
-            uom,
-            destination,
-            canSupplyFull,
-            offeredQuantity,
-            moq,
-            maxSupplyCapacity,
-            productAvailability,
-            packagingType,
-            offeredUnitPrice,
-            currency,
-            priceBasis,
-            gstRate,
-            gstAmount,
-            freightIncluded,
-            freightCharges,
-            otherCharges,
-            totalBasicAmount,
-            estimatedTotalValue,
-            deliveryLeadTimeDays,
-            expectedDispatchDate,
-            expectedDeliveryDate,
-            deliverySchedule,
-            transportationResponsibility,
-            paymentTerms,
-            advancePaymentPercentage,
-            creditPeriodDays,
-            enquiryAllocationsJson,
-            staggeredScheduleJson,
-            attachmentsJson,
-            commercialRemarks,
-            specialConditions,
-            declarationConfirmed,
-            status
-        } = body;
+    const allowedSchedules = ['Single', 'Partial', 'Multiple'];
+    const safeSchedule = allowedSchedules.includes(body.deliverySchedule) ? body.deliverySchedule : 'Single';
+    const {
+      offerReference,
+      rfqReference,
+      opportunityId,
+      vendorQuotationNo,
+      quotationDate,
+      quotationValidUntil,
+      vendorName,
+      contactPerson,
+      vendorEmail,
+      mobileNumber,
+      productName,
+      category,
+      grade,
+      totalRequiredDemand,
+      uom,
+      destination,
+      canSupplyFull,
+      offeredQuantity,
+      moq,
+      maxSupplyCapacity,
+      productAvailability,
+      packagingType,
+      offeredUnitPrice,
+      currency,
+      priceBasis,
+      gstRate,
+      gstAmount,
+      freightIncluded,
+      freightCharges,
+      otherCharges,
+      totalBasicAmount,
+      estimatedTotalValue,
+      deliveryLeadTimeDays,
+      expectedDispatchDate,
+      expectedDeliveryDate,
+      deliverySchedule,
+      transportationResponsibility,
+      paymentTerms,
+      advancePaymentPercentage,
+      creditPeriodDays,
+      enquiryAllocationsJson,
+      staggeredScheduleJson,
+      attachmentsJson,
+      commercialRemarks,
+      specialConditions,
+      declarationConfirmed,
+      status
+    } = body;
 
-        const pool = await poolPromise;
-        if (pool) {
-            try {
-                const insertQuery = `
+    const pool = await poolPromise;
+    if (pool) {
+      try {
+        const insertQuery = `
                     INSERT INTO [dbo].[SupplyOfffertbl] (
                         OfferReference, RfqReference, OpportunityId, VendorQuotationNo, QuotationDate, QuotationValidUntil,
                         VendorName, ContactPerson, VendorEmail, MobileNumber,
@@ -2273,82 +2604,356 @@ app.post('/api/supply-offer/submit', publicFormLimiter, async (req, res) => {
                     )
                 `;
 
-                const request = pool.request();
-                request.input('OfferReference', sql.NVarChar(100), offerReference || `OFFER-CB-${Date.now()}`);
-                request.input('RfqReference', sql.NVarChar(100), rfqReference || '');
-                request.input('OpportunityId', sql.NVarChar(100), String(opportunityId || ''));
-                request.input('VendorQuotationNo', sql.NVarChar(100), vendorQuotationNo || '');
-                request.input('QuotationDate', sql.Date, quotationDate ? new Date(quotationDate) : new Date());
-                request.input('QuotationValidUntil', sql.Date, quotationValidUntil ? new Date(quotationValidUntil) : new Date());
-                request.input('VendorName', sql.NVarChar(255), vendorName || '');
-                request.input('ContactPerson', sql.NVarChar(255), contactPerson || '');
-                request.input('VendorEmail', sql.NVarChar(255), vendorEmail || '');
-                request.input('MobileNumber', sql.NVarChar(50), mobileNumber || '');
-                request.input('ProductName', sql.NVarChar(255), productName || '');
-                request.input('Category', sql.NVarChar(255), category || '');
-                request.input('Grade', sql.NVarChar(255), grade || '');
-                request.input('TotalRequiredDemand', sql.Decimal(18, 2), Number(totalRequiredDemand) || 0);
-                request.input('Uom', sql.NVarChar(50), uom || 'MT');
-                request.input('Destination', sql.NVarChar(255), destination || '');
-                request.input('CanSupplyFull', sql.Bit, canSupplyFull ? 1 : 0);
-                request.input('OfferedQuantity', sql.Decimal(18, 2), Number(offeredQuantity) || 0);
-                request.input('Moq', sql.Decimal(18, 2), Number(moq) || 1);
-                request.input('MaxSupplyCapacity', sql.Decimal(18, 2), maxSupplyCapacity ? Number(maxSupplyCapacity) : null);
-                request.input('ProductAvailability', sql.NVarChar(100), safeAvailability);
-                request.input('PackagingType', sql.NVarChar(255), String(packagingType || '').slice(0, 255));
-                request.input('OfferedUnitPrice', sql.Decimal(18, 2), numericUnitPrice);
-                request.input('Currency', sql.NVarChar(20), safeCurrency);
-                request.input('PriceBasis', sql.NVarChar(100), safePriceBasis);
-                request.input('GstRate', sql.NVarChar(50), safeGstRate);
-                request.input('GstAmount', sql.Decimal(18, 2), Number(gstAmount) || 0);
-                request.input('FreightIncluded', sql.Bit, freightIncluded ? 1 : 0);
-                request.input('FreightCharges', sql.Decimal(18, 2), Number(freightCharges) || 0);
-                request.input('OtherCharges', sql.Decimal(18, 2), Number(otherCharges) || 0);
-                request.input('TotalBasicAmount', sql.Decimal(18, 2), Number(totalBasicAmount) || 0);
-                request.input('EstimatedTotalValue', sql.Decimal(18, 2), Number(estimatedTotalValue) || 0);
-                request.input('DeliveryLeadTimeDays', sql.Int, deliveryLeadTimeDays ? Number(deliveryLeadTimeDays) : null);
-                request.input('ExpectedDispatchDate', sql.Date, expectedDispatchDate ? new Date(expectedDispatchDate) : null);
-                request.input('ExpectedDeliveryDate', sql.Date, expectedDeliveryDate ? new Date(expectedDeliveryDate) : null);
-                request.input('DeliverySchedule', sql.NVarChar(100), safeSchedule);
-                request.input('TransportationResponsibility', sql.NVarChar(100), transportationResponsibility || 'Vendor');
-                request.input('PaymentTerms', sql.NVarChar(255), paymentTerms || '');
-                request.input('AdvancePaymentPercentage', sql.Decimal(5, 2), Number(advancePaymentPercentage) || 0);
-                request.input('CreditPeriodDays', sql.Int, Number(creditPeriodDays) || 0);
-                request.input('EnquiryAllocationsJson', sql.NVarChar(sql.MAX), typeof enquiryAllocationsJson === 'string' ? enquiryAllocationsJson : JSON.stringify(enquiryAllocationsJson || []));
-                request.input('StaggeredScheduleJson', sql.NVarChar(sql.MAX), typeof staggeredScheduleJson === 'string' ? staggeredScheduleJson : JSON.stringify(staggeredScheduleJson || []));
-                request.input('AttachmentsJson', sql.NVarChar(sql.MAX), typeof attachmentsJson === 'string' ? attachmentsJson : JSON.stringify(attachmentsJson || []));
-                request.input('CommercialRemarks', sql.NVarChar(sql.MAX), commercialRemarks || '');
-                request.input('SpecialConditions', sql.NVarChar(sql.MAX), specialConditions || '');
-                request.input('DeclarationConfirmed', sql.Bit, declarationConfirmed ? 1 : 0);
-                request.input('Status', sql.NVarChar(50), status || 'Quotation Received');
+        const request = pool.request();
+        request.input('OfferReference', sql.NVarChar(100), offerReference || `OFFER-CB-${Date.now()}`);
+        request.input('RfqReference', sql.NVarChar(100), rfqReference || '');
+        request.input('OpportunityId', sql.NVarChar(100), String(opportunityId || ''));
+        request.input('VendorQuotationNo', sql.NVarChar(100), vendorQuotationNo || '');
+        request.input('QuotationDate', sql.Date, quotationDate ? new Date(quotationDate) : new Date());
+        request.input('QuotationValidUntil', sql.Date, quotationValidUntil ? new Date(quotationValidUntil) : new Date());
+        request.input('VendorName', sql.NVarChar(255), vendorName || '');
+        request.input('ContactPerson', sql.NVarChar(255), contactPerson || '');
+        request.input('VendorEmail', sql.NVarChar(255), vendorEmail || '');
+        request.input('MobileNumber', sql.NVarChar(50), mobileNumber || '');
+        request.input('ProductName', sql.NVarChar(255), productName || '');
+        request.input('Category', sql.NVarChar(255), category || '');
+        request.input('Grade', sql.NVarChar(255), grade || '');
+        request.input('TotalRequiredDemand', sql.Decimal(18, 2), Number(totalRequiredDemand) || 0);
+        request.input('Uom', sql.NVarChar(50), uom || 'MT');
+        request.input('Destination', sql.NVarChar(255), destination || '');
+        request.input('CanSupplyFull', sql.Bit, canSupplyFull ? 1 : 0);
+        request.input('OfferedQuantity', sql.Decimal(18, 2), Number(offeredQuantity) || 0);
+        request.input('Moq', sql.Decimal(18, 2), Number(moq) || 1);
+        request.input('MaxSupplyCapacity', sql.Decimal(18, 2), maxSupplyCapacity ? Number(maxSupplyCapacity) : null);
+        request.input('ProductAvailability', sql.NVarChar(100), safeAvailability);
+        request.input('PackagingType', sql.NVarChar(255), String(packagingType || '').slice(0, 255));
+        request.input('OfferedUnitPrice', sql.Decimal(18, 2), numericUnitPrice);
+        request.input('Currency', sql.NVarChar(20), safeCurrency);
+        request.input('PriceBasis', sql.NVarChar(100), safePriceBasis);
+        request.input('GstRate', sql.NVarChar(50), safeGstRate);
+        request.input('GstAmount', sql.Decimal(18, 2), safeCurrency === 'INR' ? (Number(gstAmount) || 0) : 0);
+        request.input('FreightIncluded', sql.Bit, freightIncluded ? 1 : 0);
+        request.input('FreightCharges', sql.Decimal(18, 2), Number(freightCharges) || 0);
+        request.input('OtherCharges', sql.Decimal(18, 2), Number(otherCharges) || 0);
+        request.input('TotalBasicAmount', sql.Decimal(18, 2), Number(totalBasicAmount) || 0);
+        request.input('EstimatedTotalValue', sql.Decimal(18, 2), Number(estimatedTotalValue) || 0);
+        request.input('DeliveryLeadTimeDays', sql.Int, deliveryLeadTimeDays ? Number(deliveryLeadTimeDays) : null);
+        request.input('ExpectedDispatchDate', sql.Date, expectedDispatchDate ? new Date(expectedDispatchDate) : null);
+        request.input('ExpectedDeliveryDate', sql.Date, expectedDeliveryDate ? new Date(expectedDeliveryDate) : null);
+        request.input('DeliverySchedule', sql.NVarChar(100), safeSchedule);
+        request.input('TransportationResponsibility', sql.NVarChar(100), transportationResponsibility || 'Vendor');
+        request.input('PaymentTerms', sql.NVarChar(255), paymentTerms || '');
+        request.input('AdvancePaymentPercentage', sql.Decimal(5, 2), Number(advancePaymentPercentage) || 0);
+        request.input('CreditPeriodDays', sql.Int, Number(creditPeriodDays) || 0);
+        request.input('EnquiryAllocationsJson', sql.NVarChar(sql.MAX), typeof enquiryAllocationsJson === 'string' ? enquiryAllocationsJson : JSON.stringify(enquiryAllocationsJson || []));
+        request.input('StaggeredScheduleJson', sql.NVarChar(sql.MAX), typeof staggeredScheduleJson === 'string' ? staggeredScheduleJson : JSON.stringify(staggeredScheduleJson || []));
+        request.input('AttachmentsJson', sql.NVarChar(sql.MAX), typeof attachmentsJson === 'string' ? attachmentsJson : JSON.stringify(attachmentsJson || []));
+        request.input('CommercialRemarks', sql.NVarChar(sql.MAX), commercialRemarks || '');
+        request.input('SpecialConditions', sql.NVarChar(sql.MAX), specialConditions || '');
+        request.input('DeclarationConfirmed', sql.Bit, (declarationConfirmed && body.platformDisclaimerConfirmed) ? 1 : 0);
+        request.input('Status', sql.NVarChar(50), status || 'Quotation Received');
 
-                await request.query(insertQuery);
+        await request.query(insertQuery);
 
-                return res.json({
-                    success: true,
-                    offerReference: offerReference || `OFFER-CB-${Date.now()}`,
-                    vendorQuotationNo,
-                    submittedAt: new Date().toISOString(),
-                    offeredQuantity,
-                    status: 'Quotation Received',
-                    message: 'Offer successfully registered into SupplyOfffertbl.'
-                });
-            } catch (dbErr) {
-                console.error("Database error saving to SupplyOfffertbl:", dbErr.message);
-                return res.status(500).json({
-                    success: false,
-                    message: "An internal database error occurred while registering your offer. Please try again later."
-                });
+        const finalOfferRef = offerReference || `OFFER-CB-${Date.now()}`;
+        const appBaseUrl = process.env.APP_BASE_URL || (process.env.FRONTEND_URL ? process.env.FRONTEND_URL.replace(/\/$/, '') : 'https://synergy5m.com');
+        const viewOfferUrl = `${appBaseUrl}/supply-offer/view?offerRef=${encodeURIComponent(finalOfferRef)}`;
+        const salesEmail = process.env.SALES_EMAIL || process.env.SMTP_USER || "sales@synergy5m.com";
+
+        // Asynchronously dispatch quotation emails to both Vendor and Sales
+        (async () => {
+          try {
+            const quotationEmailHtml = generateSupplyOfferQuotationEmailHtml({
+              offerReference: finalOfferRef,
+              rfqReference: rfqReference || 'N/A',
+              vendorQuotationNo: vendorQuotationNo || 'N/A',
+              quotationDate: quotationDate || new Date().toISOString().split('T')[0],
+              quotationValidUntil: quotationValidUntil || '15 Days',
+              vendorName: vendorName || 'Registered Vendor',
+              contactPerson: contactPerson || 'N/A',
+              vendorEmail: vendorEmail || '',
+              mobileNumber: mobileNumber || 'N/A',
+              productName: productName || 'Industrial Product',
+              category: category || 'Industrial',
+              grade: grade || 'Commercial Grade',
+              totalRequiredDemand: totalRequiredDemand || 0,
+              uom: uom || 'MT',
+              destination: destination || 'As per RFQ',
+              canSupplyFull: Boolean(canSupplyFull),
+              offeredQuantity: numericOfferedQty,
+              moq: numericMoq,
+              packagingType: packagingType || 'Standard',
+              productAvailability: safeAvailability,
+              offeredUnitPrice: numericUnitPrice,
+              currency: safeCurrency,
+              priceBasis: safePriceBasis,
+              gstRate: safeGstRate,
+              gstAmount: safeCurrency === 'INR' ? (Number(gstAmount) || 0) : 0,
+              freightIncluded: Boolean(freightIncluded),
+              freightCharges: Number(freightCharges) || 0,
+              otherCharges: Number(otherCharges) || 0,
+              totalBasicAmount: Number(totalBasicAmount) || 0,
+              estimatedTotalValue: Number(estimatedTotalValue) || 0,
+              deliveryLeadTimeDays: deliveryLeadTimeDays || '7-14',
+              expectedDispatchDate: expectedDispatchDate || 'As per schedule',
+              expectedDeliveryDate: expectedDeliveryDate || 'As per schedule',
+              deliverySchedule: safeSchedule,
+              transportationResponsibility: transportationResponsibility || 'Supplier Scope',
+              paymentTerms: paymentTerms || 'Standard Terms',
+              advancePaymentPercentage: advancePaymentPercentage || 0,
+              creditPeriodDays: creditPeriodDays || 0,
+              commercialRemarks: commercialRemarks || '',
+              viewOfferUrl
+            });
+
+            const emailTasks = [];
+
+            // 1. Dispatch to Seller / Vendor who submitted (with Sales in CC)
+            if (vendorEmail) {
+              const sellerMailOpts = {
+                from: process.env.SMTP_USER || "sales@synergy5m.com",
+                to: vendorEmail,
+                subject: `Quotation Confirmation: Supply Offer Submitted for ${productName} (${finalOfferRef})`,
+                html: quotationEmailHtml
+              };
+              if (salesEmail && salesEmail.toLowerCase() !== vendorEmail.toLowerCase()) {
+                sellerMailOpts.cc = salesEmail;
+              }
+              emailTasks.push({
+                to: vendorEmail,
+                mailOptions: sellerMailOpts
+              });
             }
-        }
 
-        return res.status(500).json({
-            success: false,
-            message: 'Database connection pool unavailable.'
+            // 2. Dispatch to Synergy5M Sales Team (with Seller in CC)
+            if (salesEmail) {
+              const salesMailOpts = {
+                from: process.env.SMTP_USER || "sales@synergy5m.com",
+                to: salesEmail,
+                subject: `[NEW QUOTATION RECEIVED] ${vendorName} submitted offer for ${productName} (RFQ: ${rfqReference})`,
+                html: quotationEmailHtml
+              };
+              if (vendorEmail && vendorEmail.toLowerCase() !== salesEmail.toLowerCase()) {
+                salesMailOpts.cc = vendorEmail;
+              }
+              emailTasks.push({
+                to: salesEmail,
+                mailOptions: salesMailOpts
+              });
+            }
+
+            dispatchEmailTasksInBackground(emailTasks);
+          } catch (mailErr) {
+            console.error("Supply offer email notification error:", mailErr.message);
+          }
+        })().catch(() => { });
+
+        return res.json({
+          success: true,
+          offerReference: finalOfferRef,
+          vendorQuotationNo,
+          submittedAt: new Date().toISOString(),
+          offeredQuantity,
+          status: 'Quotation Received',
+          viewOfferUrl,
+          message: 'Offer successfully registered into SupplyOfffertbl and confirmation emails dispatched.'
         });
-    } catch (err) {
-        return res.status(500).json({ success: false, message: 'Server error processing supply offer.' });
+      } catch (dbErr) {
+        console.error("Database error saving to SupplyOfffertbl:", dbErr.message);
+        return res.status(500).json({
+          success: false,
+          message: "An internal database error occurred while registering your offer. Please try again later."
+        });
+      }
     }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Database connection pool unavailable.'
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Server error processing supply offer.' });
+  }
+});
+
+// -------------------------------------------------------------
+// GET /api/supply-offer/view/:offerRef - Fetch single specific supply offer
+// -------------------------------------------------------------
+app.get('/api/supply-offer/view/:offerRef', async (req, res) => {
+  try {
+    const rawRef = req.params.offerRef;
+    if (!rawRef || typeof rawRef !== 'string') {
+      return res.status(400).json({ success: false, message: 'Valid Offer Reference is required.' });
+    }
+
+    const pool = await poolPromise;
+    if (!pool) {
+      return res.status(500).json({ success: false, message: 'Database connection unavailable.' });
+    }
+
+    const request = pool.request();
+    request.input('OfferRef', sql.NVarChar(100), rawRef.trim());
+
+    const result = await request.query(`
+      SELECT TOP 1 *
+      FROM [dbo].[SupplyOfffertbl]
+      WHERE OfferReference = @OfferRef OR VendorQuotationNo = @OfferRef
+      ORDER BY Id DESC;
+    `);
+
+    if (!result.recordset || result.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Quotation not found for the specified reference.' });
+    }
+
+    return res.json({ success: true, data: result.recordset[0] });
+  } catch (err) {
+    console.error("Error fetching single offer:", err.message);
+    return res.status(500).json({ success: false, message: 'Server error retrieving quotation.' });
+  }
+});
+
+// -------------------------------------------------------------
+// GET /api/supply-offers/sent - Fetch all dispatched RFQ offers with submitted count
+// -------------------------------------------------------------
+app.get('/api/supply-offers/sent', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    if (!pool) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // Ensure SentSupplyOffers table exists
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='SentSupplyOffers' AND xtype='U')
+      CREATE TABLE [dbo].[SentSupplyOffers] (
+          [Id] INT IDENTITY(1,1) PRIMARY KEY,
+          [RfqReference] NVARCHAR(100) NOT NULL,
+          [OpportunityId] NVARCHAR(100) NULL,
+          [VendorId] INT NULL,
+          [VendorName] NVARCHAR(255) NOT NULL,
+          [VendorEmail] NVARCHAR(255) NOT NULL,
+          [ProductName] NVARCHAR(255) NOT NULL,
+          [Category] NVARCHAR(255) NULL,
+          [Grade] NVARCHAR(255) NULL,
+          [TotalDemand] DECIMAL(18, 2) NOT NULL,
+          [Uom] NVARCHAR(50) DEFAULT 'MT',
+          [Destination] NVARCHAR(255) NULL,
+          [BuyerEnquiriesCount] INT DEFAULT 1,
+          [SubmitOfferUrl] NVARCHAR(MAX) NOT NULL,
+          [Status] NVARCHAR(50) DEFAULT 'Sent',
+          [SentAt] DATETIME DEFAULT GETDATE(),
+          [CreatedAt] DATETIME DEFAULT GETDATE()
+      );
+    `);
+
+    const result = await pool.request().query(`
+      SELECT 
+        s.Id,
+        s.RfqReference,
+        s.OpportunityId,
+        s.VendorId,
+        s.VendorName,
+        s.VendorEmail,
+        s.ProductName,
+        s.Category,
+        s.Grade,
+        s.TotalDemand,
+        s.Uom,
+        s.Destination,
+        s.SubmitOfferUrl,
+        s.Status AS SendStatus,
+        s.SentAt,
+        COUNT(o.Id) AS SubmittedOffersCount,
+        MAX(o.CreatedAt) AS LastSubmittedAt,
+        MAX(o.EstimatedTotalValue) AS LatestTotalValue,
+        MAX(o.Currency) AS LatestCurrency,
+        MAX(o.VendorQuotationNo) AS LatestQuotationNo
+      FROM [dbo].[SentSupplyOffers] s
+      LEFT JOIN [dbo].[SupplyOfffertbl] o 
+        ON (s.RfqReference = o.RfqReference AND (s.VendorEmail = o.VendorEmail OR s.VendorName = o.VendorName))
+      GROUP BY 
+        s.Id, s.RfqReference, s.OpportunityId, s.VendorId, s.VendorName, s.VendorEmail,
+        s.ProductName, s.Category, s.Grade, s.TotalDemand, s.Uom, s.Destination,
+        s.SubmitOfferUrl, s.Status, s.SentAt
+      ORDER BY s.SentAt DESC;
+    `);
+
+    const records = result.recordset || [];
+    res.json({ success: true, data: records });
+  } catch (err) {
+    console.error("Error fetching sent supply offers:", err.message);
+    res.status(500).json({ success: false, message: "Error fetching sent supply offers." });
+  }
+});
+
+// -------------------------------------------------------------
+// GET /api/supply-offers/submitted - Fetch all submitted quotations from SupplyOfffertbl
+// -------------------------------------------------------------
+app.get('/api/supply-offers/submitted', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    if (!pool) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const result = await pool.request().query(`
+      SELECT 
+        Id,
+        OfferReference,
+        RfqReference,
+        OpportunityId,
+        VendorQuotationNo,
+        QuotationDate,
+        QuotationValidUntil,
+        VendorName,
+        ContactPerson,
+        VendorEmail,
+        MobileNumber,
+        ProductName,
+        Category,
+        Grade,
+        TotalRequiredDemand,
+        Uom,
+        Destination,
+        CanSupplyFull,
+        OfferedQuantity,
+        Moq,
+        MaxSupplyCapacity,
+        ProductAvailability,
+        PackagingType,
+        OfferedUnitPrice,
+        Currency,
+        PriceBasis,
+        GstRate,
+        GstAmount,
+        FreightIncluded,
+        FreightCharges,
+        OtherCharges,
+        TotalBasicAmount,
+        EstimatedTotalValue,
+        DeliveryLeadTimeDays,
+        ExpectedDispatchDate,
+        ExpectedDeliveryDate,
+        DeliverySchedule,
+        TransportationResponsibility,
+        PaymentTerms,
+        AdvancePaymentPercentage,
+        CreditPeriodDays,
+        EnquiryAllocationsJson,
+        StaggeredScheduleJson,
+        CommercialRemarks,
+        SpecialConditions,
+        Status,
+        CreatedAt
+      FROM [dbo].[SupplyOfffertbl]
+      ORDER BY CreatedAt DESC;
+    `);
+
+    res.json({ success: true, data: result.recordset || [] });
+  } catch (err) {
+    console.error("Error fetching submitted supply offers:", err.message);
+    res.status(500).json({ success: false, message: "Error fetching submitted supply offers." });
+  }
 });
 
 // -------------------------------------------------------------

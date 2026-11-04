@@ -152,9 +152,20 @@
 }
 
 @keyframes synPulse {
-  0% { transform: scale(0.95); opacity: 0.8; }
-  50% { transform: scale(1.2); opacity: 1; }
-  100% { transform: scale(0.95); opacity: 0.8; }
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
 }
 
 /* -------------------------------------------------------------
@@ -614,7 +625,7 @@
 }
 
 .syn-input-with-addon {
-  padding-left: 28px;
+  padding-left: 50px;
 }
 
 .syn-input-sm {
@@ -701,10 +712,21 @@
   font-weight: 700;
 }
 
-.syn-text-cyan { color: var(--syn-cyan-600); }
-.syn-text-green { color: var(--syn-green-600); }
-.syn-text-amber { color: var(--syn-amber-500); }
-.syn-text-muted { color: var(--syn-grey-400); }
+.syn-text-cyan {
+  color: var(--syn-cyan-600);
+}
+
+.syn-text-green {
+  color: var(--syn-green-600);
+}
+
+.syn-text-amber {
+  color: var(--syn-amber-500);
+}
+
+.syn-text-muted {
+  color: var(--syn-grey-400);
+}
 
 /* -------------------------------------------------------------
    Staggered Delivery Box
@@ -821,7 +843,7 @@
   border-radius: 6px;
   padding: 6px 12px;
   font-size: 12px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .syn-file-info {
@@ -1196,13 +1218,28 @@
   animation: synSlideUp 0.25s ease-out;
 }
 
-.syn-toast-success { border-left: 4px solid var(--syn-green-500); }
-.syn-toast-error { border-left: 4px solid var(--syn-red-500); }
-.syn-toast-info { border-left: 4px solid var(--syn-cyan-500); }
+.syn-toast-success {
+  border-left: 4px solid var(--syn-green-500);
+}
+
+.syn-toast-error {
+  border-left: 4px solid var(--syn-red-500);
+}
+
+.syn-toast-info {
+  border-left: 4px solid var(--syn-cyan-500);
+}
 
 @keyframes synSlideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 /* -------------------------------------------------------------
@@ -1236,8 +1273,15 @@
 }
 
 @keyframes synModalPop {
-  from { transform: scale(0.96); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .syn-modal-header {
@@ -1518,8 +1562,13 @@
 }
 
 @keyframes synSpin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* -------------------------------------------------------------
@@ -1599,3 +1648,29 @@
   }
 }
 
+
+.syn-field-hint {
+  font-size: 11.5px;
+  color: var(--syn-teal-600);
+  font-weight: 500;
+  display: block;
+  margin-top: 3px;
+}
+
+.syn-btn-nav-link {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #e2e8f0;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.syn-btn-nav-link:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
+}

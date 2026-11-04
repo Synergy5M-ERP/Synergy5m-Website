@@ -1624,6 +1624,39 @@ function NewLandingPage() {
     }
   }, [mobileOpen]);
 
+  // Auto-jump to section if hash or jump parameter is present (e.g. #collective-buy)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const hash = window.location.hash ? window.location.hash.replace('#', '') : null;
+    const urlParams = new URLSearchParams(window.location.search);
+    const jumpParam = urlParams.get('jump');
+    const targetId = hash || jumpParam;
+
+    if (targetId) {
+      let attempts = 0;
+      const maxAttempts = 25; // Check every 80ms up to 2 seconds
+      const checkAndJump = () => {
+        const el = document.getElementById(targetId) || document.getElementById('collective-buy') || document.getElementById('collective-products-catalog');
+        if (el) {
+          el.scrollIntoView({ behavior: 'auto', block: 'start' });
+          return true;
+        }
+        return false;
+      };
+
+      if (!checkAndJump()) {
+        const interval = setInterval(() => {
+          attempts++;
+          if (checkAndJump() || attempts >= maxAttempts) {
+            clearInterval(interval);
+          }
+        }, 80);
+        return () => clearInterval(interval);
+      }
+    }
+  }, []);
+
   const scrollTo = (id) => {
     document
       .getElementById(id)
