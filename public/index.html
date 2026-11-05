@@ -52,14 +52,38 @@
     }
   }
   </script>
-<style>
+  <style>
     /* Example: Adjusting the Jotform wrapper positioning or margins */
     .jficc .embedded-agent-container {
       box-sizing: border-box;
     }
     .jficc .ai-agent-chat-avatar-pulse-wrapper {
       position: relative;
-     margin-right: 20px !important;
+      margin-right: 20px !important;
+    }
+
+    /* Completely hide AI Chatbot agent and floating widgets in print / PDF output */
+    @media print {
+      .jficc,
+      .jficc *,
+      .embedded-agent-container,
+      .ai-agent-chat-avatar-pulse-wrapper,
+      iframe[src*="jotform"],
+      iframe[src*="agent"],
+      div[class*="jficc"],
+      div[class*="agent"],
+      div[id*="agent"],
+      div[id*="jotform"] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        position: absolute !important;
+        top: -99999px !important;
+        left: -99999px !important;
+        width: 0 !important;
+        height: 0 !important;
+        pointer-events: none !important;
+      }
     }
   </style>
 </head>

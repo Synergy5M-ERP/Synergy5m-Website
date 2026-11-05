@@ -3,6 +3,28 @@
    Designed for Executive Presentation & High-Fidelity PDF Printing
    ------------------------------------------------------------- */
 
+/* Hide Jotform AI Chatbot agent on official quotation page & print */
+.jficc,
+.jficc *,
+.embedded-agent-container,
+.ai-agent-chat-avatar-pulse-wrapper,
+iframe[src*="jotform"],
+iframe[src*="agent"],
+div[class*="jficc"],
+div[class*="agent"],
+div[id*="agent"],
+div[id*="jotform"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  position: absolute !important;
+  top: -99999px !important;
+  left: -99999px !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+}
+
 .sov-page {
   min-height: 100vh;
   background-color: #0c121e;
@@ -688,44 +710,264 @@
 }
 
 /* ========================================================================= */
-/* 10. Print Mode (@media print) */
+/* 10. Print Mode (@media print) - Ultra-Compact Data-Only Layout            */
 /* ========================================================================= */
+@page {
+  size: A4 portrait;
+  margin: 6mm 8mm; /* Eliminates browser default URL/headers/footers */
+}
+
 @media print {
-  body,
+  html, body,
   .sov-page {
+    background: #ffffff !important;
     background-color: #ffffff !important;
-    color: #000000 !important;
+    color: #0f172a !important;
     padding: 0 !important;
+    margin: 0 !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
   }
 
-  .no-print {
+  /* Completely remove non-essential UI, buttons, logos, URLs and banners */
+  .no-print,
+  .sov-action-bar,
+  .sov-brand-logo-badge,
+  .sov-company-sub,
+  .sov-company-contact,
+  .sov-verified-badge,
+  .sov-error-actions,
+  a[href]:after {
     display: none !important;
+    content: none !important;
   }
 
   .sov-doc-wrapper {
     max-width: 100% !important;
+    width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
   }
 
   .sov-sheet {
     box-shadow: none !important;
+    border: none !important;
     border-radius: 0 !important;
-    padding: 15mm !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
   }
 
-  .sov-grand-total-row {
-    background: #fff7ed !important;
+  /* Compact Print Header (Clean Corporate Letterhead) */
+  .sov-sheet-header {
+    margin-bottom: 6px !important;
+    padding-bottom: 6px !important;
+    border-bottom: 2px solid #0f2a47 !important;
+  }
+
+  .sov-brand-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+
+  .sov-company-name {
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    color: #0f2a47 !important;
+    margin: 0 !important;
+    line-height: 1.2 !important;
+  }
+
+  .sov-doc-stamp-box {
+    text-align: right !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  .sov-stamp-title {
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    color: #0e7c86 !important;
+    letter-spacing: 0.5px !important;
+  }
+
+  .sov-stamp-ref {
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    font-family: monospace !important;
+    color: #0f172a !important;
+  }
+
+  /* Compact Reference Strip */
+  .sov-meta-strip {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 4px !important;
+    padding: 4px 8px !important;
+    margin-bottom: 6px !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 6px !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  .sov-meta-label {
+    font-size: 9px !important;
+    color: #64748b !important;
+  }
+
+  .sov-meta-val {
+    font-size: 11px !important;
+    color: #0f172a !important;
+  }
+
+  /* Compact Parties Grid */
+  .sov-parties-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .sov-party-card {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 4px !important;
+    padding: 6px 10px !important;
+  }
+
+  .sov-party-kicker {
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    margin-bottom: 2px !important;
+  }
+
+  .sov-party-name {
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    margin: 0 0 2px 0 !important;
+  }
+
+  .sov-party-detail {
+    font-size: 10px !important;
+    margin-bottom: 1px !important;
+  }
+
+  /* Compact Sections */
+  .sov-section {
+    margin-bottom: 6px !important;
+  }
+
+  .sov-section-title {
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    color: #0f2a47 !important;
+    margin-bottom: 3px !important;
+    padding-bottom: 2px !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+
+  /* Compact Tables */
+  .sov-pricing-table,
+  .sov-data-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 10px !important;
+    margin-bottom: 4px !important;
   }
 
   .sov-pricing-table th,
   .sov-data-table th {
     background: #f1f5f9 !important;
-    color: #000000 !important;
+    color: #0f2a47 !important;
+    font-size: 9.5px !important;
+    padding: 4px 6px !important;
+    border: 1px solid #cbd5e1 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  .sov-pricing-table td,
+  .sov-data-table td {
+    padding: 3px 6px !important;
+    border: 1px solid #e2e8f0 !important;
+    font-size: 10px !important;
+  }
+
+  .sov-td-desc {
+    font-size: 8.5px !important;
+    color: #64748b !important;
+  }
+
+  .sov-grand-total-row {
+    background: #fff7ed !important;
+    font-weight: 800 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .sov-grand-total-row td {
+    font-size: 11px !important;
+    padding: 5px 6px !important;
+    border-top: 2px solid #ea580c !important;
+  }
+
+  /* Compact Commercial Terms */
+  .sov-terms-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 4px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .sov-term-item {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 4px !important;
+    padding: 4px 6px !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .sov-term-label {
+    font-size: 8.5px !important;
+    color: #64748b !important;
+  }
+
+  .sov-term-val {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+  }
+
+  /* Footer & Signature Block */
+  .sov-sheet-footer {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-end !important;
+    margin-top: 6px !important;
+    padding-top: 4px !important;
+    border-top: 1px solid #e2e8f0 !important;
+  }
+
+  .sov-doc-disclaimer {
+    font-size: 8px !important;
+    color: #94a3b8 !important;
+    max-width: 60% !important;
+    line-height: 1.3 !important;
+  }
+
+  .sov-sign-block {
+    text-align: right !important;
+    font-size: 9px !important;
+  }
+
+  .sov-sign-line {
+    width: 140px !important;
+    border-bottom: 1px dashed #64748b !important;
+    margin: 18px 0 3px auto !important;
   }
 }
 

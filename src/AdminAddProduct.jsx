@@ -38,7 +38,8 @@ import {
   FileCheck,
   Send,
   TrendingUp,
-  ArrowUpRight
+  ArrowUpRight,
+  Lock
 } from 'lucide-react';
 import './AdminAddProduct.css';
 
@@ -594,6 +595,20 @@ export default function AdminAddProduct({ initialTab }) {
       errors.enquiryClosingDate = 'Closing date must be equal to or after the opening date';
     }
 
+    // Platform Fee validation (Compulsory)
+    if (formData.sourcingOptions.includes('Domestic')) {
+      const domesticFee = parseFloat(formData.successFeeDomesticPercent);
+      if (isNaN(domesticFee) || domesticFee <= 0) {
+        errors.successFeeDomesticPercent = 'Platform Fee % for Domestic fulfillment is compulsory (must be > 0).';
+      }
+    }
+    if (formData.sourcingOptions.includes('Import')) {
+      const importFee = parseFloat(formData.successFeeImportPercent);
+      if (isNaN(importFee) || importFee <= 0) {
+        errors.successFeeImportPercent = 'Platform Fee % for Import fulfillment is compulsory (must be > 0).';
+      }
+    }
+
     return errors;
   }, [formData]);
 
@@ -632,6 +647,10 @@ export default function AdminAddProduct({ initialTab }) {
       Boolean(
         formData.enquiryClosingDate &&
         (!formData.enquiryOpeningDate || new Date(formData.enquiryClosingDate) >= new Date(formData.enquiryOpeningDate))
+      ),
+      Boolean(
+        (!formData.sourcingOptions.includes('Domestic') || (parseFloat(formData.successFeeDomesticPercent) > 0)) &&
+        (!formData.sourcingOptions.includes('Import') || (parseFloat(formData.successFeeImportPercent) > 0))
       )
     ];
 
@@ -2457,8 +2476,8 @@ export default function AdminAddProduct({ initialTab }) {
                     </div>
                   </section> */}
 
-                  {/* 7. Commercial Settings Card (Admin Only) */}
-                  {/* <section
+                  {/* 7. Commercial & Platform Fee Settings Card (Compulsory Admin Setup) */}
+                  <section
                     className="b2b-card p-6 border-l-4 border-l-[#0E7C86] bg-gradient-to-br from-white to-slate-50/50"
                     aria-labelledby="section-commercial"
                   >
@@ -2469,63 +2488,75 @@ export default function AdminAddProduct({ initialTab }) {
                         </div>
                         <div>
                           <h2 id="section-commercial" className="text-sm font-bold text-[#0F2A47]">
-                            7. Commercial & Platform Fee Settings
+                            6. Commercial & Platform Fee Settings
                           </h2>
                           <span className="text-[11px] font-semibold text-teal-800 bg-teal-100 px-2 py-0.5 rounded">
-                            Visible to admins only
+                            Compulsory • Internal Admin Setup
                           </span>
                         </div>
                       </div>
                     </div>
 
                     <p className="text-xs text-slate-500 italic mb-4">
-                      * Helper notice: Use the rate agreed in the supplier master agreement.
+                      * Platform Fee is compulsory for active sourcing fulfillment channels. Applied to calculate net margins during supplier offer matching.
                     </p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label
-                          htmlFor="successFeeDomesticPercent"
-                          className="block text-xs font-semibold text-slate-700 mb-1"
-                        >
-                          Success Fee % (Domestic Fulfillment)
-                        </label>
-                        <div className="relative">
-                          <input
-                            id="successFeeDomesticPercent"
-                            type="number"
-                            step="0.01"
-                            placeholder="e.g. 0.75"
-                            className="b2b-input pr-8"
-                            value={formData.successFeeDomesticPercent}
-                            onChange={(e) => updateField('successFeeDomesticPercent', e.target.value)}
-                          />
-                          <span className="absolute right-3 top-3 text-slate-400 text-xs font-bold">%</span>
+                      {formData.sourcingOptions.includes('Domestic') && (
+                        <div>
+                          <label
+                            htmlFor="successFeeDomesticPercent"
+                            className="block text-xs font-semibold text-slate-700 mb-1"
+                          >
+                            Platform Fee % (Domestic Fulfillment) <span className="text-rose-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              id="successFeeDomesticPercent"
+                              type="number"
+                              step="0.01"
+                              min="0.01"
+                              placeholder="e.g. 1.00"
+                              className={`b2b-input pr-8 ${hasAttemptedSubmit && validationErrors.successFeeDomesticPercent ? 'has-error' : ''}`}
+                              value={formData.successFeeDomesticPercent}
+                              onChange={(e) => updateField('successFeeDomesticPercent', e.target.value)}
+                            />
+                            <span className="absolute right-3 top-3 text-slate-400 text-xs font-bold">%</span>
+                          </div>
+                          {hasAttemptedSubmit && validationErrors.successFeeDomesticPercent && (
+                            <p className="text-xs text-rose-600 mt-1">{validationErrors.successFeeDomesticPercent}</p>
+                          )}
                         </div>
-                      </div>
+                      )}
 
-                      <div>
-                        <label
-                          htmlFor="successFeeImportPercent"
-                          className="block text-xs font-semibold text-slate-700 mb-1"
-                        >
-                          Success Fee % (Import High Seas / Direct)
-                        </label>
-                        <div className="relative">
-                          <input
-                            id="successFeeImportPercent"
-                            type="number"
-                            step="0.01"
-                            placeholder="e.g. 1.25"
-                            className="b2b-input pr-8"
-                            value={formData.successFeeImportPercent}
-                            onChange={(e) => updateField('successFeeImportPercent', e.target.value)}
-                          />
-                          <span className="absolute right-3 top-3 text-slate-400 text-xs font-bold">%</span>
+                      {formData.sourcingOptions.includes('Import') && (
+                        <div>
+                          <label
+                            htmlFor="successFeeImportPercent"
+                            className="block text-xs font-semibold text-slate-700 mb-1"
+                          >
+                            Platform Fee % (Import High Seas / Direct) <span className="text-rose-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              id="successFeeImportPercent"
+                              type="number"
+                              step="0.01"
+                              min="0.01"
+                              placeholder="e.g. 1.50"
+                              className={`b2b-input pr-8 ${hasAttemptedSubmit && validationErrors.successFeeImportPercent ? 'has-error' : ''}`}
+                              value={formData.successFeeImportPercent}
+                              onChange={(e) => updateField('successFeeImportPercent', e.target.value)}
+                            />
+                            <span className="absolute right-3 top-3 text-slate-400 text-xs font-bold">%</span>
+                          </div>
+                          {hasAttemptedSubmit && validationErrors.successFeeImportPercent && (
+                            <p className="text-xs text-rose-600 mt-1">{validationErrors.successFeeImportPercent}</p>
+                          )}
                         </div>
-                      </div>
+                      )}
 
-                      <div>
+                      <div className={formData.sourcingOptions.length === 1 ? 'sm:col-span-2' : ''}>
                         <label htmlFor="feeNotes" className="block text-xs font-semibold text-slate-700 mb-1">
                           Fee Terms & Commission Notes
                         </label>
@@ -2533,13 +2564,13 @@ export default function AdminAddProduct({ initialTab }) {
                           id="feeNotes"
                           rows={2}
                           className="b2b-input text-xs resize-none"
-                          placeholder="e.g. Rate negotiated with regional distributor; invoiced net-15 post delivery."
+                          placeholder="e.g. Rate negotiated with supplier master agreement; invoiced net-15 post delivery."
                           value={formData.feeNotes}
                           onChange={(e) => updateField('feeNotes', e.target.value)}
                         />
                       </div>
 
-                      <div>
+                      <div className="sm:col-span-2">
                         <label htmlFor="internalNotes" className="block text-xs font-semibold text-slate-700 mb-1">
                           Internal Sourcing Desk Notes
                         </label>
@@ -2553,7 +2584,7 @@ export default function AdminAddProduct({ initialTab }) {
                         />
                       </div>
                     </div>
-                  </section> */}
+                  </section>
 
                   {/* 8. SEO Card (Accordion, Collapsed by default) */}
                   {/* <section className="b2b-card overflow-hidden">
@@ -3373,6 +3404,7 @@ export default function AdminAddProduct({ initialTab }) {
                             const qty = enq.RequiredQuantity || enq.requiredQuantity || '—';
                             const uom = enq.Uom || enq.uom || 'MT';
                             const location = enq.DeliveryLocation || enq.deliveryLocation || '—';
+                            const region = enq.Region || enq.region || 'Domestic';
                             const targetDate = enq.TargetDeliveryDate || enq.targetDeliveryDate;
                             const status = enq.Status || enq.status || 'Submitted';
                             const comments = enq.Comments || enq.comments;
@@ -3447,6 +3479,11 @@ export default function AdminAddProduct({ initialTab }) {
                                       <span className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                                         <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
                                         <span className="truncate max-w-[150px]">{location}</span>
+                                      </span>
+                                    )}
+                                    {region && (
+                                      <span className="text-[10px] font-semibold text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 mt-1 inline-block">
+                                        {region === 'International' ? '🌐 International' : '🇮🇳 Domestic'}
                                       </span>
                                     )}
                                   </div>

@@ -496,6 +496,12 @@ export default function VendorSupplyOfferForm() {
     const moqNum = parseFloat(formData.moq);
     if (isNaN(moqNum) || moqNum < 0) errors.moq = 'MOQ cannot be negative.';
 
+    // Platform Fee validation (Compulsory)
+    const platformFeeNum = parseFloat(formData.otherChargesValue);
+    if (isNaN(platformFeeNum) || platformFeeNum <= 0) {
+      errors.otherChargesValue = 'Platform Fee is compulsory (must be greater than 0).';
+    }
+
     // Required documents check (vendor quotation document recommended)
     if (formData.attachments.length === 0) {
       errors.attachments = 'Please upload at least one quotation or technical verification document.';
@@ -706,22 +712,9 @@ export default function VendorSupplyOfferForm() {
                   fontWeight: 700
                 }}
               >
-                <FileText size={16} /> 📄 View Official Quotation Document (PDF)
+                <FileText size={16} /> View Official Quotation Document (PDF)
               </button>
-              <button
-                type="button"
-                className="syn-btn syn-btn-secondary"
-                onClick={() => navigate('/submittedoffer')}
-              >
-                <FileText size={16} /> View All Submitted Offers
-              </button>
-              <button
-                type="button"
-                className="syn-btn syn-btn-secondary"
-                onClick={() => navigate('/supply-offers')}
-              >
-                <Layers size={16} /> All Dispatched RFQs
-              </button>
+
               <button
                 type="button"
                 className="syn-btn syn-btn-secondary"
@@ -1116,7 +1109,7 @@ export default function VendorSupplyOfferForm() {
 
                   <div className="syn-form-group">
                     <label className="syn-input-label">
-                      Minimum Order Quantity – MOQ ({rfqDetails.uom}) <span className="syn-required">*</span>
+                      MOQ ({rfqDetails.uom}) <span className="syn-required">*</span>
                     </label>
                     <input
                       type="number"
@@ -1282,7 +1275,7 @@ export default function VendorSupplyOfferForm() {
                         ? 'PlatForm Fee Rate (%)'
                         : formData.otherChargesType === 'lump_sum'
                           ? `PlatForm Fee (${calculations.currencySymbol} Lump-Sum)`
-                          : `PlatForm Fee (${calculations.currencySymbol} / ${rfqDetails.uom})`}
+                          : `PlatForm Fee (${calculations.currencySymbol} / ${rfqDetails.uom})`} <span className="syn-required">*</span>
                     </label>
                     <div className="syn-input-addon-wrap">
                       <span className="syn-addon">
@@ -1296,12 +1289,17 @@ export default function VendorSupplyOfferForm() {
                         type="number"
                         step="any"
                         min="0"
-                        className="syn-input syn-input-with-addon"
+                        className={`syn-input syn-input-with-addon ${formErrors.otherChargesValue ? 'has-error' : ''}`}
                         placeholder={formData.otherChargesType === 'percentage' ? 'e.g. 2 or 3.5' : formData.otherChargesType === 'lump_sum' ? 'e.g. 5000' : 'e.g. 1 or 25'}
                         value={formData.otherChargesValue}
                         onChange={(e) => handleInputChange('otherChargesValue', e.target.value)}
                       />
                     </div>
+                    {formErrors.otherChargesValue && (
+                      <span className="syn-error-text" style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                        {formErrors.otherChargesValue}
+                      </span>
+                    )}
                     {formData.otherChargesType === 'per_unit' ? (
                       Number(formData.otherChargesValue) > 0 && (
                         <span className="syn-field-hint">

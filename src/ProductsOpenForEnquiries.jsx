@@ -33,6 +33,7 @@ export default function ProductsOpenForEnquiries({ embedded = false }) {
     phone: '',
     requiredQuantity: '',
     deliveryLocation: '',
+    region: 'Domestic',
     targetDeliveryDate: '',
     comments: ''
   });
@@ -215,6 +216,7 @@ export default function ProductsOpenForEnquiries({ embedded = false }) {
         phone: '',
         requiredQuantity: '',
         deliveryLocation: '',
+        region: 'Domestic',
         targetDeliveryDate: '',
         comments: ''
       });
@@ -234,7 +236,8 @@ export default function ProductsOpenForEnquiries({ embedded = false }) {
     setActiveEnquiryProduct(product);
     setEnquiryForm((prev) => ({
       ...prev,
-      requiredQuantity: product.opportunity?.minEnquiryQuantity || ''
+      requiredQuantity: product.opportunity?.minEnquiryQuantity || '',
+      region: 'Domestic'
     }));
   };
 
@@ -763,15 +766,30 @@ export default function ProductsOpenForEnquiries({ embedded = false }) {
                 </div>
               </div>
 
-              <div className="enquiry-form-group">
-                <label className="enquiry-form-label">Target Delivery Month / Date</label>
-                <input
-                  type="date"
-                  min={new Date().toISOString().split('T')[0]}
-                  value={enquiryForm.targetDeliveryDate}
-                  onChange={(e) => setEnquiryForm({ ...enquiryForm, targetDeliveryDate: e.target.value })}
-                  className="enquiry-form-input"
-                />
+              <div className="enquiry-form-grid">
+                <div className="enquiry-form-group">
+                  <label className="enquiry-form-label">Sourcing Region *</label>
+                  <select
+                    required
+                    value={enquiryForm.region || 'Domestic'}
+                    onChange={(e) => setEnquiryForm({ ...enquiryForm, region: e.target.value })}
+                    className="enquiry-form-input bg-white"
+                  >
+                    <option value="Domestic">Domestic 🇮🇳</option>
+                    <option value="International">International / Import 🌐</option>
+                  </select>
+                </div>
+
+                <div className="enquiry-form-group">
+                  <label className="enquiry-form-label">Target Delivery Month / Date</label>
+                  <input
+                    type="date"
+                    min={new Date().toISOString().split('T')[0]}
+                    value={enquiryForm.targetDeliveryDate}
+                    onChange={(e) => setEnquiryForm({ ...enquiryForm, targetDeliveryDate: e.target.value })}
+                    className="enquiry-form-input"
+                  />
+                </div>
               </div>
 
               <div className="enquiry-form-group">

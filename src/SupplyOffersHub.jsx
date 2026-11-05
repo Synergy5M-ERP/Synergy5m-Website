@@ -47,9 +47,8 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Search & Filter state
+  // Search state
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL'); // ALL, SUBMITTED, PENDING
 
   // Selected quotation for modal preview
   const [selectedQuote, setSelectedQuote] = useState(null);
@@ -121,12 +120,9 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
         (item.Destination && item.Destination.toLowerCase().includes(q)) ||
         (item.Category && item.Category.toLowerCase().includes(q));
 
-      const count = Number(item.SubmittedOffersCount) || 0;
-      if (statusFilter === 'SUBMITTED') return matchesSearch && count > 0;
-      if (statusFilter === 'PENDING') return matchesSearch && count === 0;
       return matchesSearch;
     });
-  }, [sentOffers, searchQuery, statusFilter]);
+  }, [sentOffers, searchQuery]);
 
   // Filter Submitted Offers
   const filteredSubmittedOffers = useMemo(() => {
@@ -456,8 +452,9 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
         {/* Main Content Workspace */}
         <div className="flex-1 flex flex-col min-w-0 soh-container" style={{ paddingBottom: '60px' }}>
           {/* Top Navigation Bar */}
+          {/* Top Navigation Bar with Tabs & Search Bar */}
           <header className="soh-navbar">
-            <div className="soh-nav-inner">
+            <div className="soh-nav-inner flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
               <div className="flex items-center gap-2 sm:gap-3">
                 {/* Mobile menu trigger */}
                 <button
@@ -479,110 +476,75 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                 >
                   {sidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
                 </button>
-
-
               </div>
-              <div className="soh-tab-switch">
-                <button
-                  type="button"
-                  className={`soh-tab-btn ${activeTab === 'sent' ? 'active' : ''}`}
-                  onClick={() => {
-                    setActiveTab('sent');
-                    window.history.replaceState(null, '', '/supply-offers');
-                  }}
-                >
-                  <Send size={16} />
-                  <span>Submit Supply Offer (Sent Emails)</span>
-                  <span className="soh-tab-badge">{sentOffers.length}</span>
-                </button>
 
-                <button
-                  type="button"
-                  className={`soh-tab-btn ${activeTab === 'submitted' ? 'active' : ''}`}
-                  onClick={() => {
-                    setActiveTab('submitted');
-                    window.history.replaceState(null, '', '/submittedoffer');
-                  }}
-                >
-                  <FileText size={16} />
-                  <span>Submitted Offers</span>
-                  <span className="soh-tab-badge">{submittedOffers.length}</span>
-                </button>
+              {/* Tabs Switcher and Search Bar directly in the header */}
+              <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 min-w-0">
+                <div className="soh-tab-switch">
+                  <button
+                    type="button"
+                    className={`soh-tab-btn ${activeTab === 'sent' ? 'active' : ''}`}
+                    onClick={() => {
+                      setActiveTab('sent');
+                      window.history.replaceState(null, '', '/supply-offers');
+                    }}
+                  >
+                    <Send size={15} />
+                    <span>Submit Supply Offer (Sent Emails)</span>
+                    <span className="soh-tab-badge">{sentOffers.length}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`soh-tab-btn ${activeTab === 'submitted' ? 'active' : ''}`}
+                    onClick={() => {
+                      setActiveTab('submitted');
+                      window.history.replaceState(null, '', '/submittedoffer');
+                    }}
+                  >
+                    <FileText size={15} />
+                    <span>Submitted Offers</span>
+                    <span className="soh-tab-badge">{submittedOffers.length}</span>
+                  </button>
+                </div>
+
+                {/* Search bar displayed right in the tabs row */}
+                <div className="soh-search-box w-full sm:w-64 md:w-80">
+                  <Search size={15} className="soh-search-icon" />
+                  <input
+                    type="text"
+                    placeholder={
+                      activeTab === 'sent'
+                        ? 'Search RFQ Ref, Vendor, Product...'
+                        : 'Search Offer Ref, Quotation, Vendor...'
+                    }
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="soh-search-input"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      className="soh-clear-btn"
+                      onClick={() => setSearchQuery('')}
+                      title="Clear search"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </header>
 
-
-
           <div className="soh-content">
-
-            {/* Toolbar: Search & Refresh */}
-            <div className="soh-toolbar">
-              <div className="soh-search-box">
-                <Search size={16} className="soh-search-icon" />
-                <input
-                  type="text"
-                  placeholder={
-                    activeTab === 'sent'
-                      ? 'Search by RFQ Ref, Vendor Name, Email, Product, Destination...'
-                      : 'Search by Offer Ref, RFQ Ref, Quotation No, Vendor, Product...'
-                  }
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="soh-search-input"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    className="soh-clear-btn"
-                    onClick={() => setSearchQuery('')}
-                    title="Clear search"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-
-              {activeTab === 'sent' && (
-                <div className="soh-filter-group">
-                  <button
-                    type="button"
-                    className={`soh-filter-btn ${statusFilter === 'ALL' ? 'active' : ''}`}
-                    onClick={() => setStatusFilter('ALL')}
-                  >
-                    All ({sentOffers.length})
-                  </button>
-                  <button
-                    type="button"
-                    className={`soh-filter-btn ${statusFilter === 'SUBMITTED' ? 'active' : ''}`}
-                    onClick={() => setStatusFilter('SUBMITTED')}
-                  >
-                    Submitted Offers
-                  </button>
-                  <button
-                    type="button"
-                    className={`soh-filter-btn ${statusFilter === 'PENDING' ? 'active' : ''}`}
-                    onClick={() => setStatusFilter('PENDING')}
-                  >
-                    Awaiting Submission
-                  </button>
-                </div>
-              )}
-
-              <button
-                type="button"
-                className="soh-refresh-btn"
-                onClick={fetchHubData}
-                title="Reload from server"
-                disabled={loading}
-              >
-                <RefreshCw size={15} className={loading ? 'soh-spin' : ''} />
-                <span>Refresh</span>
-              </button>
-            </div>
-
             {/* Error Banner */}
             {error && (
+              <div className="soh-error-banner">
+                <Info size={18} />
+                <span>{error}</span>
+              </div>
+            )}
               <div className="soh-error-banner">
                 <Info size={18} />
                 <span>{error}</span>

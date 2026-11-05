@@ -15,3 +15,29 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* ========================================================================= */
+/* Global Print Rules: Completely Remove AI Chatbot & Floating Widgets from PDF */
+/* ========================================================================= */
+@media print {
+  .jficc,
+  .jficc *,
+  .embedded-agent-container,
+  .ai-agent-chat-avatar-pulse-wrapper,
+  iframe[src*="jotform"],
+  iframe[src*="agent"],
+  div[class*="jficc"],
+  div[class*="agent"],
+  div[id*="agent"],
+  div[id*="jotform"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    position: absolute !important;
+    top: -99999px !important;
+    left: -99999px !important;
+    width: 0 !important;
+    height: 0 !important;
+    pointer-events: none !important;
+  }
+}

@@ -2708,10 +2708,10 @@ app.post('/api/supply-offer/submit', publicFormLimiter, async (req, res) => {
 
             const emailTasks = [];
 
-            // 1. Dispatch to Seller / Vendor who submitted (with Sales in CC)
+            // Dispatch ONLY to Seller / Vendor with Sales in CC (not vice versa)
             if (vendorEmail) {
               const sellerMailOpts = {
-                from: process.env.SMTP_USER || "sales@synergy5m.com",
+                from: `"Synergy5M Procurement Consortium" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
                 to: vendorEmail,
                 subject: `Quotation Confirmation: Supply Offer Submitted for ${productName} (${finalOfferRef})`,
                 html: quotationEmailHtml
@@ -2722,23 +2722,6 @@ app.post('/api/supply-offer/submit', publicFormLimiter, async (req, res) => {
               emailTasks.push({
                 to: vendorEmail,
                 mailOptions: sellerMailOpts
-              });
-            }
-
-            // 2. Dispatch to Synergy5M Sales Team (with Seller in CC)
-            if (salesEmail) {
-              const salesMailOpts = {
-                from: process.env.SMTP_USER || "sales@synergy5m.com",
-                to: salesEmail,
-                subject: `[NEW QUOTATION RECEIVED] ${vendorName} submitted offer for ${productName} (RFQ: ${rfqReference})`,
-                html: quotationEmailHtml
-              };
-              if (vendorEmail && vendorEmail.toLowerCase() !== salesEmail.toLowerCase()) {
-                salesMailOpts.cc = vendorEmail;
-              }
-              emailTasks.push({
-                to: salesEmail,
-                mailOptions: salesMailOpts
               });
             }
 

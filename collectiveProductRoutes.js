@@ -4,6 +4,36 @@ const fs = require('fs');
 const path = require('path');
 const { sql, poolPromise } = require('./db');
 const { verifyAdminToken } = require('./auth');
+const nodemailer = require('nodemailer');
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: parseInt(process.env.SMTP_PORT, 10) || 587,
+  secure: parseInt(process.env.SMTP_PORT, 10) === 465,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+  pool: true,
+  maxConnections: 3,
+  connectionTimeout: 5000,
+  greetingTimeout: 5000,
+  socketTimeout: 10000,
+  tls: {
+    rejectUnauthorized: process.env.NODE_ENV === "development" ? false : true,
+  },
+});
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 
 /**
  * Robust Admin Authentication Middleware
@@ -94,11 +124,21 @@ async function ensureCollectiveTables() {
           [RequiredQuantity] DECIMAL(18, 2),
           [Uom] NVARCHAR(50) DEFAULT 'MT',
           [DeliveryLocation] NVARCHAR(255),
+          [Region] NVARCHAR(100) DEFAULT 'Domestic',
           [TargetDeliveryDate] DATE,
           [Comments] NVARCHAR(MAX),
           [Status] NVARCHAR(50) DEFAULT 'Submitted',
           [CreatedAt] DATETIME DEFAULT GETDATE()
         );
+      END
+
+      -- Ensure Region column exists in CollectiveEnquiries
+      IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[CollectiveEnquiries]') AND type in (N'U'))
+      BEGIN
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[CollectiveEnquiries]') AND name = 'Region')
+        BEGIN
+          ALTER TABLE [dbo].[CollectiveEnquiries] ADD [Region] NVARCHAR(100) DEFAULT 'Domestic';
+        END
       END
 
       -- 3. CollectiveOffers table
@@ -424,9 +464,12 @@ router.post('/public/enquiries', async (req, res) => {
       requiredQuantity,
       uom,
       deliveryLocation,
+      region,
       targetDeliveryDate,
       comments
     } = req.body;
+
+    const safeRegion = String(region || 'Domestic').trim() === 'International' ? 'International' : 'Domestic';
 
     if (!companyName || !email || !phone || !requiredQuantity) {
       return res.status(400).json({
@@ -498,37 +541,227 @@ router.post('/public/enquiries', async (req, res) => {
       requiredQuantity: parsedQty,
       uom: String(uom || 'MT').trim(),
       deliveryLocation: String(deliveryLocation || '').trim(),
+      region: safeRegion,
       targetDeliveryDate: sanitizedDeliveryDate,
       comments: String(comments || '').trim(),
       status: 'Submitted'
     };
 
-    const result = await pool.request()
-      .input('ProductId', sql.NVarChar, enquiryRecord.productId)
-      .input('ProductName', sql.NVarChar, enquiryRecord.productName)
-      .input('CompanyName', sql.NVarChar, enquiryRecord.companyName)
-      .input('ContactPerson', sql.NVarChar, enquiryRecord.contactPerson)
-      .input('Email', sql.NVarChar, enquiryRecord.email)
-      .input('Phone', sql.NVarChar, enquiryRecord.phone)
-      .input('RequiredQuantity', sql.Decimal(18, 2), enquiryRecord.requiredQuantity)
-      .input('Uom', sql.NVarChar, enquiryRecord.uom)
-      .input('DeliveryLocation', sql.NVarChar, enquiryRecord.deliveryLocation)
-      .input('TargetDeliveryDate', sql.Date, enquiryRecord.targetDeliveryDate)
-      .input('Comments', sql.NVarChar, enquiryRecord.comments)
-      .input('Status', sql.NVarChar, enquiryRecord.status)
-      .query(`
-        INSERT INTO CollectiveEnquiries (
-          ProductId, ProductName, CompanyName, ContactPerson, Email, Phone,
-          RequiredQuantity, Uom, DeliveryLocation, TargetDeliveryDate, Comments, Status, CreatedAt
-        ) 
-        OUTPUT INSERTED.Id
-        VALUES (
-          @ProductId, @ProductName, @CompanyName, @ContactPerson, @Email, @Phone,
-          @RequiredQuantity, @Uom, @DeliveryLocation, @TargetDeliveryDate, @Comments, @Status, GETDATE()
-        )
-      `);
+    let insertedId = null;
+    try {
+      const result = await pool.request()
+        .input('ProductId', sql.NVarChar, enquiryRecord.productId)
+        .input('ProductName', sql.NVarChar, enquiryRecord.productName)
+        .input('CompanyName', sql.NVarChar, enquiryRecord.companyName)
+        .input('ContactPerson', sql.NVarChar, enquiryRecord.contactPerson)
+        .input('Email', sql.NVarChar, enquiryRecord.email)
+        .input('Phone', sql.NVarChar, enquiryRecord.phone)
+        .input('RequiredQuantity', sql.Decimal(18, 2), enquiryRecord.requiredQuantity)
+        .input('Uom', sql.NVarChar, enquiryRecord.uom)
+        .input('DeliveryLocation', sql.NVarChar, enquiryRecord.deliveryLocation)
+        .input('Region', sql.NVarChar, enquiryRecord.region)
+        .input('TargetDeliveryDate', sql.Date, enquiryRecord.targetDeliveryDate)
+        .input('Comments', sql.NVarChar, enquiryRecord.comments)
+        .input('Status', sql.NVarChar, enquiryRecord.status)
+        .query(`
+          INSERT INTO CollectiveEnquiries (
+            ProductId, ProductName, CompanyName, ContactPerson, Email, Phone,
+            RequiredQuantity, Uom, DeliveryLocation, Region, TargetDeliveryDate, Comments, Status, CreatedAt
+          ) 
+          OUTPUT INSERTED.Id
+          VALUES (
+            @ProductId, @ProductName, @CompanyName, @ContactPerson, @Email, @Phone,
+            @RequiredQuantity, @Uom, @DeliveryLocation, @Region, @TargetDeliveryDate, @Comments, @Status, GETDATE()
+          )
+        `);
+      insertedId = result.recordset && result.recordset[0] ? result.recordset[0].Id : null;
+    } catch (insertErr) {
+      if (insertErr.message && insertErr.message.includes("Invalid column name 'Region'")) {
+        const fallbackResult = await pool.request()
+          .input('ProductId', sql.NVarChar, enquiryRecord.productId)
+          .input('ProductName', sql.NVarChar, enquiryRecord.productName)
+          .input('CompanyName', sql.NVarChar, enquiryRecord.companyName)
+          .input('ContactPerson', sql.NVarChar, enquiryRecord.contactPerson)
+          .input('Email', sql.NVarChar, enquiryRecord.email)
+          .input('Phone', sql.NVarChar, enquiryRecord.phone)
+          .input('RequiredQuantity', sql.Decimal(18, 2), enquiryRecord.requiredQuantity)
+          .input('Uom', sql.NVarChar, enquiryRecord.uom)
+          .input('DeliveryLocation', sql.NVarChar, enquiryRecord.deliveryLocation)
+          .input('TargetDeliveryDate', sql.Date, enquiryRecord.targetDeliveryDate)
+          .input('Comments', sql.NVarChar, `[Region: ${enquiryRecord.region}] ${enquiryRecord.comments}`)
+          .input('Status', sql.NVarChar, enquiryRecord.status)
+          .query(`
+            INSERT INTO CollectiveEnquiries (
+              ProductId, ProductName, CompanyName, ContactPerson, Email, Phone,
+              RequiredQuantity, Uom, DeliveryLocation, TargetDeliveryDate, Comments, Status, CreatedAt
+            ) 
+            OUTPUT INSERTED.Id
+            VALUES (
+              @ProductId, @ProductName, @CompanyName, @ContactPerson, @Email, @Phone,
+              @RequiredQuantity, @Uom, @DeliveryLocation, @TargetDeliveryDate, @Comments, @Status, GETDATE()
+            )
+          `);
+        insertedId = fallbackResult.recordset && fallbackResult.recordset[0] ? fallbackResult.recordset[0].Id : null;
+      } else {
+        throw insertErr;
+      }
+    }
 
-    const insertedId = result.recordset && result.recordset[0] ? result.recordset[0].Id : null;
+    // Send confirmation email to the entered email of buyer with seller in CC
+    (async () => {
+      try {
+        const sellerEmail = process.env.SELLER_EMAIL || process.env.SALES_EMAIL || process.env.SMTP_USER || "sales@synergy5m.com";
+        const safeUom = enquiryRecord.uom || 'MT';
+        const formattedQty = `${Number(enquiryRecord.requiredQuantity).toLocaleString('en-IN')} ${safeUom}`;
+        const formattedDate = enquiryRecord.targetDeliveryDate 
+          ? new Date(enquiryRecord.targetDeliveryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+          : 'Immediate / Open';
+
+        const buyerEmailHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Enquiry Registration Confirmation</title>
+          </head>
+          <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 24px 12px;">
+              <tr>
+                <td align="center">
+                  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 620px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); border: 1px solid #e2e8f0;">
+                    
+                    <!-- Header Banner -->
+                    <tr>
+                      <td style="background: linear-gradient(135deg, #0e7c86 0%, #14524a 100%); padding: 26px 32px; text-align: left; color: #ffffff;">
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                          <tr>
+                            <td>
+                              <span style="display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; background: rgba(255,255,255,0.18); padding: 4px 12px; border-radius: 20px; margin-bottom: 8px;">
+                                Synergy5M · Collective Buy Desk
+                              </span>
+                              <h1 style="margin: 0; font-size: 21px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px;">
+                                Collective Buy Enquiry Confirmation
+                              </h1>
+                              <p style="margin: 6px 0 0; font-size: 13px; color: rgba(255,255,255,0.85);">
+                                Product Round: ${escapeHtml(enquiryRecord.productName)}
+                              </p>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+
+                    <!-- Body Content -->
+                    <tr>
+                      <td style="padding: 28px 32px;">
+                        <p style="margin: 0 0 14px; font-size: 15px; font-weight: 700; color: #0f172a;">
+                          Dear ${escapeHtml(enquiryRecord.contactPerson || enquiryRecord.companyName)},
+                        </p>
+                        <p style="margin: 0 0 20px; font-size: 13.5px; line-height: 1.6; color: #334155;">
+                          Thank you for registering your requirement for <strong>${escapeHtml(enquiryRecord.productName)}</strong> on the Synergy5M Collective Procurement portal. We have successfully registered your buying enquiry into the active collective demand pooling round.
+                        </p>
+
+                        <!-- Summary Data Card -->
+                        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; margin-bottom: 24px;">
+                          <div style="background-color: #0e7c86; color: #ffffff; padding: 10px 16px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">
+                            Registered Requirement Summary
+                          </div>
+                          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 13px; line-height: 1.5;">
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 10px 16px; width: 40%; color: #64748b; font-weight: 500;">Product Name</td>
+                              <td style="padding: 10px 16px; width: 60%; color: #0f172a; font-weight: 700;">${escapeHtml(enquiryRecord.productName)}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
+                              <td style="padding: 10px 16px; color: #64748b; font-weight: 500;">Required Quantity</td>
+                              <td style="padding: 10px 16px; color: #ea580c; font-weight: 800; font-size: 14.5px;">${escapeHtml(formattedQty)}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 10px 16px; color: #64748b; font-weight: 500;">Delivery Place / Location</td>
+                              <td style="padding: 10px 16px; color: #0f172a; font-weight: 700;">${escapeHtml(enquiryRecord.deliveryLocation || 'As specified in order')}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
+                              <td style="padding: 10px 16px; color: #64748b; font-weight: 500;">Sourcing Region</td>
+                              <td style="padding: 10px 16px; color: #0f172a; font-weight: 700;">
+                                <span style="display: inline-block; background-color: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-size: 11.5px; font-weight: 700;">
+                                  ${escapeHtml(enquiryRecord.region || 'Domestic')}
+                                </span>
+                              </td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 10px 16px; color: #64748b; font-weight: 500;">Target Delivery Date</td>
+                              <td style="padding: 10px 16px; color: #0f172a; font-weight: 600;">${escapeHtml(formattedDate)}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
+                              <td style="padding: 10px 16px; color: #64748b; font-weight: 500;">Buyer / Company Name</td>
+                              <td style="padding: 10px 16px; color: #0f172a; font-weight: 600;">${escapeHtml(enquiryRecord.companyName)}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 10px 16px; color: #64748b; font-weight: 500;">Contact Person</td>
+                              <td style="padding: 10px 16px; color: #0f172a;">${escapeHtml(enquiryRecord.contactPerson)}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
+                              <td style="padding: 10px 16px; color: #64748b; font-weight: 500;">Contact Mobile</td>
+                              <td style="padding: 10px 16px; color: #0f172a; font-family: monospace;">${escapeHtml(enquiryRecord.phone)}</td>
+                            </tr>
+                            ${enquiryRecord.comments ? `
+                            <tr>
+                              <td style="padding: 10px 16px; color: #64748b; font-weight: 500; vertical-align: top;">Additional Remarks</td>
+                              <td style="padding: 10px 16px; color: #475569; font-style: italic;">"${escapeHtml(enquiryRecord.comments)}"</td>
+                            </tr>` : ''}
+                          </table>
+                        </div>
+
+                        <!-- What Happens Next -->
+                        <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 14px 16px; margin-bottom: 22px;">
+                          <h4 style="margin: 0 0 6px; font-size: 13px; font-weight: 700; color: #065f46;">
+                            What Happens Next in the Collective Round:
+                          </h4>
+                          <ul style="margin: 0; padding-left: 18px; font-size: 12.5px; color: #047857; line-height: 1.5;">
+                            <li><strong>Demand Pooling:</strong> Your required volume (${escapeHtml(formattedQty)}) is consolidated with other registered buyers.</li>
+                            <li><strong>Supplier Pricing:</strong> Synergy5M negotiates bulk ex-plant pricing directly with certified manufacturers.</li>
+                            <li><strong>Offer Dispatch:</strong> You will receive formal supplier quotations with verified volume discount allocations.</li>
+                          </ul>
+                        </div>
+
+                        <p style="margin: 18px 0 0; font-size: 12.5px; color: #64748b; line-height: 1.5;">
+                          If you have any questions or wish to modify your requirement, please reply directly to this email or reach our sales desk at <a href="mailto:${sellerEmail}" style="color: #0e7c86; text-decoration: underline;">${sellerEmail}</a>.
+                        </p>
+                      </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                      <td style="background-color: #f8fafc; padding: 18px 32px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11.5px; color: #94a3b8; line-height: 1.5;">
+                        <div style="font-weight: 700; color: #475569;">Synergy5M LLP — B2B Demand Pooling & Collective Procurement</div>
+                        <div>Pune, Maharashtra, India • <a href="https://synergy5m.com" style="color: #0e7c86; text-decoration: none;">synergy5m.com</a></div>
+                      </td>
+                    </tr>
+
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `;
+
+        const mailOptions = {
+          from: `"Synergy5M Collective Buy Desk" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
+          to: cleanEmail,
+          subject: `Enquiry Confirmation: Collective Buy Round for ${enquiryRecord.productName}`,
+          html: buyerEmailHtml
+        };
+
+        if (sellerEmail && sellerEmail.toLowerCase() !== cleanEmail.toLowerCase()) {
+          mailOptions.cc = sellerEmail;
+        }
+
+        await transporter.sendMail(mailOptions);
+      } catch (mailErr) {
+        console.warn('Asynchronous enquiry confirmation email notification error:', mailErr.message);
+      }
+    })();
 
     return res.status(201).json({
       success: true,
@@ -553,12 +786,26 @@ router.get('/admin/collective-enquiries', requireAdminAuth, async (req, res) => 
       return res.status(503).json({ success: false, error: 'Database connection unavailable' });
     }
 
-    const result = await pool.request().query(`
-      SELECT Id, ProductId, ProductName, CompanyName, ContactPerson, Email, Phone,
-             RequiredQuantity, Uom, DeliveryLocation, TargetDeliveryDate, Comments, Status, CreatedAt
-      FROM CollectiveEnquiries
-      ORDER BY Id DESC
-    `);
+    let result;
+    try {
+      result = await pool.request().query(`
+        SELECT Id, ProductId, ProductName, CompanyName, ContactPerson, Email, Phone,
+               RequiredQuantity, Uom, DeliveryLocation, ISNULL(Region, 'Domestic') AS Region, TargetDeliveryDate, Comments, Status, CreatedAt
+        FROM CollectiveEnquiries
+        ORDER BY Id DESC
+      `);
+    } catch (qErr) {
+      if (qErr.message && qErr.message.includes("Invalid column name 'Region'")) {
+        result = await pool.request().query(`
+          SELECT Id, ProductId, ProductName, CompanyName, ContactPerson, Email, Phone,
+                 RequiredQuantity, Uom, DeliveryLocation, 'Domestic' AS Region, TargetDeliveryDate, Comments, Status, CreatedAt
+          FROM CollectiveEnquiries
+          ORDER BY Id DESC
+        `);
+      } else {
+        throw qErr;
+      }
+    }
 
     const enquiries = (result.recordset || []).map((row) => ({
       id: row.Id,
@@ -571,6 +818,7 @@ router.get('/admin/collective-enquiries', requireAdminAuth, async (req, res) => 
       requiredQuantity: row.RequiredQuantity,
       uom: row.Uom,
       deliveryLocation: row.DeliveryLocation,
+      region: row.Region || 'Domestic',
       targetDeliveryDate: row.TargetDeliveryDate,
       comments: row.Comments,
       status: row.Status || 'Submitted',

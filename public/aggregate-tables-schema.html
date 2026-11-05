@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Synergy5M - Aggregate Business Database Tables & Schema (PDF Ready)</title>
+  <style>
+    :root {
+      --primary: #0F2A47;
+      --secondary: #0E7C86;
+      --accent: #F97316;
+      --bg: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --border: #E2E8F0;
+      --text-main: #0F172A;
+      --text-muted: #64748B;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background-color: var(--bg);
+      color: var(--text-main);
+      line-height: 1.5;
+      font-size: 13px;
+      padding-bottom: 60px;
+    }
+
+    /* Top Sticky Action Bar */
+    .action-bar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: #0F2A47;
+      color: #ffffff;
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .action-bar-title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge-live {
+      background: #10B981;
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+    }
+
+    .btn-print {
+      background: #0E7C86;
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .btn-print:hover {
+      background: #095C64;
+      transform: translateY(-1px);
+    }
+
+    /* Main Container */
+    .container {
+      max-width: 1100px;
+      margin: 24px auto;
+      padding: 0 20px;
+    }
+
+    /* Document Header */
+    .doc-header {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #0E7C86;
+      padding-bottom: 16px;
+      margin-bottom: 16px;
+    }
+
+    .company-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: #0F2A47;
+      letter-spacing: -0.5px;
+    }
+
+    .company-sub {
+      font-size: 13px;
+      color: #0E7C86;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .meta-box {
+      text-align: right;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .meta-box strong {
+      color: var(--text-main);
+    }
+
+    .doc-summary {
+      font-size: 13px;
+      color: #475569;
+      line-height: 1.6;
+    }
+
+    /* Highlight Banner for Platform Fee */
+    .banner-platform-fee {
+      background: linear-gradient(135deg, #EFF6FF 0%, #F0FDF4 100%);
+      border: 1px solid #BFDBFE;
+      border-left: 5px solid #0E7C86;
+      padding: 16px 20px;
+      border-radius: 8px;
+      margin-bottom: 28px;
+    }
+
+    .banner-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #0F2A47;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .banner-text {
+      font-size: 12.5px;
+      color: #334155;
+      line-height: 1.55;
+    }
+
+    /* Table Sections */
+    .table-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 32px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+      page-break-inside: avoid;
+    }
+
+    .table-card-header {
+      background: #F1F5F9;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .table-name {
+      font-size: 16px;
+      font-weight: 800;
+      color: #0F2A47;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .col-count-badge {
+      background: #0F2A47;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .table-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 10px 20px 14px;
+      background: #FAFBFD;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Schema Table */
+    table.schema-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      text-align: left;
+    }
+
+    table.schema-table th {
+      background: #F8FAFC;
+      color: #475569;
+      font-weight: 700;
+      padding: 9px 14px;
+      border-bottom: 2px solid var(--border);
+      text-transform: uppercase;
+      font-size: 10.5px;
+      letter-spacing: 0.5px;
+    }
+
+    table.schema-table td {
+      padding: 8px 14px;
+      border-bottom: 1px solid #F1F5F9;
+      vertical-align: middle;
+      color: #1E293B;
+    }
+
+    table.schema-table tr:hover {
+      background: #F8FAFC;
+    }
+
+    .col-name {
+      font-weight: 700;
+      color: #0F172A;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .col-type {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: #0E7C86;
+      font-weight: 600;
+      font-size: 11.5px;
+    }
+
+    .badge-pk {
+      background: #FEF3C7;
+      color: #92400E;
+      border: 1px solid #FDE68A;
+      font-size: 9.5px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: 6px;
+      display: inline-block;
+    }
+
+    .badge-compulsory {
+      background: #FEE2E2;
+      color: #991B1B;
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      display: inline-block;
+    }
+
+    .badge-nullable {
+      background: #F1F5F9;
+      color: #64748B;
+      font-size: 9.5px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      display: inline-block;
+    }
+
+    .badge-fee {
+      background: #ECFDF5;
+      color: #065F46;
+      border: 1px solid #A7F3D0;
+      font-weight: 800;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+
+    /* Print Styles (Strict Data-Only PDF Output) */
+    @page {
+      size: A4 portrait;
+      margin: 6mm 8mm; /* Automatically removes browser default URL, title, and timestamp headers/footers */
+    }
+
+    @media print {
+      html, body {
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        font-size: 10px !important;
+        line-height: 1.3 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+
+      /* Hide all non-data UI: buttons, logos, URLs, verbose summaries, and decorative banners */
+      .action-bar,
+      .company-sub,
+      .doc-summary,
+      .meta-box,
+      .banner-platform-fee,
+      .table-desc,
+      .jficc,
+      .jficc *,
+      .embedded-agent-container,
+      .ai-agent-chat-avatar-pulse-wrapper,
+      iframe[src*="jotform"],
+      iframe[src*="agent"],
+      div[class*="jficc"],
+      div[class*="agent"],
+      div[id*="agent"],
+      div[id*="jotform"],
+      a[href]:after,
+      footer,
+      div[style*="margin-top: 40px"] {
+        display: none !important;
+        content: none !important;
+      }
+
+      .container {
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .doc-header {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 0 4px 0 !important;
+        margin-bottom: 8px !important;
+        border-bottom: 1.5px solid #0F2A47 !important;
+      }
+
+      .header-top {
+        border-bottom: none !important;
+        padding-bottom: 0 !important;
+        margin-bottom: 0 !important;
+      }
+
+      .company-title {
+        font-size: 14px !important;
+        font-weight: 800 !important;
+        color: #0F2A47 !important;
+      }
+
+      .table-card {
+        border: 1px solid #CBD5E1 !important;
+        box-shadow: none !important;
+        margin-bottom: 12px !important;
+        page-break-inside: avoid !important;
+      }
+
+      .table-card-header {
+        background: #F1F5F9 !important;
+        padding: 6px 10px !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .table-name {
+        font-size: 12px !important;
+        font-weight: 800 !important;
+      }
+
+      .col-count-badge {
+        font-size: 9px !important;
+        padding: 1px 5px !important;
+      }
+
+      table.schema-table {
+        font-size: 9px !important;
+      }
+
+      table.schema-table th {
+        background: #F8FAFC !important;
+        color: #0F2A47 !important;
+        font-size: 8.5px !important;
+        font-weight: 800 !important;
+        padding: 3px 6px !important;
+        border: 1px solid #CBD5E1 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      table.schema-table td {
+        padding: 3px 6px !important;
+        border: 1px solid #E2E8F0 !important;
+        font-size: 9px !important;
+      }
+
+      .col-name {
+        font-size: 9.5px !important;
+      }
+
+      .col-type {
+        font-size: 9px !important;
+      }
+
+      .page-break {
+        page-break-before: always;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Action Bar for PDF Generation -->
+  <div class="action-bar">
+    <div class="action-bar-title">
+      <span>Synergy5M B2B Database Architecture</span>
+      <span class="badge-live">LIVE SCHEMA</span>
+    </div>
+    <button class="btn-print" onclick="window.print()">
+      🖨️ Print / Save as PDF
+    </button>
+  </div>
+
+  <div class="container">
+
+    <!-- Document Header -->
+    <div class="doc-header">
+      <div class="header-top">
+        <div>
+          <div class="company-title">Synergy5M LLP — Database Schema Dictionary</div>
+          <div class="company-sub">B2B Aggregate Business & Collective Procurement Demand Pooling Tables</div>
+        </div>
+        <div class="meta-box">
+          <div><strong>Database:</strong> Azure SQL (MSSQL)</div>
+          <div><strong>Tables Documented:</strong> 5 Core Tables (118 Total Columns)</div>
+          <div><strong>Last Verified:</strong> November 05, 2026</div>
+        </div>
+      </div>
+      <div class="doc-summary">
+        This document provides the complete, authoritative field dictionary and schema specification for the 5 database tables powering Synergy5M's Collective Buying and Demand Pooling business. It details all column data types, constraints, nullability, default values, and commercial business logic.
+      </div>
+    </div>
+
+    <!-- Platform Fee Architecture Notice -->
+    <div class="banner-platform-fee">
+      <div class="banner-title">
+        <span>⚡ Platform Fee Architecture & Compulsory Rules</span>
+        <span class="badge-fee">MANDATORY</span>
+      </div>
+      <div class="banner-text">
+        <strong>Platform Fee</strong> is compulsory across the entire aggregate business flow:
+        <ul style="margin: 6px 0 0 20px;">
+          <li><strong>Product Setup (Admin):</strong> Under <code>[CollectiveProducts]</code> (in <code>ProductJson.opportunity.commercial</code>), Platform Fee % is strictly compulsory: <code>successFeeDomesticPercent</code> (for Domestic) and <code>successFeeImportPercent</code> (for Import). Products cannot be published without setting the platform fee.</li>
+          <li><strong>Vendor Quotations:</strong> In <code>[SupplyOfffertbl]</code>, the vendor-submitted platform fee is calculated and captured in the <code>OtherCharges</code> column (stored as total currency amount, supported by per-unit or percentage calculation).</li>
+          <li><strong>Buyer Enquiries:</strong> In <code>[CollectiveEnquiries]</code>, buyers register demand with the mandatory <code>Region</code> column (Domestic / International) to match with the corresponding platform fee tier.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- TABLE 1: CollectiveProducts -->
+    <div class="table-card">
+      <div class="table-card-header">
+        <div class="table-name">
+          <span>1. [dbo].[CollectiveProducts]</span>
+          <span class="col-count-badge">15 Columns</span>
+        </div>
+        <div style="font-size: 11px; color: #475569; font-weight: 600;">Role: Master Collective Catalog</div>
+      </div>
+      <div class="table-desc">
+        Stores all products opened by Admin for collective volume pooling (e.g. PVC Resin, DOP, polymers). Holds opening/closing windows, MOQ thresholds, and the compulsory Platform Fee configuration.
+      </div>
+      <table class="schema-table">
+        <thead>
+          <tr>
+            <th style="width: 25%;">Column Name</th>
+            <th style="width: 18%;">Data Type</th>
+            <th style="width: 14%;">Constraints</th>
+            <th style="width: 43%;">Description & Business Logic</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="col-name">Id</span> <span class="badge-pk">PK</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Unique Product Identifier (e.g., <code>PROD-1793180043375</code>). Primary key.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">ProductName</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Display product name (e.g., PVC Resin, DOP Plasticizer, HDPE Granules).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Category</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Industry category (e.g. Polymers, Solvents, Specialty Chemicals).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">GradeVariant</span></td>
+            <td><span class="col-type">NVARCHAR(150)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Specific grade, K-value, purity, or molecular variant (e.g. K-67).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Sku</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Stock Keeping Unit or internal inventory tracking code.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">HsnCode</span></td>
+            <td><span class="col-type">NVARCHAR(50)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Harmonized System of Nomenclature code for tax compliance (e.g. 39041090).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Status</span></td>
+            <td><span class="col-type">NVARCHAR(50)</span></td>
+            <td><span class="badge-nullable">DEFAULT 'Open for Enquiries'</span></td>
+            <td>Round status: <code>Upcoming</code>, <code>Open for Enquiries</code>, <code>Closing Soon</code>, <code>Closed</code>.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Uom</span></td>
+            <td><span class="col-type">NVARCHAR(50)</span></td>
+            <td><span class="badge-nullable">DEFAULT 'MT'</span></td>
+            <td>Unit of measurement (MT, KG, etc.). Default: Metric Tonnes (MT).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">MinEnquiryQuantity</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-nullable">DEFAULT 1</span></td>
+            <td>Minimum volume threshold a buyer must request to participate in this round.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">MaxEnquiryQuantity</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Maximum volume limit per individual buyer enquiry.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">EnquiryOpeningDate</span></td>
+            <td><span class="col-type">DATE</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Date on which the demand pooling round officially opens to buyers.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">EnquiryClosingDate</span></td>
+            <td><span class="col-type">DATE</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Hard deadline for buyers to register their volume demand.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">ProductJson</span> <span class="badge-fee">PLATFORM FEE</span></td>
+            <td><span class="col-type">NVARCHAR(MAX)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Stores full JSON specifications, sourcing options, and <strong>compulsory Platform Fee %</strong> (<code>commercial.successFeeDomesticPercent</code>, <code>successFeeImportPercent</code>, <code>feeNotes</code>).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">CreatedAt</span></td>
+            <td><span class="col-type">DATETIME</span></td>
+            <td><span class="badge-nullable">DEFAULT GETDATE()</span></td>
+            <td>Timestamp when product record was created.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">UpdatedAt</span></td>
+            <td><span class="col-type">DATETIME</span></td>
+            <td><span class="badge-nullable">DEFAULT GETDATE()</span></td>
+            <td>Timestamp when product specifications or status were last updated.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- TABLE 2: CollectiveEnquiries -->
+    <div class="table-card">
+      <div class="table-card-header">
+        <div class="table-name">
+          <span>2. [dbo].[CollectiveEnquiries]</span>
+          <span class="col-count-badge">15 Columns</span>
+        </div>
+        <div style="font-size: 11px; color: #475569; font-weight: 600;">Role: Buyer Demand Registration</div>
+      </div>
+      <div class="table-desc">
+        Stores buyer registered purchase requirements. Demand from multiple buyers is aggregated by product to negotiate high-volume discounts with primary producers.
+      </div>
+      <table class="schema-table">
+        <thead>
+          <tr>
+            <th style="width: 25%;">Column Name</th>
+            <th style="width: 18%;">Data Type</th>
+            <th style="width: 14%;">Constraints</th>
+            <th style="width: 43%;">Description & Business Logic</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="col-name">Id</span> <span class="badge-pk">PK</span></td>
+            <td><span class="col-type">INT</span></td>
+            <td><span class="badge-compulsory">IDENTITY(1,1)</span></td>
+            <td>Unique auto-incrementing enquiry identifier. Primary key.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">ProductId</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Foreign reference to <code>CollectiveProducts.Id</code>.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">ProductName</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Denormalized product name for fast search and admin display.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">CompanyName</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Buyer legal entity or company name.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">ContactPerson</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Name of authorized purchasing manager or representative.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Email</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Business email. Receives confirmation email and allocation quotation.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Phone</span></td>
+            <td><span class="col-type">NVARCHAR(50)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Contact mobile or telephone number (validated 10-15 digits).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">RequiredQuantity</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Quantity required by buyer (e.g. 50.00). Must be greater than 0.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Uom</span></td>
+            <td><span class="col-type">NVARCHAR(50)</span></td>
+            <td><span class="badge-nullable">DEFAULT 'MT'</span></td>
+            <td>Unit of measure for required volume.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">DeliveryLocation</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Buyer plant / destination city or state (e.g. Pune, Bhiwandi, Vapi).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Region</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-nullable">DEFAULT 'Domestic'</span></td>
+            <td>Sourcing region preference: <code>Domestic</code> or <code>International</code>.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">TargetDeliveryDate</span></td>
+            <td><span class="col-type">DATE</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Expected date by which the buyer requires material on-site.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Comments</span></td>
+            <td><span class="col-type">NVARCHAR(MAX)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Special instructions, technical specifications, or packaging requirements.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Status</span></td>
+            <td><span class="col-type">NVARCHAR(50)</span></td>
+            <td><span class="badge-nullable">DEFAULT 'Submitted'</span></td>
+            <td>Status: <code>Submitted</code>, <code>Under Review</code>, <code>Allocated</code>, <code>Fulfilled</code>.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">CreatedAt</span></td>
+            <td><span class="col-type">DATETIME</span></td>
+            <td><span class="badge-nullable">DEFAULT GETDATE()</span></td>
+            <td>Submission timestamp.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- TABLE 3: SentSupplyOffers -->
+    <div class="table-card page-break">
+      <div class="table-card-header">
+        <div class="table-name">
+          <span>3. [dbo].[SentSupplyOffers]</span>
+          <span class="col-count-badge">17 Columns</span>
+        </div>
+        <div style="font-size: 11px; color: #475569; font-weight: 600;">Role: Vendor RFQ Dispatch Tracking</div>
+      </div>
+      <div class="table-desc">
+        Maintains records of formal RFQ invitations dispatched to verified manufacturers/vendors for the aggregated demand volume.
+      </div>
+      <table class="schema-table">
+        <thead>
+          <tr>
+            <th style="width: 25%;">Column Name</th>
+            <th style="width: 18%;">Data Type</th>
+            <th style="width: 14%;">Constraints</th>
+            <th style="width: 43%;">Description & Business Logic</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="col-name">Id</span> <span class="badge-pk">PK</span></td>
+            <td><span class="col-type">INT</span></td>
+            <td><span class="badge-compulsory">IDENTITY(1,1)</span></td>
+            <td>Unique auto-increment RFQ dispatch record ID.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">RfqReference</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Unique tracking RFQ code (e.g. <code>RFQ-CB-1793560290</code>).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">OpportunityId</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Collective buying round opportunity code.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">VendorId</span></td>
+            <td><span class="col-type">INT</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Foreign reference to <code>Potential_Vendor.Vendor_Id</code>.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">VendorName</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Name of manufacturer or vendor invited to quote.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">VendorEmail</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Recipient email address for the RFQ broadcast.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">ProductName</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Requested product name.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Category</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Product category.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Grade</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Material grade requested.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">TotalDemand</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Total aggregated volume pooled from all participating buyers.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Uom</span></td>
+            <td><span class="col-type">NVARCHAR(50)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Unit of measurement (MT).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Destination</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Primary delivery destination cluster.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">BuyerEnquiriesCount</span></td>
+            <td><span class="col-type">INT</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Number of buyer demand entries pooled in this round.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">SubmitOfferUrl</span></td>
+            <td><span class="col-type">NVARCHAR(MAX)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Secure, tokenized URL sent to vendor to submit their formal quotation.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Status</span></td>
+            <td><span class="col-type">NVARCHAR(50)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Status: <code>SENT</code>, <code>VIEWED</code>, <code>QUOTED</code>, <code>COMPLETED</code>.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">SentAt</span></td>
+            <td><span class="col-type">DATETIME</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Timestamp when RFQ email was dispatched.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">CreatedAt</span></td>
+            <td><span class="col-type">DATETIME</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Record creation timestamp.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- TABLE 4: SupplyOfffertbl -->
+    <div class="table-card">
+      <div class="table-card-header">
+        <div class="table-name">
+          <span>4. [dbo].[SupplyOfffertbl]</span>
+          <span class="col-count-badge">50 Columns</span>
+        </div>
+        <div style="font-size: 11px; color: #475569; font-weight: 600;">Role: Vendor Quotations & Supply Allocation</div>
+      </div>
+      <div class="table-desc">
+        Complete commercial quotations submitted by suppliers in response to aggregated RFQs. Contains pricing, taxes, logistics, lead times, allocation schedules, and <strong>Platform Fee (OtherCharges)</strong>.
+      </div>
+      <table class="schema-table">
+        <thead>
+          <tr>
+            <th style="width: 25%;">Column Name</th>
+            <th style="width: 18%;">Data Type</th>
+            <th style="width: 14%;">Constraints</th>
+            <th style="width: 43%;">Description & Business Logic</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="col-name">Id</span> <span class="badge-pk">PK</span></td>
+            <td><span class="col-type">INT</span></td>
+            <td><span class="badge-compulsory">IDENTITY(1,1)</span></td>
+            <td>Quotation entry identifier. Primary key.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">OfferReference</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Unique offer code (e.g. <code>OFFER-CB-1793560395</code>).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">RfqReference</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>References <code>SentSupplyOffers.RfqReference</code>.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">OpportunityId</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Demand opportunity ID.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">VendorQuotationNo</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Vendor's internal quote / proforma invoice reference number.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">QuotationDate</span></td>
+            <td><span class="col-type">DATE</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Date of vendor quote issuance.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">QuotationValidUntil</span></td>
+            <td><span class="col-type">DATE</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Quotation validity expiration date.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">VendorName</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Supplier company name.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">ContactPerson</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Vendor authorized representative.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">VendorEmail</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Vendor contact email.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">MobileNumber</span></td>
+            <td><span class="col-type">NVARCHAR(50)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Vendor phone number.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">ProductName</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Offered product name.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Category</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Product category.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Grade</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Material grade.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">TotalRequiredDemand</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Target demand volume requested in RFQ.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Uom</span></td>
+            <td><span class="col-type">NVARCHAR(50)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Unit of measurement (MT).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Destination</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Delivery destination location.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">CanSupplyFull</span></td>
+            <td><span class="col-type">BIT</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>1 if vendor can supply 100% of the pooled demand; 0 if partial supply.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">OfferedQuantity</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Volume quantity vendor commits to supply (in MT).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Moq</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Minimum Order Quantity per consignment.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">MaxSupplyCapacity</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Vendor's monthly or total production capacity limit.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">ProductAvailability</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td><code>Ready Stock</code>, <code>Production Lead Time</code>, or <code>In-Transit</code>.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">PackagingType</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Packaging form (e.g. 25kg PP bags, 1000kg Jumbo Bags, ISO Tanker).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">OfferedUnitPrice</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Base quotation unit price per MT.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Currency</span></td>
+            <td><span class="col-type">NVARCHAR(20)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Quotation currency (<code>INR</code>, <code>USD</code>, etc.).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">PriceBasis</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Incoterm: <code>FOR Destination</code>, <code>Ex-Works</code>, <code>CIF Port</code>.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">GstRate</span></td>
+            <td><span class="col-type">NVARCHAR(50)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Applicable GST percentage (e.g. <code>18%</code>, <code>12%</code>, <code>5%</code>).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">GstAmount</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Calculated GST indirect tax amount in quotation currency.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">FreightIncluded</span></td>
+            <td><span class="col-type">BIT</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>1 if freight is included in unit rate; 0 if freight is extra.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">FreightCharges</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Total freight logistics charges (0 if freight included).</td>
+          </tr>
+          <tr style="background: #F0FDF4;">
+            <td><span class="col-name">OtherCharges</span> <span class="badge-fee">PLATFORM FEE</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td><strong>Platform Fee amount</strong> (calculated based on per-unit, percentage, or lump-sum selection). Compulsory for all submitted quotations.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">TotalBasicAmount</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Basic material value (<code>OfferedQuantity × OfferedUnitPrice</code>).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">EstimatedTotalValue</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Grand total quotation value (<code>Basic + Freight + Platform Fee + GST</code>).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">DeliveryLeadTimeDays</span></td>
+            <td><span class="col-type">INT</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Lead time in calendar days from purchase order confirmation to dispatch.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">ExpectedDispatchDate</span></td>
+            <td><span class="col-type">DATE</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Promised factory dispatch date.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">ExpectedDeliveryDate</span></td>
+            <td><span class="col-type">DATE</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Promised arrival date at buyer plant destination.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">DeliverySchedule</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td><code>Immediate (Single Lot)</code> or <code>Staggered (Partial Consignments)</code>.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">TransportationResponsibility</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td><code>Supplier Arranged</code> or <code>Buyer Self-Arranged</code>.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">PaymentTerms</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Terms (e.g. 100% Advance, 20% Advance + Net 30, LC at Sight).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">AdvancePaymentPercentage</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Percentage of order value required as upfront deposit.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">CreditPeriodDays</span></td>
+            <td><span class="col-type">INT</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Credit window in days (e.g. 15, 30, 45, 60 days).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">EnquiryAllocationsJson</span></td>
+            <td><span class="col-type">NVARCHAR(MAX)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>JSON array mapping vendor supply allocations to individual buyer enquiries.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">StaggeredScheduleJson</span></td>
+            <td><span class="col-type">NVARCHAR(MAX)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>JSON array with consignment dates and partial quantities.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">AttachmentsJson</span></td>
+            <td><span class="col-type">NVARCHAR(MAX)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Metadata of uploaded proforma invoices, COA, or spec sheets.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">CommercialRemarks</span></td>
+            <td><span class="col-type">NVARCHAR(MAX)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Vendor notes regarding price validity, price escalations, or cash discounts.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">SpecialConditions</span></td>
+            <td><span class="col-type">NVARCHAR(MAX)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Storage requirements, offloading norms, or packaging covenants.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">DeclarationConfirmed</span></td>
+            <td><span class="col-type">BIT</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Vendor confirmation of legal authorization and price commitment (1 = True).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Status</span></td>
+            <td><span class="col-type">NVARCHAR(50)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Quotation status: <code>Quotation Received</code>, <code>Allocated</code>, <code>Rejected</code>.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">CreatedAt</span></td>
+            <td><span class="col-type">DATETIME2</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Submission timestamp with millisecond precision.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">UpdatedAt</span></td>
+            <td><span class="col-type">DATETIME2</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Last update timestamp.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- TABLE 5: CollectiveOffers -->
+    <div class="table-card page-break">
+      <div class="table-card-header">
+        <div class="table-name">
+          <span>5. [dbo].[CollectiveOffers]</span>
+          <span class="col-count-badge">21 Columns</span>
+        </div>
+        <div style="font-size: 11px; color: #475569; font-weight: 600;">Role: Supplier Collective Round Summary</div>
+      </div>
+      <div class="table-desc">
+        High-level supplier offer bids linked directly to collective opportunity rounds for rapid admin comparison and buyer matching.
+      </div>
+      <table class="schema-table">
+        <thead>
+          <tr>
+            <th style="width: 25%;">Column Name</th>
+            <th style="width: 18%;">Data Type</th>
+            <th style="width: 14%;">Constraints</th>
+            <th style="width: 43%;">Description & Business Logic</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="col-name">Id</span> <span class="badge-pk">PK</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-compulsory">NOT NULL</span></td>
+            <td>Offer ID. Primary key.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">OpportunityId</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>References <code>CollectiveProducts.Id</code> demand round.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">ProductName</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Product name.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">SupplierName</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Name of manufacturer or master distributor.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">SupplierEmail</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Supplier contact email.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">UnitPrice</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Base supply price per unit.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Currency</span></td>
+            <td><span class="col-type">NVARCHAR(20)</span></td>
+            <td><span class="badge-nullable">DEFAULT 'INR'</span></td>
+            <td>Offer currency (INR, USD).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">AvailableQuantity</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Total volume available for this round.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Moq</span></td>
+            <td><span class="col-type">DECIMAL(18,2)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Minimum order quantity.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">PriceBreaks</span></td>
+            <td><span class="col-type">NVARCHAR(MAX)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>JSON array with tiered volume price breaks (e.g. 50MT, 100MT, 200MT).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Taxes</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Tax structure (e.g. 18% GST Extra).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">FreightBasis</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Incoterm delivery basis.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">LeadTime</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Estimated manufacturing / delivery turnaround.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">PaymentTerms</span></td>
+            <td><span class="col-type">NVARCHAR(255)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Agreed commercial terms.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">OfferValidity</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Price validity window.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Origin</span></td>
+            <td><span class="col-type">NVARCHAR(100)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Manufacturing origin (Domestic Plant or Import Country).</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Remarks</span></td>
+            <td><span class="col-type">NVARCHAR(MAX)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Commercial remarks and warranty conditions.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">Status</span></td>
+            <td><span class="col-type">NVARCHAR(50)</span></td>
+            <td><span class="badge-nullable">DEFAULT 'SUBMITTED'</span></td>
+            <td>Status: <code>SUBMITTED</code>, <code>REVIEWED</code>, <code>ALLOCATED</code>.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">OfferJson</span></td>
+            <td><span class="col-type">NVARCHAR(MAX)</span></td>
+            <td><span class="badge-nullable">NULL</span></td>
+            <td>Complete raw payload snapshot.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">CreatedAt</span></td>
+            <td><span class="col-type">DATETIME</span></td>
+            <td><span class="badge-nullable">DEFAULT GETDATE()</span></td>
+            <td>Creation timestamp.</td>
+          </tr>
+          <tr>
+            <td><span class="col-name">UpdatedAt</span></td>
+            <td><span class="col-type">DATETIME</span></td>
+            <td><span class="badge-nullable">DEFAULT GETDATE()</span></td>
+            <td>Last update timestamp.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Document Footer -->
+    <div style="margin-top: 40px; text-align: center; font-size: 11.5px; color: #94A3B8; border-top: 1px solid var(--border); padding-top: 16px;">
+      <strong>Synergy5M LLP</strong> • B2B Demand Pooling & Aggregation Cloud Platform • Pune, Maharashtra, India • <a href="https://synergy5m.com" style="color: #0E7C86; text-decoration: none;">synergy5m.com</a>
+    </div>
+
+  </div>
+
+</body>
+</html>
+
