@@ -545,11 +545,11 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                 <span>{error}</span>
               </div>
             )}
-              <div className="soh-error-banner">
-                <Info size={18} />
-                <span>{error}</span>
-              </div>
-            )}
+            {/* <div className="soh-error-banner">
+              <Info size={18} />
+              <span>{error}</span>
+            </div> */}
+
 
             {/* ========================================================================= */}
             {/* TAB 1: DISPATCHED RFQ EMAILS */}
