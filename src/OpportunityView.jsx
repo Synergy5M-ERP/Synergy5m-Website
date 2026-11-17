@@ -27,6 +27,7 @@ import {
   Inbox,
   FileCheck,
   FileText,
+  Award,
   AppWindowMacIcon
 } from 'lucide-react';
 import './AdminAddProduct.css';
@@ -406,25 +407,18 @@ export default function OpportunityView() {
               )}
             </Link>
 
-            {/* Section Divider: Procurement & Offers */}
-            <div className="pt-3 pb-1 border-t border-slate-700/60 mt-3">
-              {!sidebarCollapsed && (
-                <div className="px-3 text-[10.5px] font-bold uppercase tracking-wider text-teal-400/80 mb-1">
-                  Procurement & Offers
-                </div>
-              )}
-            </div>
 
-            {/* 7. Dispatch RFQ */}
+
+            {/* 7. Sent offers */}
             <Link
               to="/supply-offers"
               className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
                 }`}
-              title="Dispatch RFQ"
+              title="Sent offers"
             >
               <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
                 <Send className="w-4 h-4 text-orange-400 flex-shrink-0" />
-                {!sidebarCollapsed && <span>Dispatch RFQ</span>}
+                {!sidebarCollapsed && <span>Sent offers</span>}
               </div>
               {!sidebarCollapsed && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold uppercase tracking-wider">
@@ -433,6 +427,34 @@ export default function OpportunityView() {
               )}
             </Link>
 
+
+
+            {/* 9. Submitted Offer */}
+            <Link
+              to="/submittedoffer"
+              className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
+                }`}
+              title="Submitted Offer"
+            >
+              <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+                <FileText className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                {!sidebarCollapsed && <span>Submitted Offer</span>}
+              </div>
+
+            </Link>
+
+            {/* 10. Commercial Evaluation */}
+            <Link
+              to="/commercial-evaluation"
+              className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
+                }`}
+              title="Commercial Evaluation"
+            >
+              <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+                <Award className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                {!sidebarCollapsed && <span>Commercial Evaluation</span>}
+              </div>
+            </Link>
 
             {/* 7. Admin Panel */}
             <div className="relative group">
@@ -465,38 +487,6 @@ export default function OpportunityView() {
                 </div>
               )}
             </div>
-            {/* 9. Submitted Offer */}
-            <Link
-              to="/submittedoffer"
-              className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
-                }`}
-              title="Submitted Offer"
-            >
-              <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
-                <FileText className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                {!sidebarCollapsed && <span>Submitted Offer</span>}
-              </div>
-              {!sidebarCollapsed && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase tracking-wider">
-                  Quotes
-                </span>
-              )}
-            </Link>
-
-            {/* Public Portal Link */}
-            {/* <div className="pt-4 border-t border-slate-700/60 mt-4">
-              <a
-                href="/products-open-for-enquiries"
-                target="_blank"
-                rel="noreferrer"
-                className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
-                  }`}
-                title="Public Showcase"
-              >
-                <ExternalLink className="w-4 h-4 text-teal-300 flex-shrink-0" />
-                {!sidebarCollapsed && <span>Public Showcase</span>}
-              </a>
-            </div> */}
           </nav>
         </aside>
 

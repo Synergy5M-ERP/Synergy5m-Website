@@ -491,8 +491,8 @@ const EnhancedERPPage = () => {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "Synergy 5M LLP",
-    url: "https://www.synergy5m.com",
-    logo: "https://www.synergy5m.com/logo.png",
+    url: "https://synergy5m.com",
+    logo: "https://synergy5m.com/logo.png",
     description:
       "Cloud-Based ERP for Indian MSMEs & Manufacturers. One-Time Cost, Full Data Control, White-Label ERP for Seamless Growth.",
     email: "info@synergy5m.com",
@@ -542,8 +542,8 @@ const EnhancedERPPage = () => {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
     name: "Synergy 5M LLP",
-    image: "https://www.synergy5m.com/logo.png",
-    url: "https://www.synergy5m.com",
+    image: "https://synergy5m.com/logo.png",
+    url: "https://synergy5m.com",
     telephone: "+91-9423579446",
     email: "info@synergy5m.com",
     address: {
@@ -600,7 +600,7 @@ const EnhancedERPPage = () => {
           content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"
         />
         <meta name="googlebot" content="index, follow" />
-        <link rel="canonical" href="https://www.synergy5m.com/" />
+        <link rel="canonical" href="https://synergy5m.com/" />
 
         {/* ── Geo / Local SEO ── */}
         <meta name="geo.region" content="IN-MH" />
@@ -610,7 +610,7 @@ const EnhancedERPPage = () => {
 
         {/* ── Open Graph / Facebook ── */}
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://www.synergy5m.com/" />
+        <meta property="og:url" content="https://synergy5m.com/" />
         <meta property="og:site_name" content="Synergy 5M LLP" />
         <meta
           property="og:title"
@@ -622,7 +622,7 @@ const EnhancedERPPage = () => {
         />
         <meta
           property="og:image"
-          content="https://www.synergy5m.com/og-image.jpg"
+          content="https://synergy5m.com/og-image.jpg"
         />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
@@ -646,7 +646,7 @@ const EnhancedERPPage = () => {
         />
         <meta
           name="twitter:image"
-          content="https://www.synergy5m.com/og-image.jpg"
+          content="https://synergy5m.com/og-image.jpg"
         />
         <meta name="twitter:image:alt" content="SYN-8 ERP by Synergy 5M LLP" />
 

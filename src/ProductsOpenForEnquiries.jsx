@@ -47,6 +47,11 @@ export default function ProductsOpenForEnquiries({ embedded = false }) {
     async function loadProducts() {
       try {
         const res = await fetch('/api/public/products');
+        // Clear any legacy localStorage cache
+        try {
+          localStorage.removeItem('s5m_published_products');
+        } catch (e) {}
+
         if (res.ok) {
           const data = await res.json();
           if (data && data.success && Array.isArray(data.data)) {
@@ -58,21 +63,12 @@ export default function ProductsOpenForEnquiries({ embedded = false }) {
           }
         }
       } catch (err) {
-        // Fallback to local cache
+        console.warn('Error loading public products:', err);
       }
 
-      // Check local storage only for offline edits
-      try {
-        const local = JSON.parse(localStorage.getItem('s5m_published_products') || '[]');
-        if (isMounted) {
-          setProducts(Array.isArray(local) ? local : []);
-          setLoading(false);
-        }
-      } catch (e) {
-        if (isMounted) {
-          setProducts([]);
-          setLoading(false);
-        }
+      if (isMounted) {
+        setProducts([]);
+        setLoading(false);
       }
     }
 

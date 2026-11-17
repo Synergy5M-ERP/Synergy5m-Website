@@ -18,6 +18,8 @@ import SendEnquiryToVendors from './SendEnquiryToVendors';
 import VendorSupplyOfferForm from './VendorSupplyOfferForm';
 import SupplyOffersHub from './SupplyOffersHub';
 import SupplyOfferViewPage from './SupplyOfferViewPage';
+// eslint-disable-next-line no-unused-vars
+import BuyerOfferViewPage from './BuyerOfferViewPage';
 
 // Dispatches /supply-offer route:
 // - If ?offerRef=... or ?view=... is present, load the specific SupplyOfferViewPage (Official Document & PDF)
@@ -118,7 +120,15 @@ function App() {
             <Route path="/submittedoffer" element={<SupplyOffersHub defaultTab="submitted" />} />
             <Route path="/submitted-offers" element={<SupplyOffersHub defaultTab="submitted" />} />
             <Route path="/submitted-offer" element={<SupplyOffersHub defaultTab="submitted" />} />
+            <Route path="/commercial-evaluation" element={<SupplyOffersHub defaultTab="evaluation" />} />
+            <Route path="/admin/commercial-evaluation" element={<SupplyOffersHub defaultTab="evaluation" />} />
+            <Route path="/quote-evaluation" element={<SupplyOffersHub defaultTab="evaluation" />} />
             <Route path="/vendor/supply-offer" element={<VendorSupplyOfferForm />} />
+
+            {/* Stage 7: Buyer-Specific Allocation & Offer View Routes */}
+            <Route path="/buyer/offer/:allocationId" element={<BuyerOfferViewPage />} />
+            <Route path="/buyer-offer/:allocationId" element={<BuyerOfferViewPage />} />
+            <Route path="/buyer/offer" element={<BuyerOfferViewPage />} />
 
             <Route path="*" element={<NewLandingPage />} />
           </Routes>

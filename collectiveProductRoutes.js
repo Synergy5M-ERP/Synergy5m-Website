@@ -47,34 +47,8 @@ function requireAdminAuth(req, res, next) {
   return verifyAdminToken(req, res, next);
 }
 
-const dataDir = path.join(__dirname, 'data');
-const productsFile = path.join(dataDir, 'collective_products.json');
-const enquiriesFile = path.join(dataDir, 'collective_enquiries.json');
-const offersFile = path.join(dataDir, 'collective_offers.json');
+// Local file fallbacks disabled - all collective buy data is strictly read and written directly to SQL Server database
 
-function readJsonFile(filePath) {
-  try {
-    if (fs.existsSync(filePath)) {
-      const raw = fs.readFileSync(filePath, 'utf8');
-      const parsed = JSON.parse(raw || '[]');
-      return Array.isArray(parsed) ? parsed : [];
-    }
-  } catch (err) {
-    console.warn(`Warning reading ${filePath}:`, err.message);
-  }
-  return [];
-}
-
-function writeJsonFile(filePath, data) {
-  try {
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
-  } catch (err) {
-    console.warn(`Warning writing ${filePath}:`, err.message);
-  }
-}
 
 /**
  * AUTO-INITIALIZATION OF THE 3 COLLECTIVE BUYING TABLES:
@@ -238,18 +212,11 @@ router.get('/public/products', async (req, res) => {
       }
     }
 
-    if (dbProducts.length === 0) {
-      const local = readJsonFile(productsFile);
-      if (Array.isArray(local) && local.length > 0) {
-        dbProducts = local;
-      }
-    }
-
     return res.json({
       success: true,
       count: dbProducts.length,
       data: dbProducts,
-      source: pool ? 'database' : 'file-cache'
+      source: 'database'
     });
   } catch (err) {
     console.error('Error fetching public products:', err);
@@ -427,14 +394,6 @@ router.post('/admin/products', requireAdminAuth, async (req, res) => {
         console.warn('DB error writing product:', dbErr.message);
       }
     }
-
-    // Always sync to local JSON file for dev/offline resilience
-    try {
-      const existing = readJsonFile(productsFile);
-      const filtered = existing.filter((p) => p.id !== newId);
-      filtered.unshift(newRecord);
-      writeJsonFile(productsFile, filtered);
-    } catch (e) {}
 
     return res.status(201).json({
       success: true,
@@ -953,14 +912,7 @@ router.get('/admin/products', requireAdminAuth, async (req, res) => {
       }
     }
 
-    if (products.length === 0) {
-      const local = readJsonFile(productsFile);
-      if (Array.isArray(local) && local.length > 0) {
-        products = local;
-      }
-    }
-
-    return res.json({ success: true, count: products.length, data: products, source: pool ? 'database' : 'file-cache' });
+    return res.json({ success: true, count: products.length, data: products, source: 'database' });
   } catch (err) {
     console.error('Error fetching admin products:', err);
     return res.status(500).json({ success: false, message: 'Failed to fetch products.' });
@@ -982,12 +934,6 @@ router.delete('/admin/products/:id', requireAdminAuth, async (req, res) => {
           .query(`DELETE FROM CollectiveProducts WHERE Id = @Id`);
       } catch (e) {}
     }
-
-    try {
-      const local = readJsonFile(productsFile);
-      const filtered = local.filter((p) => p.id !== id);
-      writeJsonFile(productsFile, filtered);
-    } catch (e) {}
 
     return res.json({
       success: true,
@@ -1021,30 +967,11 @@ router.get('/collective-buying/opportunities', async (req, res) => {
       } catch (e) {}
     }
 
-    if (list.length === 0) {
-      const local = readJsonFile(productsFile);
-      if (Array.isArray(local) && local.length > 0) {
-        list = local.map((p) => ({
-          Id: p.id,
-          ProductName: p.productMaster?.productName || p.productName,
-          Category: p.productMaster?.category || p.category,
-          GradeVariant: p.productMaster?.gradeVariant || p.gradeVariant,
-          Sku: p.productMaster?.sku || p.sku,
-          Status: p.opportunity?.status || p.status,
-          Uom: p.productMaster?.uom || p.uom,
-          MinEnquiryQuantity: p.opportunity?.minEnquiryQuantity || p.minEnquiryQuantity,
-          MaxEnquiryQuantity: p.opportunity?.maxEnquiryQuantity || p.maxEnquiryQuantity,
-          EnquiryOpeningDate: p.opportunity?.enquiryOpeningDate,
-          EnquiryClosingDate: p.opportunity?.enquiryClosingDate
-        }));
-      }
-    }
-
     return res.json({
       success: true,
       count: list.length,
       data: list,
-      source: pool ? 'database' : 'file-cache'
+      source: 'database'
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Failed to retrieve product details.' });
@@ -1079,25 +1006,6 @@ router.get(['/collective-buying/opportunity-data', '/collective-buying/opportuni
       }
     }
 
-    if (allOpportunities.length === 0) {
-      const localProducts = readJsonFile(productsFile);
-      if (Array.isArray(localProducts) && localProducts.length > 0) {
-        allOpportunities = localProducts.map((p) => ({
-          Id: p.id,
-          ProductName: p.productMaster?.productName || p.productName,
-          Category: p.productMaster?.category || p.category,
-          GradeVariant: p.productMaster?.gradeVariant || p.gradeVariant,
-          Sku: p.productMaster?.sku || p.sku,
-          Status: p.opportunity?.status || p.status,
-          Uom: p.productMaster?.uom || p.uom,
-          MinEnquiryQuantity: p.opportunity?.minEnquiryQuantity || p.minEnquiryQuantity,
-          MaxEnquiryQuantity: p.opportunity?.maxEnquiryQuantity || p.maxEnquiryQuantity,
-          EnquiryOpeningDate: p.opportunity?.enquiryOpeningDate,
-          EnquiryClosingDate: p.opportunity?.enquiryClosingDate
-        }));
-      }
-    }
-
     // 2. Fetch specific product record from [CollectiveProducts]
     let productRecord = null;
     if (pool) {
@@ -1121,19 +1029,7 @@ router.get(['/collective-buying/opportunity-data', '/collective-buying/opportuni
       }
     }
 
-    // Fallback to local file if DB is offline or returned no record
-    if (!productRecord) {
-      const localProducts = readJsonFile(productsFile);
-      if (Array.isArray(localProducts) && localProducts.length > 0) {
-        let match = null;
-        if (reqId && reqId !== 'default' && reqId !== 'CB-2026-0001') {
-          match = localProducts.find((p) => p.id === reqId);
-        }
-        productRecord = match || localProducts[0];
-      }
-    }
-
-    // If still no record found anywhere, return 404 Data Not Found
+    // If still no record found, return 404 Data Not Found
     if (!productRecord) {
       return res.status(404).json({
         success: false,
@@ -1182,13 +1078,6 @@ router.get(['/collective-buying/opportunity-data', '/collective-buying/opportuni
         rawEnquiries = enqResult.recordset || [];
       } catch (e) {
         console.warn('Error querying buyer enquiries:', e.message);
-      }
-    }
-
-    if (rawEnquiries.length === 0) {
-      const localEnquiries = readJsonFile(enquiriesFile);
-      if (Array.isArray(localEnquiries)) {
-        rawEnquiries = localEnquiries.filter((e) => e.productId === prodId || (e.productName && e.productName.toLowerCase().includes(productName.toLowerCase())));
       }
     }
 
@@ -1262,13 +1151,6 @@ router.get(['/collective-buying/opportunity-data', '/collective-buying/opportuni
         supplierOffers = quoRes.recordset || [];
       } catch (e) {
         console.warn('Error querying supplier offers:', e.message);
-      }
-    }
-
-    if (supplierOffers.length === 0) {
-      const localOffers = readJsonFile(offersFile);
-      if (Array.isArray(localOffers)) {
-        supplierOffers = localOffers.filter((o) => o.opportunityId === prodId || (o.productName && o.productName.toLowerCase().includes(productName.toLowerCase())));
       }
     }
 

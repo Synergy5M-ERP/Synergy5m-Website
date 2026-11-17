@@ -39,7 +39,8 @@ import {
   Send,
   TrendingUp,
   ArrowUpRight,
-  Lock
+  Lock,
+  Award
 } from 'lucide-react';
 import './AdminAddProduct.css';
 
@@ -92,7 +93,7 @@ export default function AdminAddProduct({ initialTab }) {
   // View switch: 'dashboard' | 'form' | 'table' | 'enquiries'
   const [activeAdminTab, setActiveAdminTab] = useState(getTabFromLocation);
 
-  // Database Products (CollectiveProducts table) state
+  // Database Products state
   const [dbProducts, setDbProducts] = useState([]);
   const [loadingDbProducts, setLoadingDbProducts] = useState(false);
   const [tableSearch, setTableSearch] = useState('');
@@ -100,13 +101,13 @@ export default function AdminAddProduct({ initialTab }) {
   const [productViewMode, setProductViewMode] = useState('table'); // 'table' | 'cards'
   const [selectedProductForDetail, setSelectedProductForDetail] = useState(null);
 
-  // Collective Enquiries (CollectiveEnquiries table) state
+  // Collective Enquiries state
   const [enquiries, setEnquiries] = useState([]);
   const [loadingEnquiries, setLoadingEnquiries] = useState(false);
   const [enquirySearch, setEnquirySearch] = useState('');
   const [enquiryStatusFilter, setEnquiryStatusFilter] = useState('All');
 
-  // Potential Vendor Categories state (dynamically fetched from Potential_Vendor)
+  // Potential Vendor Categories state (dynamically fetched)
   const [categories, setCategories] = useState(CATEGORIES);
   const [loadingCategories, setLoadingCategories] = useState(false);
 
@@ -261,14 +262,20 @@ export default function AdminAddProduct({ initialTab }) {
     });
   };
 
-  // Data Loaders from Database
+  // Data Loaders from Database (Strictly from SQL Server Database)
   const loadDbProducts = async () => {
     try {
       setLoadingDbProducts(true);
+      // Purge any legacy localStorage cache
+      try {
+        localStorage.removeItem('s5m_published_products');
+      } catch (e) { }
+
       const res = await fetch('/api/admin/products', { headers: getAuthHeaders() });
       if (res.ok) {
         const json = await res.json();
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        if (json.success && Array.isArray(json.data)) {
+          // Strictly use database data (even if empty array [])
           setDbProducts(json.data);
           setLoadingDbProducts(false);
           return;
@@ -276,19 +283,10 @@ export default function AdminAddProduct({ initialTab }) {
       }
     } catch (e) {
       console.warn('Could not load db products:', e);
-    }
-
-    // Fallback to localStorage if API is empty or unavailable
-    try {
-      const local = JSON.parse(localStorage.getItem('s5m_published_products') || '[]');
-      if (Array.isArray(local)) {
-        setDbProducts(local);
-      }
-    } catch (e) {
-      setDbProducts([]);
     } finally {
       setLoadingDbProducts(false);
     }
+    setDbProducts([]);
   };
 
   const loadEnquiries = async () => {
@@ -456,9 +454,9 @@ export default function AdminAddProduct({ initialTab }) {
     }
   };
 
-  // Delete product from Database table
+  // Delete product
   const handleDeleteProduct = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to delete "${name || id}" from the database table?`)) return;
+    if (!window.confirm(`Are you sure you want to delete "${name || id}"?`)) return;
     try {
       const res = await fetch(`/api/admin/products/${encodeURIComponent(id)}`, {
         method: 'DELETE',
@@ -466,11 +464,9 @@ export default function AdminAddProduct({ initialTab }) {
       });
       const json = await res.json();
       if (res.ok && json.success) {
-        // Also remove from localStorage cache to prevent zombie records
+        // Clear any localStorage cache
         try {
-          const local = JSON.parse(localStorage.getItem('s5m_published_products') || '[]');
-          const updated = local.filter((p) => p.id !== id);
-          localStorage.setItem('s5m_published_products', JSON.stringify(updated));
+          localStorage.removeItem('s5m_published_products');
         } catch (e) { }
 
         showToast(json.message || 'Product removed from database', 'success');
@@ -753,15 +749,11 @@ export default function AdminAddProduct({ initialTab }) {
       setIsSubmitting(false);
 
       if (response.ok && result.success) {
-        // Sync to local storage only on verified success
+        // Clear drafts and caches
         try {
-          const existing = JSON.parse(localStorage.getItem('s5m_published_products') || '[]');
-          existing.unshift(newProductRecord);
-          localStorage.setItem('s5m_published_products', JSON.stringify(existing));
           localStorage.removeItem('s5m_product_draft');
-        } catch (err) {
-          console.warn('LocalStorage publish save warning:', err);
-        }
+          localStorage.removeItem('s5m_published_products');
+        } catch (err) { }
 
         setIsDirty(false);
         showToast(result.message || 'Product published successfully!', 'success');
@@ -1091,17 +1083,13 @@ export default function AdminAddProduct({ initialTab }) {
                 }}
                 className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
                   }`}
-                title="Opportunity View (SG-5)"
+                title="Opportunity View "
               >
                 <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
                   <FileCheck className="w-4 h-4 text-teal-300 flex-shrink-0" />
                   {!sidebarCollapsed && <span>Opportunity View</span>}
                 </div>
-                {!sidebarCollapsed && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-900/60 text-teal-200 font-bold uppercase tracking-wider">
-                    SG-5
-                  </span>
-                )}
+
               </a>
 
               {/* Tooltip on hover when sidebar is minimized */}
@@ -1117,16 +1105,8 @@ export default function AdminAddProduct({ initialTab }) {
               )}
             </div>
 
-            {/* Section Divider: Procurement & Offers */}
-            <div className="pt-3 pb-1 border-t border-slate-700/60 mt-3">
-              {!sidebarCollapsed && (
-                <div className="px-3 text-[10.5px] font-bold uppercase tracking-wider text-teal-400/80 mb-1">
-                  Procurement & Offers
-                </div>
-              )}
-            </div>
 
-            {/* 6. Dispatch RFQ */}
+            {/* 6. Sent offers */}
             <div className="relative group">
               <a
                 href="/supply-offers"
@@ -1137,11 +1117,11 @@ export default function AdminAddProduct({ initialTab }) {
                 }}
                 className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
                   }`}
-                title="Dispatch RFQ"
+                title="Sent offers"
               >
                 <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
                   <Send className="w-4 h-4 text-orange-400 flex-shrink-0" />
-                  {!sidebarCollapsed && <span>Dispatch RFQ</span>}
+                  {!sidebarCollapsed && <span>Sent offers</span>}
                 </div>
                 {!sidebarCollapsed && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 font-bold uppercase tracking-wider">
@@ -1152,13 +1132,74 @@ export default function AdminAddProduct({ initialTab }) {
               {sidebarCollapsed && (
                 <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden lg:flex items-center z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                   <div className="bg-[#0A1E33] text-white text-xs font-semibold px-2.5 py-1.5 rounded shadow-lg border border-slate-700 whitespace-nowrap">
-                    Dispatch RFQ
+                    Sent offers
                   </div>
                 </div>
               )}
             </div>
 
             {/* 7. Admin Panel */}
+
+
+            {/* 8. Submitted Offer */}
+            <div className="relative group">
+              <a
+                href="/submittedoffer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/submittedoffer');
+                  setSidebarOpen(false);
+                }}
+                className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
+                  }`}
+                title="Submitted Offer"
+              >
+                <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+                  <FileText className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  {!sidebarCollapsed && <span>Submitted Offer</span>}
+                </div>
+
+              </a>
+              {sidebarCollapsed && (
+                <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden lg:flex items-center z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <div className="bg-[#0A1E33] text-white text-xs font-semibold px-2.5 py-1.5 rounded shadow-lg border border-slate-700 whitespace-nowrap">
+                    Submitted Offer
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 9. Commercial Evaluation (Step 5) */}
+            <div className="relative group">
+              <a
+                href="/commercial-evaluation"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/commercial-evaluation');
+                  setSidebarOpen(false);
+                }}
+                className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
+                  }`}
+                title="Commercial Evaluation & Comparison "
+              >
+                <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+                  <Award className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  {!sidebarCollapsed && <span>Commercial Evaluation</span>}
+                </div>
+
+              </a>
+              {sidebarCollapsed && (
+                <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden lg:flex items-center z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <div className="bg-[#0A1E33] text-white text-xs font-semibold px-2.5 py-1.5 rounded shadow-lg border border-slate-700 whitespace-nowrap">
+                    Commercial Evaluation
+                  </div>
+                </div>
+              )}
+            </div>
+
+
+
+
             <div className="relative group">
               <a
                 href="/admin"
@@ -1189,39 +1230,6 @@ export default function AdminAddProduct({ initialTab }) {
                 </div>
               )}
             </div>
-
-            {/* 8. Submitted Offer */}
-            <div className="relative group">
-              <a
-                href="/submittedoffer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate('/submittedoffer');
-                  setSidebarOpen(false);
-                }}
-                className={`flex items-center rounded-md text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
-                  }`}
-                title="Submitted Offer"
-              >
-                <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
-                  <FileText className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                  {!sidebarCollapsed && <span>Submitted Offer</span>}
-                </div>
-                {!sidebarCollapsed && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase tracking-wider">
-                    Quotes
-                  </span>
-                )}
-              </a>
-              {sidebarCollapsed && (
-                <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden lg:flex items-center z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                  <div className="bg-[#0A1E33] text-white text-xs font-semibold px-2.5 py-1.5 rounded shadow-lg border border-slate-700 whitespace-nowrap">
-                    Submitted Offer
-                  </div>
-                </div>
-              )}
-            </div>
-
           </nav>
         </aside>
 
@@ -2286,9 +2294,7 @@ export default function AdminAddProduct({ initialTab }) {
                           Set active bidding lifecycle and status for this procurement round.
                         </p>
                       </div>
-                      <span className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded">
-                        Step 5 of 6
-                      </span>
+
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -3249,7 +3255,7 @@ export default function AdminAddProduct({ initialTab }) {
                                       type="button"
                                       onClick={() => handleDeleteProduct(id, name)}
                                       className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition-colors"
-                                      title="Delete from Database Table"
+                                      title="Delete Product"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </button>
@@ -3524,7 +3530,7 @@ export default function AdminAddProduct({ initialTab }) {
                                     type="button"
                                     onClick={() => handleDeleteEnquiry(id, company)}
                                     className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition-colors"
-                                    title="Delete from Database Table"
+                                    title="Delete Enquiry"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>

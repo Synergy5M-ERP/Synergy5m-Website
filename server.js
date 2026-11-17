@@ -2199,15 +2199,42 @@ app.post('/api/send-enquiry-email', verifyAdminToken, async (req, res) => {
               req.input('SubmitOfferUrl', sql.NVarChar(sql.MAX), rec.submitOfferUrl);
 
               await req.query(`
-                INSERT INTO [dbo].[SentSupplyOffers] (
-                  RfqReference, OpportunityId, VendorId, VendorName, VendorEmail,
-                  ProductName, Category, Grade, TotalDemand, Uom, Destination,
-                  BuyerEnquiriesCount, SubmitOfferUrl, Status, SentAt, CreatedAt
-                ) VALUES (
-                  @RfqReference, @OpportunityId, @VendorId, @VendorName, @VendorEmail,
-                  @ProductName, @Category, @Grade, @TotalDemand, @Uom, @Destination,
-                  @BuyerEnquiriesCount, @SubmitOfferUrl, 'Sent', GETDATE(), GETDATE()
+                IF EXISTS (
+                  SELECT 1 FROM [dbo].[SentSupplyOffers]
+                  WHERE RfqReference = @RfqReference
+                    AND LOWER(LTRIM(RTRIM(ProductName))) = LOWER(LTRIM(RTRIM(@ProductName)))
+                    AND LOWER(LTRIM(RTRIM(VendorName))) = LOWER(LTRIM(RTRIM(@VendorName)))
                 )
+                BEGIN
+                  UPDATE [dbo].[SentSupplyOffers]
+                  SET OpportunityId = @OpportunityId,
+                      VendorId = COALESCE(@VendorId, VendorId),
+                      VendorEmail = @VendorEmail,
+                      Category = @Category,
+                      Grade = @Grade,
+                      TotalDemand = @TotalDemand,
+                      Uom = @Uom,
+                      Destination = @Destination,
+                      BuyerEnquiriesCount = @BuyerEnquiriesCount,
+                      SubmitOfferUrl = @SubmitOfferUrl,
+                      Status = 'Sent',
+                      SentAt = GETDATE()
+                  WHERE RfqReference = @RfqReference
+                    AND LOWER(LTRIM(RTRIM(ProductName))) = LOWER(LTRIM(RTRIM(@ProductName)))
+                    AND LOWER(LTRIM(RTRIM(VendorName))) = LOWER(LTRIM(RTRIM(@VendorName)));
+                END
+                ELSE
+                BEGIN
+                  INSERT INTO [dbo].[SentSupplyOffers] (
+                    RfqReference, OpportunityId, VendorId, VendorName, VendorEmail,
+                    ProductName, Category, Grade, TotalDemand, Uom, Destination,
+                    BuyerEnquiriesCount, SubmitOfferUrl, Status, SentAt, CreatedAt
+                  ) VALUES (
+                    @RfqReference, @OpportunityId, @VendorId, @VendorName, @VendorEmail,
+                    @ProductName, @Category, @Grade, @TotalDemand, @Uom, @Destination,
+                    @BuyerEnquiriesCount, @SubmitOfferUrl, 'Sent', GETDATE(), GETDATE()
+                  );
+                END
               `);
             }
           }
@@ -2739,7 +2766,7 @@ app.post('/api/supply-offer/submit', publicFormLimiter, async (req, res) => {
           offeredQuantity,
           status: 'Quotation Received',
           viewOfferUrl,
-          message: 'Offer successfully registered into SupplyOfffertbl and confirmation emails dispatched.'
+          message: 'Offer successfully registered and confirmation emails dispatched.'
         });
       } catch (dbErr) {
         console.error("Database error saving to SupplyOfffertbl:", dbErr.message);
@@ -2796,6 +2823,143 @@ app.get('/api/supply-offer/view/:offerRef', async (req, res) => {
 });
 
 // -------------------------------------------------------------
+// GET /api/supply-offer/rfq-context - Retrieve live RFQ & product context for vendor offer submission
+// -------------------------------------------------------------
+app.get('/api/supply-offer/rfq-context', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    if (!pool) {
+      return res.status(500).json({ success: false, message: 'Database connection unavailable.' });
+    }
+
+    const { rfq, vendor, product, offerRef } = req.query;
+
+    let rfqData = null;
+    let prevOffer = null;
+    let buyerBreakdown = [];
+
+    // 1. If offerRef is provided, check SupplyOfffertbl
+    if (offerRef && String(offerRef).trim()) {
+      const qCheck = await pool.request()
+        .input('OfferRef', sql.NVarChar(100), String(offerRef).trim())
+        .query(`
+          SELECT TOP 1 *
+          FROM [dbo].[SupplyOfffertbl]
+          WHERE OfferReference = @OfferRef OR VendorQuotationNo = @OfferRef
+          ORDER BY Id DESC
+        `);
+      if (qCheck.recordset && qCheck.recordset.length > 0) {
+        prevOffer = qCheck.recordset[0];
+        rfqData = {
+          rfqReference: prevOffer.RfqReference || rfq || '',
+          opportunityId: prevOffer.OpportunityId || '',
+          productName: prevOffer.ProductName || '',
+          category: prevOffer.Category || '',
+          grade: prevOffer.Grade || '',
+          totalDemand: Number(prevOffer.TotalRequiredDemand || prevOffer.OfferedQuantity || 0),
+          uom: prevOffer.Uom || 'MT',
+          destination: prevOffer.Destination || '',
+          vendorName: prevOffer.VendorName || vendor || '',
+          vendorEmail: prevOffer.VendorEmail || '',
+          contactPerson: prevOffer.ContactPerson || '',
+          mobileNumber: prevOffer.MobileNumber || ''
+        };
+      }
+    }
+
+    // 2. If not found by offerRef or no offerRef, check SentSupplyOffers
+    if (!rfqData && rfq && String(rfq).trim()) {
+      const sentReq = pool.request();
+      sentReq.input('RfqRef', sql.NVarChar(100), String(rfq).trim());
+
+      let queryStr = `
+        SELECT TOP 1 *
+        FROM [dbo].[SentSupplyOffers]
+        WHERE RfqReference = @RfqRef
+      `;
+      if (vendor && String(vendor).trim()) {
+        sentReq.input('Vendor', sql.NVarChar(255), String(vendor).trim());
+        queryStr += ` AND (LOWER(LTRIM(RTRIM(VendorName))) = LOWER(LTRIM(RTRIM(@Vendor))) OR LOWER(LTRIM(RTRIM(VendorEmail))) = LOWER(LTRIM(RTRIM(@Vendor))))`;
+      }
+      if (product && String(product).trim()) {
+        sentReq.input('Product', sql.NVarChar(255), String(product).trim());
+        queryStr += ` AND LOWER(LTRIM(RTRIM(ProductName))) = LOWER(LTRIM(RTRIM(@Product)))`;
+      }
+      queryStr += ` ORDER BY Id DESC;`;
+
+      const sentResult = await sentReq.query(queryStr);
+      if (sentResult.recordset && sentResult.recordset.length > 0) {
+        const s = sentResult.recordset[0];
+        rfqData = {
+          rfqReference: s.RfqReference,
+          opportunityId: s.OpportunityId || '',
+          productName: s.ProductName,
+          category: s.Category || '',
+          grade: s.Grade || '',
+          totalDemand: Number(s.TotalDemand || 0),
+          uom: s.Uom || 'MT',
+          destination: s.Destination || '',
+          vendorName: s.VendorName,
+          vendorEmail: s.VendorEmail || '',
+          buyerEnquiriesCount: s.BuyerEnquiriesCount || 1
+        };
+      }
+    }
+
+    // 3. If rfqData found, look up anonymous buyer breakdown
+    if (rfqData && rfqData.productName) {
+      try {
+        const bReq = pool.request();
+        bReq.input('Product', sql.NVarChar(255), rfqData.productName);
+        const buyerRes = await bReq.query(`
+          SELECT 
+            ce.Id,
+            ce.RequiredQuantity,
+            ce.Uom,
+            ce.DeliveryLocation
+          FROM [dbo].[CollectiveEnquiries] ce
+          WHERE LOWER(LTRIM(RTRIM(ce.ProductName))) = LOWER(LTRIM(RTRIM(@Product)))
+            AND (ce.Status = 'Pooled' OR ce.Status = 'Approved' OR ce.Status = 'Verified' OR ce.Status IS NULL)
+          ORDER BY ce.Id ASC
+        `);
+        if (buyerRes.recordset && buyerRes.recordset.length > 0) {
+          buyerBreakdown = buyerRes.recordset.map((b, idx) => ({
+            enquiryRef: `CE-${b.Id}`,
+            buyerName: `Verified Buyer ${idx + 1} (${b.DeliveryLocation || rfqData.destination || 'Consortium'})`,
+            requiredQty: Number(b.RequiredQuantity || 0),
+            destination: b.DeliveryLocation || rfqData.destination || ''
+          }));
+        }
+      } catch (beErr) {
+        // Fallback gracefully
+      }
+    }
+
+    // If still no breakdown but totalDemand > 0, provide single synthetic anonymous breakdown
+    if (buyerBreakdown.length === 0 && rfqData && rfqData.totalDemand > 0) {
+      buyerBreakdown = [
+        {
+          enquiryRef: `DEMAND-1`,
+          buyerName: `Verified Consortium Demand (${rfqData.destination || 'India'})`,
+          requiredQty: rfqData.totalDemand,
+          destination: rfqData.destination || ''
+        }
+      ];
+    }
+
+    return res.json({
+      success: true,
+      rfqData,
+      prevOffer,
+      buyerBreakdown
+    });
+  } catch (err) {
+    console.error("Error fetching RFQ context:", err.message);
+    return res.status(500).json({ success: false, message: 'Server error retrieving RFQ context.' });
+  }
+});
+
+// -------------------------------------------------------------
 // GET /api/supply-offers/sent - Fetch all dispatched RFQ offers with submitted count
 // -------------------------------------------------------------
 app.get('/api/supply-offers/sent', async (req, res) => {
@@ -2830,6 +2994,15 @@ app.get('/api/supply-offers/sent', async (req, res) => {
     `);
 
     const result = await pool.request().query(`
+      WITH DedupSent AS (
+        SELECT 
+          s.*,
+          ROW_NUMBER() OVER (
+            PARTITION BY s.RfqReference, LOWER(LTRIM(RTRIM(s.ProductName))), LOWER(LTRIM(RTRIM(s.VendorName)))
+            ORDER BY s.SentAt DESC, s.Id DESC
+          ) AS rn
+        FROM [dbo].[SentSupplyOffers] s
+      )
       SELECT 
         s.Id,
         s.RfqReference,
@@ -2847,17 +3020,48 @@ app.get('/api/supply-offers/sent', async (req, res) => {
         s.Status AS SendStatus,
         s.SentAt,
         COUNT(o.Id) AS SubmittedOffersCount,
-        MAX(o.CreatedAt) AS LastSubmittedAt,
-        MAX(o.EstimatedTotalValue) AS LatestTotalValue,
-        MAX(o.Currency) AS LatestCurrency,
-        MAX(o.VendorQuotationNo) AS LatestQuotationNo
-      FROM [dbo].[SentSupplyOffers] s
+        latest.OfferReference AS LatestOfferRef,
+        latest.VendorQuotationNo AS LatestQuotationNo,
+        latest.OfferedUnitPrice AS LatestUnitPrice,
+        latest.OfferedQuantity AS LatestOfferedQty,
+        latest.EstimatedTotalValue AS LatestTotalValue,
+        latest.Currency AS LatestCurrency,
+        latest.CreatedAt AS LastSubmittedAt
+      FROM DedupSent s
       LEFT JOIN [dbo].[SupplyOfffertbl] o 
-        ON (s.RfqReference = o.RfqReference AND (s.VendorEmail = o.VendorEmail OR s.VendorName = o.VendorName))
+        ON (s.RfqReference = o.RfqReference 
+            AND LOWER(LTRIM(RTRIM(s.ProductName))) = LOWER(LTRIM(RTRIM(o.ProductName)))
+            AND (
+              LOWER(LTRIM(RTRIM(s.VendorName))) = LOWER(LTRIM(RTRIM(o.VendorName)))
+              OR (LOWER(LTRIM(RTRIM(s.VendorEmail))) = LOWER(LTRIM(RTRIM(o.VendorEmail))) 
+                  AND (s.VendorName IS NULL OR o.VendorName IS NULL OR s.VendorName = '' OR o.VendorName = ''))
+            ))
+      OUTER APPLY (
+        SELECT TOP 1 
+          sub.OfferReference,
+          sub.VendorQuotationNo,
+          sub.OfferedUnitPrice,
+          sub.OfferedQuantity,
+          sub.EstimatedTotalValue,
+          sub.Currency,
+          sub.CreatedAt
+        FROM [dbo].[SupplyOfffertbl] sub
+        WHERE sub.RfqReference = s.RfqReference
+          AND LOWER(LTRIM(RTRIM(sub.ProductName))) = LOWER(LTRIM(RTRIM(s.ProductName)))
+          AND (
+            LOWER(LTRIM(RTRIM(s.VendorName))) = LOWER(LTRIM(RTRIM(sub.VendorName)))
+            OR (LOWER(LTRIM(RTRIM(s.VendorEmail))) = LOWER(LTRIM(RTRIM(sub.VendorEmail))) 
+                AND (s.VendorName IS NULL OR sub.VendorName IS NULL OR s.VendorName = '' OR sub.VendorName = ''))
+          )
+        ORDER BY sub.CreatedAt DESC, sub.Id DESC
+      ) latest
+      WHERE s.rn = 1
       GROUP BY 
         s.Id, s.RfqReference, s.OpportunityId, s.VendorId, s.VendorName, s.VendorEmail,
         s.ProductName, s.Category, s.Grade, s.TotalDemand, s.Uom, s.Destination,
-        s.SubmitOfferUrl, s.Status, s.SentAt
+        s.SubmitOfferUrl, s.Status, s.SentAt,
+        latest.OfferReference, latest.VendorQuotationNo, latest.OfferedUnitPrice, latest.OfferedQuantity,
+        latest.EstimatedTotalValue, latest.Currency, latest.CreatedAt
       ORDER BY s.SentAt DESC;
     `);
 
@@ -2936,6 +3140,930 @@ app.get('/api/supply-offers/submitted', async (req, res) => {
   } catch (err) {
     console.error("Error fetching submitted supply offers:", err.message);
     res.status(500).json({ success: false, message: "Error fetching submitted supply offers." });
+  }
+});
+
+// -------------------------------------------------------------
+// POST /api/supply-offers/evaluate - Step 5: Commercial Evaluation & Awarding
+// Handles:
+// - Option A: 'award' (Approve Quotation -> sets Status = 'Awarded', competing offers = 'Not Selected', SentSupplyOffers = 'Closed / Won')
+// - Option B: 'counter-offer' (Request Price Revision -> sets Status = 'Under Negotiation', updates remarks, emails vendor)
+// - Option C: 'multi-source-split' (Award %/MT volume across multiple vendors -> sets Status = 'Split Awarded', SentSupplyOffers = 'Closed / Won')
+// - Option D: 'reset' (Reopens evaluation -> sets Status = 'Quotation Received', SentSupplyOffers = 'Sent')
+// -------------------------------------------------------------
+app.post('/api/supply-offers/evaluate', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    if (!pool) {
+      return res.status(500).json({ success: false, message: 'Database connection unavailable.' });
+    }
+
+    const {
+      action,
+      offerRef,
+      rfqReference,
+      productName,
+      counterUnitPrice,
+      counterRemarks,
+      splits,
+      awardRemarks
+    } = req.body;
+
+    if (!action) {
+      return res.status(400).json({ success: false, message: 'Evaluation action is required.' });
+    }
+
+    const salesEmail = process.env.SALES_EMAIL || process.env.SMTP_USER || "sales@synergy5m.com";
+    const appBaseUrl = process.env.APP_BASE_URL || (process.env.FRONTEND_URL ? process.env.FRONTEND_URL.replace(/\/$/, '') : 'https://synergy5m.com');
+
+    // ---------------------------------------------------------
+    // ACTION A: AWARD & APPROVE QUOTATION
+    // ---------------------------------------------------------
+    if (action === 'award') {
+      if (!offerRef || !rfqReference || !productName) {
+        return res.status(400).json({ success: false, message: 'offerRef, rfqReference, and productName are required to award.' });
+      }
+
+      // Fetch the winning quote details for email notification
+      const winCheck = await pool.request()
+        .input('OfferRef', sql.NVarChar(100), offerRef)
+        .query(`SELECT TOP 1 * FROM [dbo].[SupplyOfffertbl] WHERE OfferReference = @OfferRef`);
+      
+      const winningQuote = winCheck.recordset[0];
+      if (!winningQuote) {
+        return res.status(404).json({ success: false, message: 'Selected quotation not found.' });
+      }
+
+      // 1. Mark selected offer as 'Awarded'
+      const awardReq = pool.request();
+      awardReq.input('OfferRef', sql.NVarChar(100), offerRef);
+      awardReq.input('AwardRemarks', sql.NVarChar(sql.MAX), awardRemarks || '');
+      await awardReq.query(`
+        UPDATE [dbo].[SupplyOfffertbl]
+        SET Status = 'Awarded',
+            CommercialRemarks = CASE 
+              WHEN @AwardRemarks IS NOT NULL AND LEN(LTRIM(RTRIM(@AwardRemarks))) > 0 
+              THEN ISNULL(CommercialRemarks + CHAR(13) + CHAR(10), '') + '[AWARD CONFIRMED ' + CONVERT(NVARCHAR, GETDATE(), 120) + ']: ' + @AwardRemarks 
+              ELSE CommercialRemarks 
+            END,
+            UpdatedAt = GETDATE()
+        WHERE OfferReference = @OfferRef;
+      `);
+
+      // 2. Mark competing offers for this specific product under this RFQ as 'Not Selected'
+      const compReq = pool.request();
+      compReq.input('OfferRef', sql.NVarChar(100), offerRef);
+      compReq.input('RfqRef', sql.NVarChar(100), rfqReference);
+      compReq.input('ProdName', sql.NVarChar(255), productName);
+      await compReq.query(`
+        UPDATE [dbo].[SupplyOfffertbl]
+        SET Status = 'Not Selected',
+            UpdatedAt = GETDATE()
+        WHERE RfqReference = @RfqRef
+          AND LOWER(LTRIM(RTRIM(ProductName))) = LOWER(LTRIM(RTRIM(@ProdName)))
+          AND OfferReference <> @OfferRef
+          AND Status = 'Quotation Received';
+      `);
+
+      // 3. Mark SentSupplyOffers for this product as 'Closed / Won'
+      const sentReq = pool.request();
+      sentReq.input('RfqRef', sql.NVarChar(100), rfqReference);
+      sentReq.input('ProdName', sql.NVarChar(255), productName);
+      await sentReq.query(`
+        UPDATE [dbo].[SentSupplyOffers]
+        SET Status = 'Closed / Won'
+        WHERE RfqReference = @RfqRef
+          AND LOWER(LTRIM(RTRIM(ProductName))) = LOWER(LTRIM(RTRIM(@ProdName)));
+      `);
+
+      // Asynchronously send congratulations & award email to winning vendor
+      if (winningQuote.VendorEmail) {
+        (async () => {
+          try {
+            const viewDocUrl = `${appBaseUrl}/supply-offer/view?offerRef=${encodeURIComponent(offerRef)}`;
+            const awardEmailHtml = `
+              <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+                <div style="background: linear-gradient(135deg, #0e7c86 0%, #065e66 100%); padding: 24px; color: #ffffff; text-align: center;">
+                  <h2 style="margin: 0; font-size: 22px;">🎉 Quotation Award Notification</h2>
+                  <p style="margin: 6px 0 0; font-size: 14px; opacity: 0.9;">Synergy5M B2B Procurement Consortium</p>
+                </div>
+                <div style="padding: 24px; color: #1e293b; line-height: 1.6;">
+                  <p>Dear <strong>${winningQuote.VendorName || 'Partner'}</strong>,</p>
+                  <p>We are pleased to inform you that your quotation (<strong>#${winningQuote.VendorQuotationNo || offerRef}</strong>) for <strong>${productName}</strong> has been officially <strong>AWARDED & APPROVED</strong> by the Synergy5M Sourcing Committee.</p>
+                  
+                  <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+                    <h3 style="margin: 0 0 10px; color: #166534; font-size: 15px;">Awarded Commercial Summary:</h3>
+                    <ul style="margin: 0; padding-left: 20px; color: #15803d; font-size: 14px;">
+                      <li><strong>Product:</strong> ${productName} (${winningQuote.Grade || 'Standard'})</li>
+                      <li><strong>Awarded Quantity:</strong> ${winningQuote.OfferedQuantity} ${winningQuote.Uom || 'MT'}</li>
+                      <li><strong>Awarded Unit Price:</strong> ₹${Number(winningQuote.OfferedUnitPrice).toLocaleString('en-IN')}/${winningQuote.Uom || 'MT'}</li>
+                      <li><strong>Estimated Total Value:</strong> ₹${Number(winningQuote.EstimatedTotalValue || 0).toLocaleString('en-IN')}</li>
+                      <li><strong>RFQ Reference:</strong> ${rfqReference}</li>
+                    </ul>
+                  </div>
+
+                  <p>Our operations team is now coordinating buyer quota allocations and escrow settlements. You will receive the official Master Purchase Order shortly.</p>
+
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="${viewDocUrl}" style="background-color: #0e7c86; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block;">
+                      📄 View Official Awarded Quotation
+                    </a>
+                  </div>
+                </div>
+              </div>
+            `;
+
+            const mailOpts = {
+              from: `"Synergy5M Procurement Consortium" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
+              to: winningQuote.VendorEmail,
+              subject: `🎉 Award Notification: Your Supply Offer for ${productName} has been Selected! (${offerRef})`,
+              html: awardEmailHtml
+            };
+            if (salesEmail && salesEmail.toLowerCase() !== winningQuote.VendorEmail.toLowerCase()) {
+              mailOpts.cc = salesEmail;
+            }
+            dispatchEmailTasksInBackground([{ to: winningQuote.VendorEmail, mailOptions: mailOpts }]);
+          } catch (mErr) {
+            console.error("Award email error:", mErr.message);
+          }
+        })().catch(() => {});
+      }
+
+      return res.json({
+        success: true,
+        action: 'award',
+        offerRef,
+        message: `Quotation ${winningQuote.VendorQuotationNo || offerRef} has been officially awarded! Competing quotes marked as Not Selected and RFQ status updated to Closed / Won.`
+      });
+    }
+
+    // ---------------------------------------------------------
+    // ACTION B: REQUEST PRICE REVISION / COUNTER-OFFER
+    // ---------------------------------------------------------
+    if (action === 'counter-offer') {
+      if (!offerRef || !counterUnitPrice) {
+        return res.status(400).json({ success: false, message: 'offerRef and counterUnitPrice are required.' });
+      }
+
+      const qCheck = await pool.request()
+        .input('OfferRef', sql.NVarChar(100), offerRef)
+        .query(`SELECT TOP 1 * FROM [dbo].[SupplyOfffertbl] WHERE OfferReference = @OfferRef`);
+      
+      const quote = qCheck.recordset[0];
+      if (!quote) {
+        return res.status(404).json({ success: false, message: 'Quotation not found.' });
+      }
+
+      const noteText = `[COUNTER-OFFER ${new Date().toISOString().split('T')[0]}]: Proposed Rate: ₹${counterUnitPrice}/${quote.Uom || 'MT'} | Note: ${counterRemarks || 'Please review and confirm revised pricing.'}`;
+
+      const revReq = pool.request();
+      revReq.input('OfferRef', sql.NVarChar(100), offerRef);
+      revReq.input('Note', sql.NVarChar(sql.MAX), noteText);
+      await revReq.query(`
+        UPDATE [dbo].[SupplyOfffertbl]
+        SET Status = 'Under Negotiation',
+            CommercialRemarks = ISNULL(CommercialRemarks + CHAR(13) + CHAR(10), '') + @Note,
+            UpdatedAt = GETDATE()
+        WHERE OfferReference = @OfferRef;
+      `);
+
+      // Asynchronously dispatch counter-offer / negotiation email
+      if (quote.VendorEmail) {
+        (async () => {
+          try {
+            const demandVal = quote.TotalRequiredDemand || quote.OfferedQuantity || 0;
+            const reSubmitUrl = `${appBaseUrl}/supply-offer?rfq=${encodeURIComponent(quote.RfqReference)}&offerRef=${encodeURIComponent(quote.OfferReference)}&prodId=${encodeURIComponent(quote.OpportunityId || '')}&vendor=${encodeURIComponent(quote.VendorName)}&email=${encodeURIComponent(quote.VendorEmail || '')}&product=${encodeURIComponent(quote.ProductName)}&category=${encodeURIComponent(quote.Category || '')}&grade=${encodeURIComponent(quote.Grade || '')}&demand=${encodeURIComponent(demandVal)}&uom=${encodeURIComponent(quote.Uom || 'MT')}&dest=${encodeURIComponent(quote.Destination || '')}&counterRate=${encodeURIComponent(counterUnitPrice)}&prevRate=${encodeURIComponent(quote.OfferedUnitPrice || '')}`;
+            const counterHtml = `
+              <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+                <div style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); padding: 24px; color: #ffffff; text-align: center;">
+                  <h2 style="margin: 0; font-size: 22px;">💬 Price Revision Request</h2>
+                  <p style="margin: 6px 0 0; font-size: 14px; opacity: 0.9;">Synergy5M B2B Procurement Consortium</p>
+                </div>
+                <div style="padding: 24px; color: #1e293b; line-height: 1.6;">
+                  <p>Dear <strong>${quote.VendorName || 'Partner'}</strong>,</p>
+                  <p>Thank you for submitting your quotation (<strong>#${quote.VendorQuotationNo || offerRef}</strong>) for <strong>${quote.ProductName}</strong>.</p>
+                  <p>Your quotation is actively shortlisted for the aggregated consortium demand. However, to match the target budget and award the full pooled volume, we request your best price revision:</p>
+                  
+                  <div style="background-color: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 16px; margin: 20px 0;">
+                    <ul style="margin: 0; padding-left: 20px; color: #c2410c; font-size: 14px;">
+                      <li><strong>Product:</strong> ${quote.ProductName} (${quote.Grade || 'Standard'})</li>
+                      <li><strong>Current Offered Rate:</strong> ₹${quote.OfferedUnitPrice}/${quote.Uom || 'MT'}</li>
+                      <li><strong>Consortium Target Counter-Rate:</strong> <b style="font-size: 16px; color: #ea580c;">₹${counterUnitPrice}/${quote.Uom || 'MT'}</b></li>
+                      <li><strong>Consortium Notes:</strong> ${counterRemarks || 'Immediate order placement upon confirmation.'}</li>
+                    </ul>
+                  </div>
+
+                  <p>Please reply to this email or re-submit your updated offer using the link below:</p>
+
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="${reSubmitUrl}" style="background-color: #ea580c; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block;">
+                      🔄 Review & Revise Quotation
+                    </a>
+                  </div>
+                </div>
+              </div>
+            `;
+
+            const mailOpts = {
+              from: `"Synergy5M Procurement Consortium" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
+              to: quote.VendorEmail,
+              subject: `Negotiation / Price Revision Request: Supply Offer for ${quote.ProductName} (${offerRef})`,
+              html: counterHtml
+            };
+            if (salesEmail && salesEmail.toLowerCase() !== quote.VendorEmail.toLowerCase()) {
+              mailOpts.cc = salesEmail;
+            }
+            dispatchEmailTasksInBackground([{ to: quote.VendorEmail, mailOptions: mailOpts }]);
+          } catch (mErr) {
+            console.error("Counter-offer email error:", mErr.message);
+          }
+        })().catch(() => {});
+      }
+
+      return res.json({
+        success: true,
+        action: 'counter-offer',
+        offerRef,
+        message: `Quotation marked 'Under Negotiation'. Price revision request (₹${counterUnitPrice}/${quote.Uom || 'MT'}) dispatched to vendor.`
+      });
+    }
+
+    // ---------------------------------------------------------
+    // ACTION C: MULTI-SOURCE SPLIT ALLOCATION
+    // ---------------------------------------------------------
+    if (action === 'multi-source-split') {
+      if (!rfqReference || !productName || !Array.isArray(splits) || splits.length === 0) {
+        return res.status(400).json({ success: false, message: 'rfqReference, productName, and splits array are required.' });
+      }
+
+      const splitRefs = splits.map(s => s.offerRef).filter(Boolean);
+      for (const sp of splits) {
+        if (!sp.offerRef) continue;
+        const note = `[SPLIT ALLOCATION]: Awarded Split: ${sp.allocatedQty || ''} MT (${sp.splitPercent || ''}%) | Note: ${sp.remarks || ''}`;
+        const sReq = pool.request();
+        sReq.input('OfferRef', sql.NVarChar(100), sp.offerRef);
+        sReq.input('Note', sql.NVarChar(sql.MAX), note);
+        await sReq.query(`
+          UPDATE [dbo].[SupplyOfffertbl]
+          SET Status = 'Split Awarded',
+              CommercialRemarks = ISNULL(CommercialRemarks + CHAR(13) + CHAR(10), '') + @Note,
+              UpdatedAt = GETDATE()
+          WHERE OfferReference = @OfferRef;
+        `);
+      }
+
+      // Mark other non-split quotes as Not Selected
+      const nonSplitReq = pool.request();
+      nonSplitReq.input('RfqRef', sql.NVarChar(100), rfqReference);
+      nonSplitReq.input('ProdName', sql.NVarChar(255), productName);
+      splitRefs.forEach((ref, idx) => nonSplitReq.input(`sref_${idx}`, sql.NVarChar(100), ref));
+      const notInClause = splitRefs.length > 0 ? `AND OfferReference NOT IN (${splitRefs.map((_, idx) => `@sref_${idx}`).join(', ')})` : '';
+
+      await nonSplitReq.query(`
+        UPDATE [dbo].[SupplyOfffertbl]
+        SET Status = 'Not Selected',
+            UpdatedAt = GETDATE()
+        WHERE RfqReference = @RfqRef
+          AND LOWER(LTRIM(RTRIM(ProductName))) = LOWER(LTRIM(RTRIM(@ProdName)))
+          ${notInClause}
+          AND Status = 'Quotation Received';
+      `);
+
+      // Update SentSupplyOffers to Closed / Won
+      const sentReq = pool.request();
+      sentReq.input('RfqRef', sql.NVarChar(100), rfqReference);
+      sentReq.input('ProdName', sql.NVarChar(255), productName);
+      await sentReq.query(`
+        UPDATE [dbo].[SentSupplyOffers]
+        SET Status = 'Closed / Won'
+        WHERE RfqReference = @RfqRef
+          AND LOWER(LTRIM(RTRIM(ProductName))) = LOWER(LTRIM(RTRIM(@ProdName)));
+      `);
+
+      return res.json({
+        success: true,
+        action: 'multi-source-split',
+        message: `Multi-source split successfully awarded across ${splits.length} vendors! RFQ status set to Closed / Won.`
+      });
+    }
+
+    // ---------------------------------------------------------
+    // ACTION D: RESET EVALUATION STATUS
+    // ---------------------------------------------------------
+    if (action === 'reset') {
+      if (!rfqReference || !productName) {
+        return res.status(400).json({ success: false, message: 'rfqReference and productName are required to reset.' });
+      }
+
+      const resetReq = pool.request();
+      resetReq.input('RfqRef', sql.NVarChar(100), rfqReference);
+      resetReq.input('ProdName', sql.NVarChar(255), productName);
+      await resetReq.query(`
+        UPDATE [dbo].[SupplyOfffertbl]
+        SET Status = 'Quotation Received',
+            UpdatedAt = GETDATE()
+        WHERE RfqReference = @RfqRef
+          AND LOWER(LTRIM(RTRIM(ProductName))) = LOWER(LTRIM(RTRIM(@ProdName)));
+
+        UPDATE [dbo].[SentSupplyOffers]
+        SET Status = 'Sent'
+        WHERE RfqReference = @RfqRef
+          AND LOWER(LTRIM(RTRIM(ProductName))) = LOWER(LTRIM(RTRIM(@ProdName)));
+      `);
+
+      return res.json({
+        success: true,
+        action: 'reset',
+        message: 'Evaluation status reset back to Quotation Received.'
+      });
+    }
+
+    return res.status(400).json({ success: false, message: `Unknown evaluation action: ${action}` });
+  } catch (err) {
+    console.error("Error in supply-offers evaluate:", err.message);
+    return res.status(500).json({ success: false, message: "Server error processing evaluation action." });
+  }
+});
+
+// -------------------------------------------------------------
+// STAGE 7: BUYER ALLOCATION ENGINE & BUYER-SPECIFIC OFFERS
+// -------------------------------------------------------------
+
+async function ensureBuyerAllocationsTable(pool) {
+  await pool.request().query(`
+    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='BuyerAllocations' AND xtype='U')
+    CREATE TABLE [dbo].[BuyerAllocations] (
+      [Id] INT IDENTITY(1,1) PRIMARY KEY,
+      [AllocationRef] NVARCHAR(100) NOT NULL UNIQUE,
+      [EnquiryId] INT NOT NULL,
+      [OfferReference] NVARCHAR(100) NOT NULL,
+      [RfqReference] NVARCHAR(100) NOT NULL,
+      [OpportunityId] NVARCHAR(100) NULL,
+      [ProductId] NVARCHAR(100) NULL,
+      [ProductName] NVARCHAR(255) NOT NULL,
+      [Category] NVARCHAR(255) NULL,
+      [Grade] NVARCHAR(255) NULL,
+      [BuyerCompanyName] NVARCHAR(255) NOT NULL,
+      [BuyerContactPerson] NVARCHAR(255) NULL,
+      [BuyerEmail] NVARCHAR(255) NOT NULL,
+      [BuyerPhone] NVARCHAR(50) NULL,
+      [DeliveryLocation] NVARCHAR(255) NULL,
+      [Region] NVARCHAR(100) DEFAULT 'Domestic',
+      [TotalPoolDemand] DECIMAL(18, 2) NOT NULL,
+      [RequestedQuantity] DECIMAL(18, 2) NOT NULL,
+      [AllocatedQuantity] DECIMAL(18, 2) NOT NULL,
+      [Uom] NVARCHAR(50) DEFAULT 'MT',
+      [OfferedUnitPrice] DECIMAL(18, 2) NOT NULL,
+      [Currency] NVARCHAR(20) DEFAULT 'INR',
+      [PriceBasis] NVARCHAR(100) DEFAULT 'FOR Destination',
+      [FreightIncluded] BIT DEFAULT 1,
+      [FreightCharges] DECIMAL(18, 2) DEFAULT 0,
+      [GstRate] NVARCHAR(50) DEFAULT '18%',
+      [GstAmount] DECIMAL(18, 2) DEFAULT 0,
+      [OtherCharges] DECIMAL(18, 2) DEFAULT 0,
+      [TotalBasicAmount] DECIMAL(18, 2) NOT NULL,
+      [TotalEstimatedValue] DECIMAL(18, 2) NOT NULL,
+      [DeliveryLeadTimeDays] INT NULL,
+      [ExpectedDispatchDate] DATE NULL,
+      [ExpectedDeliveryDate] DATE NULL,
+      [DeliverySchedule] NVARCHAR(100) NULL,
+      [TransportationResponsibility] NVARCHAR(100) NULL,
+      [SupplierPaymentTerms] NVARCHAR(255) NULL,
+      [AdvancePaymentPercentage] DECIMAL(5, 2) DEFAULT 0,
+      [CreditPeriodDays] INT DEFAULT 0,
+      [OfferValidityHours] INT DEFAULT 48,
+      [OfferValidUntil] DATETIME NULL,
+      [Status] NVARCHAR(50) DEFAULT 'Allocated',
+      [BuyerRemarks] NVARCHAR(MAX) NULL,
+      [OfferEmailSentAt] DATETIME NULL,
+      [BuyerAcceptedAt] DATETIME NULL,
+      [BuyerPoNumber] NVARCHAR(100) NULL,
+      [BuyerPoFileUrl] NVARCHAR(MAX) NULL,
+      [CreatedAt] DATETIME DEFAULT GETDATE(),
+      [UpdatedAt] DATETIME DEFAULT GETDATE()
+    );
+  `);
+}
+
+// Generate or refresh buyer allocations for an awarded quote
+app.post('/api/buyer-allocations/generate', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    if (!pool) return res.status(500).json({ success: false, message: 'Database connection unavailable.' });
+
+    await ensureBuyerAllocationsTable(pool);
+
+    const { offerRef, rfqReference, productName } = req.body;
+    if (!rfqReference || !productName) {
+      return res.status(400).json({ success: false, message: 'rfqReference and productName are required.' });
+    }
+
+    // 1. Fetch winning quote
+    let quoteQuery = `
+      SELECT TOP 1 * FROM [dbo].[SupplyOfffertbl]
+      WHERE RfqReference = @RfqRef 
+        AND LOWER(LTRIM(RTRIM(ProductName))) = LOWER(LTRIM(RTRIM(@ProdName)))
+    `;
+    if (offerRef) {
+      quoteQuery += ` AND OfferReference = @OfferRef`;
+    } else {
+      quoteQuery += ` AND (Status = 'Awarded' OR Status = 'Split Awarded' OR Status = 'Quotation Received') ORDER BY CASE WHEN Status = 'Awarded' THEN 1 WHEN Status = 'Split Awarded' THEN 2 ELSE 3 END, CreatedAt DESC`;
+    }
+
+    const qReq = pool.request();
+    qReq.input('RfqRef', sql.NVarChar(100), rfqReference);
+    qReq.input('ProdName', sql.NVarChar(255), productName);
+    if (offerRef) qReq.input('OfferRef', sql.NVarChar(100), offerRef);
+
+    const qRes = await qReq.query(quoteQuery);
+    const quote = qRes.recordset[0];
+
+    if (!quote) {
+      return res.status(404).json({ success: false, message: 'No quotation found to generate allocations from.' });
+    }
+
+    // 2. Fetch all participating buyer enquiries for this product
+    const bReq = pool.request();
+    bReq.input('ProdName', sql.NVarChar(255), productName);
+    const bRes = await bReq.query(`
+      SELECT ce.* 
+      FROM [dbo].[CollectiveEnquiries] ce
+      WHERE LOWER(LTRIM(RTRIM(ce.ProductName))) = LOWER(LTRIM(RTRIM(@ProdName)))
+        AND (ce.Status IS NULL OR ce.Status <> 'Cancelled')
+      ORDER BY ce.Id ASC
+    `);
+
+    const enquiries = bRes.recordset || [];
+    if (enquiries.length === 0) {
+      return res.status(404).json({ success: false, message: `No buyer enquiries found for ${productName}.` });
+    }
+
+    const totalPoolDemand = enquiries.reduce((sum, e) => sum + (parseFloat(e.RequiredQuantity) || 0), 0) || 1;
+    const offeredQuantity = parseFloat(quote.OfferedQuantity) || totalPoolDemand;
+    const unitPrice = parseFloat(quote.OfferedUnitPrice) || 0;
+    const gstRateStr = String(quote.GstRate || '18%');
+    const gstRateNum = parseFloat(gstRateStr.replace(/[^0-9.]/g, '')) || 18;
+    const freightIncluded = Boolean(quote.FreightIncluded);
+    const freightCharges = parseFloat(quote.FreightCharges) || 0;
+    const otherCharges = parseFloat(quote.OtherCharges) || 0;
+
+    const allocationsGenerated = [];
+
+    for (const enq of enquiries) {
+      const reqQty = parseFloat(enq.RequiredQuantity) || 0;
+      let allocatedQty = reqQty;
+      if (offeredQuantity < totalPoolDemand && totalPoolDemand > 0) {
+        allocatedQty = Math.round(((reqQty / totalPoolDemand) * offeredQuantity) * 100) / 100;
+      }
+
+      const totalBasic = Math.round(allocatedQty * unitPrice);
+      const totalFreight = freightIncluded ? 0 : Math.round(freightCharges * allocatedQty);
+      const totalGst = Math.round((totalBasic * gstRateNum) / 100);
+      const totalEstimated = totalBasic + totalFreight + totalGst;
+
+      const allocRef = `ALLOC-${new Date().getFullYear()}-${enq.Id.toString().padStart(4, '0')}-${quote.Id || Date.now().toString().slice(-4)}`;
+
+      const insReq = pool.request();
+      insReq.input('AllocationRef', sql.NVarChar(100), allocRef);
+      insReq.input('EnquiryId', sql.Int, enq.Id);
+      insReq.input('OfferReference', sql.NVarChar(100), quote.OfferReference);
+      insReq.input('RfqReference', sql.NVarChar(100), rfqReference);
+      insReq.input('OpportunityId', sql.NVarChar(100), quote.OpportunityId || enq.ProductId || '');
+      insReq.input('ProductId', sql.NVarChar(100), enq.ProductId || '');
+      insReq.input('ProductName', sql.NVarChar(255), productName);
+      insReq.input('Category', sql.NVarChar(255), quote.Category || '');
+      insReq.input('Grade', sql.NVarChar(255), quote.Grade || '');
+      insReq.input('BuyerCompanyName', sql.NVarChar(255), enq.CompanyName || 'Valued Buyer');
+      insReq.input('BuyerContactPerson', sql.NVarChar(255), enq.ContactPerson || '');
+      insReq.input('BuyerEmail', sql.NVarChar(255), enq.Email || '');
+      insReq.input('BuyerPhone', sql.NVarChar(50), enq.Phone || '');
+      insReq.input('DeliveryLocation', sql.NVarChar(255), enq.DeliveryLocation || quote.Destination || '');
+      insReq.input('Region', sql.NVarChar(100), enq.Region || 'Domestic');
+      insReq.input('TotalPoolDemand', sql.Decimal(18, 2), totalPoolDemand);
+      insReq.input('RequestedQuantity', sql.Decimal(18, 2), reqQty);
+      insReq.input('AllocatedQuantity', sql.Decimal(18, 2), allocatedQty);
+      insReq.input('Uom', sql.NVarChar(50), quote.Uom || enq.Uom || 'MT');
+      insReq.input('OfferedUnitPrice', sql.Decimal(18, 2), unitPrice);
+      insReq.input('Currency', sql.NVarChar(20), quote.Currency || 'INR');
+      insReq.input('PriceBasis', sql.NVarChar(100), quote.PriceBasis || 'FOR Destination');
+      insReq.input('FreightIncluded', sql.Bit, freightIncluded ? 1 : 0);
+      insReq.input('FreightCharges', sql.Decimal(18, 2), freightCharges);
+      insReq.input('GstRate', sql.NVarChar(50), gstRateStr);
+      insReq.input('GstAmount', sql.Decimal(18, 2), totalGst);
+      insReq.input('OtherCharges', sql.Decimal(18, 2), otherCharges);
+      insReq.input('TotalBasicAmount', sql.Decimal(18, 2), totalBasic);
+      insReq.input('TotalEstimatedValue', sql.Decimal(18, 2), totalEstimated);
+      insReq.input('DeliveryLeadTimeDays', sql.Int, quote.DeliveryLeadTimeDays ? Number(quote.DeliveryLeadTimeDays) : null);
+      insReq.input('ExpectedDispatchDate', sql.Date, quote.ExpectedDispatchDate ? new Date(quote.ExpectedDispatchDate) : null);
+      insReq.input('ExpectedDeliveryDate', sql.Date, quote.ExpectedDeliveryDate ? new Date(quote.ExpectedDeliveryDate) : null);
+      insReq.input('DeliverySchedule', sql.NVarChar(100), quote.DeliverySchedule || 'As per Schedule');
+      insReq.input('TransportationResponsibility', sql.NVarChar(100), quote.TransportationResponsibility || 'Supplier Scope');
+      insReq.input('SupplierPaymentTerms', sql.NVarChar(255), quote.PaymentTerms || 'Standard Terms');
+      insReq.input('AdvancePaymentPercentage', sql.Decimal(5, 2), Number(quote.AdvancePaymentPercentage) || 0);
+      insReq.input('CreditPeriodDays', sql.Int, Number(quote.CreditPeriodDays) || 0);
+
+      await insReq.query(`
+        IF EXISTS (SELECT 1 FROM [dbo].[BuyerAllocations] WHERE EnquiryId = @EnquiryId AND RfqReference = @RfqReference)
+        BEGIN
+          UPDATE [dbo].[BuyerAllocations]
+          SET OfferReference = @OfferReference,
+              AllocatedQuantity = @AllocatedQuantity,
+              OfferedUnitPrice = @OfferedUnitPrice,
+              GstAmount = @GstAmount,
+              TotalBasicAmount = @TotalBasicAmount,
+              TotalEstimatedValue = @TotalEstimatedValue,
+              DeliveryLeadTimeDays = @DeliveryLeadTimeDays,
+              ExpectedDispatchDate = @ExpectedDispatchDate,
+              ExpectedDeliveryDate = @ExpectedDeliveryDate,
+              SupplierPaymentTerms = @SupplierPaymentTerms,
+              AdvancePaymentPercentage = @AdvancePaymentPercentage,
+              CreditPeriodDays = @CreditPeriodDays,
+              OfferValidUntil = DATEADD(hour, 48, GETDATE()),
+              UpdatedAt = GETDATE()
+          WHERE EnquiryId = @EnquiryId AND RfqReference = @RfqReference;
+        END
+        ELSE
+        BEGIN
+          INSERT INTO [dbo].[BuyerAllocations] (
+            AllocationRef, EnquiryId, OfferReference, RfqReference, OpportunityId, ProductId,
+            ProductName, Category, Grade, BuyerCompanyName, BuyerContactPerson, BuyerEmail,
+            BuyerPhone, DeliveryLocation, Region, TotalPoolDemand, RequestedQuantity,
+            AllocatedQuantity, Uom, OfferedUnitPrice, Currency, PriceBasis, FreightIncluded,
+            FreightCharges, GstRate, GstAmount, OtherCharges, TotalBasicAmount, TotalEstimatedValue,
+            DeliveryLeadTimeDays, ExpectedDispatchDate, ExpectedDeliveryDate, DeliverySchedule,
+            TransportationResponsibility, SupplierPaymentTerms, AdvancePaymentPercentage,
+            CreditPeriodDays, OfferValidityHours, OfferValidUntil, Status, CreatedAt, UpdatedAt
+          ) VALUES (
+            @AllocationRef, @EnquiryId, @OfferReference, @RfqReference, @OpportunityId, @ProductId,
+            @ProductName, @Category, @Grade, @BuyerCompanyName, @BuyerContactPerson, @BuyerEmail,
+            @BuyerPhone, @DeliveryLocation, @Region, @TotalPoolDemand, @RequestedQuantity,
+            @AllocatedQuantity, @Uom, @OfferedUnitPrice, @Currency, @PriceBasis, @FreightIncluded,
+            @FreightCharges, @GstRate, @GstAmount, @OtherCharges, @TotalBasicAmount, @TotalEstimatedValue,
+            @DeliveryLeadTimeDays, @ExpectedDispatchDate, @ExpectedDeliveryDate, @DeliverySchedule,
+            @TransportationResponsibility, @SupplierPaymentTerms, @AdvancePaymentPercentage,
+            @CreditPeriodDays, 48, DATEADD(hour, 48, GETDATE()), 'Allocated', GETDATE(), GETDATE()
+          );
+        END
+      `);
+
+      allocationsGenerated.push({
+        allocationRef: allocRef,
+        buyerCompanyName: enq.CompanyName,
+        buyerEmail: enq.Email,
+        allocatedQuantity: allocatedQty,
+        unitPrice,
+        totalEstimated
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Successfully generated ${allocationsGenerated.length} buyer allocation records. Offers are in Allocated status. You can now click "Send Offer Email" for each buyer when ready.`,
+      allocations: allocationsGenerated
+    });
+  } catch (err) {
+    console.error('Error generating buyer allocations:', err.message);
+    return res.status(500).json({ success: false, message: 'Server error generating buyer allocations.' });
+  }
+});
+
+// Fetch allocations for admin view
+app.get('/api/buyer-allocations', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    if (!pool) return res.json({ success: true, data: [] });
+
+    await ensureBuyerAllocationsTable(pool);
+
+    const { rfqReference, productName } = req.query;
+    let query = `SELECT * FROM [dbo].[BuyerAllocations] WHERE 1=1`;
+    const request = pool.request();
+
+    if (rfqReference) {
+      query += ` AND RfqReference = @RfqRef`;
+      request.input('RfqRef', sql.NVarChar(100), rfqReference);
+    }
+    if (productName) {
+      query += ` AND LOWER(LTRIM(RTRIM(ProductName))) = LOWER(LTRIM(RTRIM(@ProdName)))`;
+      request.input('ProdName', sql.NVarChar(255), productName);
+    }
+
+    query += ` ORDER BY Id DESC`;
+    const result = await request.query(query);
+
+    return res.json({ success: true, data: result.recordset || [] });
+  } catch (err) {
+    console.error('Error fetching buyer allocations:', err.message);
+    return res.status(500).json({ success: false, message: 'Server error fetching buyer allocations.' });
+  }
+});
+
+// Fetch single buyer allocation for public/buyer offer view (STRICT PRIVACY: Seller info masked)
+app.get('/api/buyer-allocations/view/:ref', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    if (!pool) return res.status(500).json({ success: false, message: 'Database connection unavailable.' });
+
+    await ensureBuyerAllocationsTable(pool);
+
+    const ref = req.params.ref;
+    const request = pool.request();
+    request.input('Ref', sql.NVarChar(100), ref);
+
+    const result = await request.query(`
+      SELECT 
+        Id,
+        AllocationRef,
+        EnquiryId,
+        RfqReference,
+        ProductName,
+        Category,
+        Grade,
+        BuyerCompanyName,
+        BuyerContactPerson,
+        DeliveryLocation,
+        Region,
+        TotalPoolDemand,
+        RequestedQuantity,
+        AllocatedQuantity,
+        Uom,
+        OfferedUnitPrice,
+        Currency,
+        PriceBasis,
+        FreightIncluded,
+        FreightCharges,
+        GstRate,
+        GstAmount,
+        OtherCharges,
+        TotalBasicAmount,
+        TotalEstimatedValue,
+        DeliveryLeadTimeDays,
+        ExpectedDispatchDate,
+        ExpectedDeliveryDate,
+        DeliverySchedule,
+        TransportationResponsibility,
+        SupplierPaymentTerms,
+        AdvancePaymentPercentage,
+        CreditPeriodDays,
+        OfferValidityHours,
+        OfferValidUntil,
+        Status,
+        OfferEmailSentAt,
+        BuyerAcceptedAt,
+        BuyerRemarks,
+        CreatedAt
+      FROM [dbo].[BuyerAllocations]
+      WHERE AllocationRef = @Ref OR CAST(Id AS NVARCHAR(50)) = @Ref
+    `);
+
+    const record = result.recordset[0];
+    if (!record) {
+      return res.status(404).json({ success: false, message: 'Allocation offer not found or link has expired.' });
+    }
+
+    // STRICT PRIVACY: Seller name is intentionally masked
+    record.SourcingPartner = "Verified Synergy5M Consortium Partner";
+
+    return res.json({ success: true, data: record });
+  } catch (err) {
+    console.error('Error fetching buyer offer view:', err.message);
+    return res.status(500).json({ success: false, message: 'Server error loading offer details.' });
+  }
+});
+
+// Dispatch offer email to buyer ONLY when triggered from UI click (NEVER automatically)
+app.post('/api/buyer-allocations/send-email', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    if (!pool) return res.status(500).json({ success: false, message: 'Database connection unavailable.' });
+
+    const { allocationRef } = req.body;
+    if (!allocationRef) {
+      return res.status(400).json({ success: false, message: 'allocationRef is required.' });
+    }
+
+    const request = pool.request();
+    request.input('Ref', sql.NVarChar(100), allocationRef);
+    const result = await request.query(`
+      SELECT * FROM [dbo].[BuyerAllocations] WHERE AllocationRef = @Ref OR CAST(Id AS NVARCHAR(50)) = @Ref
+    `);
+
+    const alloc = result.recordset[0];
+    if (!alloc) {
+      return res.status(404).json({ success: false, message: 'Allocation record not found.' });
+    }
+
+    if (!alloc.BuyerEmail) {
+      return res.status(400).json({ success: false, message: 'Buyer email address is missing for this allocation.' });
+    }
+
+    const appBaseUrl = 'https://synergy5m.com';
+    const viewOfferUrl = `${appBaseUrl}/buyer/offer/${encodeURIComponent(alloc.AllocationRef)}`;
+    const salesEmail = process.env.SALES_EMAIL || process.env.SMTP_USER || "sales@synergy5m.com";
+
+    const unitPriceDisplay = alloc.Currency === 'USD' ? `$${alloc.OfferedUnitPrice}` : `₹${Number(alloc.OfferedUnitPrice).toLocaleString('en-IN')}`;
+    const totalEstDisplay = alloc.Currency === 'USD' ? `$${alloc.TotalEstimatedValue}` : `₹${Number(alloc.TotalEstimatedValue).toLocaleString('en-IN')}`;
+
+    // STRICT ANONYMITY: Seller details are completely masked
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Consortium Offer Ready: ${alloc.ProductName}</title>
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #fff7ed; font-family: 'Inter', Helvetica, Arial, sans-serif; color: #334155;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #fff7ed; padding: 30px 0;">
+          <tr>
+            <td align="center">
+              <table width="650" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(249, 115, 22, 0.08); border: 1px solid #fed7aa;">
+                <!-- Header -->
+                <tr>
+                  <td style="background: linear-gradient(135deg, #0e7c86 0%, #065e66 100%); padding: 24px 30px; text-align: left;">
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td width="55" style="vertical-align: middle;">
+                          <div style="width: 48px; height: 48px; background: #ffffff; border-radius: 8px; text-align: center; line-height: 48px; font-weight: 800; color: #0e7c86; font-size: 18px;">
+                            S5
+                          </div>
+                        </td>
+                        <td style="vertical-align: middle; padding-left: 14px;">
+                          <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 700;">Synergy5M Consortium</h1>
+                          <p style="color: #ccfbf1; margin: 2px 0 0 0; font-size: 12.5px;">B2B Collective Procurement & Sourcing</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Content -->
+                <tr>
+                  <td style="padding: 30px 40px;">
+                    <div style="display: inline-block; background-color: #ecfdf5; color: #047857; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 6px; text-transform: uppercase; margin-bottom: 12px;">
+                      🎉 Bulk Discount Secured
+                    </div>
+                    
+                    <h2 style="color: #0f172a; font-size: 20px; margin: 0 0 14px 0; font-weight: 700;">
+                      Great News, ${alloc.BuyerCompanyName || alloc.BuyerContactPerson || 'Partner'}!
+                    </h2>
+
+                    <p style="font-size: 14.5px; line-height: 1.6; color: #475569; margin: 0 0 20px 0;">
+                      Your purchase requirement for <strong>${alloc.ProductName}</strong> was aggregated with compatible industrial buyers in the Synergy5M Consortium pool (${alloc.TotalPoolDemand} ${alloc.Uom} total pooled demand).
+                    </p>
+
+                    <p style="font-size: 14.5px; line-height: 1.6; color: #475569; margin: 0 0 24px 0;">
+                      We have secured an exclusive, audited factory bulk rate. Your allocated quota and pricing breakdown are ready for review:
+                    </p>
+
+                    <!-- Commercial Summary Card -->
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 24px;">
+                      <tr>
+                        <td style="padding: 20px;">
+                          <table width="100%" border="0" cellspacing="0" cellpadding="6" style="font-size: 13.5px;">
+                            <tr>
+                              <td style="color: #64748b; width: 40%; font-weight: 600;">Product:</td>
+                              <td style="color: #0f172a; font-weight: 700;">${alloc.ProductName} (${alloc.Grade || 'Standard Grade'})</td>
+                            </tr>
+                            <tr>
+                              <td style="color: #64748b; font-weight: 600;">Your Allocated Volume:</td>
+                              <td style="color: #047857; font-weight: 800; font-size: 15px;">${alloc.AllocatedQuantity} ${alloc.Uom}</td>
+                            </tr>
+                            <tr>
+                              <td style="color: #64748b; font-weight: 600;">Offered Unit Rate:</td>
+                              <td style="color: #0f172a; font-weight: 800; font-size: 16px;">${unitPriceDisplay} / ${alloc.Uom}</td>
+                            </tr>
+                            <tr>
+                              <td style="color: #64748b; font-weight: 600;">Freight Terms:</td>
+                              <td style="color: #334155;">${alloc.FreightIncluded ? 'Freight Included in Price' : `Freight Extra (+₹${alloc.FreightCharges}/${alloc.Uom})`}</td>
+                            </tr>
+                            <tr>
+                              <td style="color: #64748b; font-weight: 600;">GST / Taxes:</td>
+                              <td style="color: #334155;">+${alloc.GstRate} (₹${Number(alloc.GstAmount).toLocaleString('en-IN')})</td>
+                            </tr>
+                            <tr style="border-top: 1px solid #cbd5e1;">
+                              <td style="color: #0f172a; font-weight: 700; padding-top: 10px;">Total Landed Order Value:</td>
+                              <td style="color: #0f172a; font-weight: 800; font-size: 16px; padding-top: 10px;">${totalEstDisplay}</td>
+                            </tr>
+                            <tr>
+                              <td style="color: #64748b; font-weight: 600;">Turnaround / Lead Time:</td>
+                              <td style="color: #334155;">${alloc.DeliveryLeadTimeDays ? `${alloc.DeliveryLeadTimeDays} Days` : 'Standard Dispatch'}</td>
+                            </tr>
+                            <tr>
+                              <td style="color: #64748b; font-weight: 600;">Delivery Destination:</td>
+                              <td style="color: #334155;">📍 ${alloc.DeliveryLocation}</td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Validity Alert -->
+                    <div style="background-color: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px 16px; margin-bottom: 26px; font-size: 13px; color: #9a3412;">
+                      ⏳ <strong>Validity Notice:</strong> This pooled bulk quotation rate is reserved for your account for <strong>48 Hours</strong>. Please review and confirm your allocation to secure your shipment lot.
+                    </div>
+
+                    <!-- CTA Button -->
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="text-align: center; margin-bottom: 24px;">
+                      <tr>
+                        <td>
+                          <a href="${viewOfferUrl}" target="_blank" style="background: linear-gradient(135deg, #0e7c86 0%, #065e66 100%); color: #ffffff; padding: 14px 32px; font-size: 14.5px; font-weight: 700; text-decoration: none; border-radius: 8px; display: inline-block; box-shadow: 0 4px 14px rgba(14, 124, 134, 0.35);">
+                            👉 Review & Accept Allocation Offer
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 0;">
+                      Questions or need assistance? Reply to this email or reach us at <a href="mailto:sales@synergy5m.com" style="color: #0e7c86;">sales@synergy5m.com</a>.
+                    </p>
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 30px; text-align: center; font-size: 12px; color: #64748b;">
+                    Synergy5M LLP • Pune, Maharashtra, India • <a href="https://synergy5m.com/" style="color: #0e7c86; text-decoration: none;">https://synergy5m.com/</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const mailOptions = {
+      from: `"Synergy5M Procurement Consortium" <${process.env.SMTP_USER || "sales@synergy5m.com"}>`,
+      to: alloc.BuyerEmail,
+      subject: `Consortium Offer Ready: ${alloc.ProductName} - Review Your Allocated Bulk Rate`,
+      html: emailHtml
+    };
+
+    if (salesEmail && salesEmail.toLowerCase() !== alloc.BuyerEmail.toLowerCase()) {
+      mailOptions.cc = salesEmail;
+    }
+
+    dispatchEmailTasksInBackground([{ to: alloc.BuyerEmail, mailOptions }]);
+
+    const upReq = pool.request();
+    upReq.input('Ref', sql.NVarChar(100), alloc.AllocationRef);
+    await upReq.query(`
+      UPDATE [dbo].[BuyerAllocations]
+      SET Status = 'Offer Sent',
+          OfferEmailSentAt = GETDATE(),
+          OfferValidUntil = DATEADD(hour, 48, GETDATE()),
+          UpdatedAt = GETDATE()
+      WHERE AllocationRef = @Ref;
+    `);
+
+    return res.json({
+      success: true,
+      message: `Consortium offer email successfully dispatched to ${alloc.BuyerEmail}. 48-hour validity countdown started.`
+    });
+  } catch (err) {
+    console.error('Error dispatching buyer offer email:', err.message);
+    return res.status(500).json({ success: false, message: 'Server error sending buyer offer email.' });
+  }
+});
+
+// Buyer acceptance or decline endpoint
+app.post('/api/buyer-allocations/respond', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    if (!pool) return res.status(500).json({ success: false, message: 'Database connection unavailable.' });
+
+    const { allocationRef, response, remarks } = req.body;
+    if (!allocationRef || !response) {
+      return res.status(400).json({ success: false, message: 'allocationRef and response are required.' });
+    }
+
+    const newStatus = response === 'accept' ? 'Accepted' : 'Declined';
+    const upReq = pool.request();
+    upReq.input('Ref', sql.NVarChar(100), allocationRef);
+    upReq.input('Status', sql.NVarChar(50), newStatus);
+    upReq.input('Remarks', sql.NVarChar(sql.MAX), remarks || '');
+
+    await upReq.query(`
+      UPDATE [dbo].[BuyerAllocations]
+      SET Status = @Status,
+          BuyerRemarks = @Remarks,
+          BuyerAcceptedAt = CASE WHEN @Status = 'Accepted' THEN GETDATE() ELSE BuyerAcceptedAt END,
+          UpdatedAt = GETDATE()
+      WHERE AllocationRef = @Ref;
+    `);
+
+    return res.json({
+      success: true,
+      status: newStatus,
+      message: newStatus === 'Accepted'
+        ? 'Thank you! Your allocation acceptance has been recorded. Please proceed to issue your official Purchase Order.'
+        : 'Your response has been recorded.'
+    });
+  } catch (err) {
+    console.error('Error responding to buyer allocation:', err.message);
+    return res.status(500).json({ success: false, message: 'Server error recording response.' });
   }
 });
 

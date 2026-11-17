@@ -24,25 +24,6 @@ import {
 } from 'lucide-react';
 import './VendorSupplyOfferForm.css';
 
-// Default / Fallback RFQ context if opened directly without query parameters
-const DEFAULT_RFQ_CONTEXT = {
-  rfqReference: 'RFQ-CB-2026-0042',
-  vendorName: 'KETAN ALONI',
-  contactPerson: 'Ketan Aloni',
-  email: 'ketan.aloni@example.com',
-  mobile: '+91 98220 12345',
-  productName: 'Laptop',
-  category: 'Industrial Chemicals',
-  grade: 'Commercial Grade',
-  totalDemand: 84,
-  uom: 'MT',
-  destination: 'Pune, Maharashtra',
-  buyerEnquiries: [
-    { enquiryRef: 'CE-3', buyerName: 'SALES', requiredQty: 9, destination: 'Pune' },
-    { enquiryRef: 'CE-4', buyerName: 'SALES', requiredQty: 75, destination: 'Pune' }
-  ]
-};
-
 export default function VendorSupplyOfferForm() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -50,16 +31,19 @@ export default function VendorSupplyOfferForm() {
   // -------------------------------------------------------------
   // 1. Initial State Initialization from URL Query Params or Default
   // -------------------------------------------------------------
-  const initialRfqRef = searchParams.get('rfq') || DEFAULT_RFQ_CONTEXT.rfqReference;
+  const initialRfqRef = searchParams.get('rfq') || '';
+  const initialOfferRef = searchParams.get('offerRef') || '';
   const initialProdId = searchParams.get('prodId') || '';
-  const initialVendorName = searchParams.get('vendor') || DEFAULT_RFQ_CONTEXT.vendorName;
-  const initialEmail = searchParams.get('email') || DEFAULT_RFQ_CONTEXT.email;
-  const initialProduct = searchParams.get('product') || DEFAULT_RFQ_CONTEXT.productName;
-  const initialCategory = searchParams.get('category') || DEFAULT_RFQ_CONTEXT.category;
-  const initialGrade = searchParams.get('grade') || DEFAULT_RFQ_CONTEXT.grade;
-  const initialDemand = Number(searchParams.get('demand')) || DEFAULT_RFQ_CONTEXT.totalDemand;
-  const initialUom = searchParams.get('uom') || DEFAULT_RFQ_CONTEXT.uom;
-  const initialDest = searchParams.get('dest') || DEFAULT_RFQ_CONTEXT.destination;
+  const initialVendorName = searchParams.get('vendor') || '';
+  const initialEmail = searchParams.get('email') || '';
+  const initialProduct = searchParams.get('product') || '';
+  const initialCategory = searchParams.get('category') || '';
+  const initialGrade = searchParams.get('grade') || '';
+  const initialDemand = Number(searchParams.get('demand')) || 0;
+  const initialUom = searchParams.get('uom') || 'MT';
+  const initialDest = searchParams.get('dest') || '';
+  const counterRate = searchParams.get('counterRate') || '';
+  const prevRate = searchParams.get('prevRate') || '';
 
   // RFQ Read-Only Details
   const [rfqDetails, setRfqDetails] = useState({
@@ -72,7 +56,7 @@ export default function VendorSupplyOfferForm() {
     totalDemand: initialDemand,
     uom: initialUom,
     destination: initialDest,
-    buyerEnquiries: DEFAULT_RFQ_CONTEXT.buyerEnquiries
+    buyerEnquiries: []
   });
 
   // Today's date in YYYY-MM-DD
@@ -91,16 +75,16 @@ export default function VendorSupplyOfferForm() {
     vendorQuotationNo: `QT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
     quotationDate: todayStr,
     quotationValidUntil: defaultValidDate,
-    contactPerson: initialVendorName || DEFAULT_RFQ_CONTEXT.contactPerson,
-    emailAddress: initialEmail || DEFAULT_RFQ_CONTEXT.email,
-    mobileNumber: DEFAULT_RFQ_CONTEXT.mobile,
+    contactPerson: initialVendorName || '',
+    emailAddress: initialEmail || '',
+    mobileNumber: '',
 
     // Section 3 - Supply Offer Details
     canSupplyFull: true,
     offeredQuantity: initialDemand,
-    moq: Math.min(10, initialDemand),
-    maxSupplyCapacity: initialDemand * 1.5,
-    offeredUnitPrice: '',
+    moq: initialDemand > 0 ? Math.min(10, initialDemand) : 1,
+    maxSupplyCapacity: initialDemand > 0 ? (initialDemand * 1.5) : 0,
+    offeredUnitPrice: counterRate || '',
     currency: 'INR',
     priceBasis: 'FOR Destination',
     gstRate: '18%',
@@ -113,13 +97,7 @@ export default function VendorSupplyOfferForm() {
     productAvailability: 'Ready Stock',
 
     // Section 4 - Allocations across buyer enquiries
-    allocations: DEFAULT_RFQ_CONTEXT.buyerEnquiries.map((enq) => ({
-      enquiryRef: enq.enquiryRef,
-      buyerName: enq.buyerName,
-      requiredQty: enq.requiredQty,
-      offeredQty: enq.requiredQty,
-      destination: enq.destination
-    })),
+    allocations: [],
 
     // Section 5 - Delivery & Payment Terms
     deliveryLeadTime: '7',
@@ -161,69 +139,90 @@ export default function VendorSupplyOfferForm() {
   };
 
   // -------------------------------------------------------------
-  // 3. Fetch live RFQ data if opportunity ID is provided
+  // 3. Fetch live RFQ data & quotation context directly from DB
   // -------------------------------------------------------------
   useEffect(() => {
-    if (initialProdId) {
+    if (initialRfqRef || initialOfferRef || initialProdId || initialProduct) {
       setLoadingData(true);
-      fetch(`/api/collective-buying/opportunity-data/${encodeURIComponent(initialProdId)}`)
+      const params = new URLSearchParams();
+      if (initialRfqRef) params.set('rfq', initialRfqRef);
+      if (initialOfferRef) params.set('offerRef', initialOfferRef);
+      if (initialVendorName) params.set('vendor', initialVendorName);
+      if (initialProduct) params.set('product', initialProduct);
+
+      fetch(`/api/supply-offer/rfq-context?${params.toString()}`)
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
-          if (data && data.success && data.opportunity) {
-            const opp = data.opportunity;
-            const enquiries = Array.isArray(data.buyerEnquiries) && data.buyerEnquiries.length > 0
-              ? data.buyerEnquiries.map((e, idx) => ({
-                enquiryRef: e.enquiryReference || e.id || `CE-${idx + 1}`,
-                buyerName: e.buyerName || e.companyName || 'Verified Buyer',
-                requiredQty: Number(e.requiredQuantity || e.quantity || 0),
-                destination: e.deliveryLocation || e.destination || opp.destination || 'India'
-              }))
-              : DEFAULT_RFQ_CONTEXT.buyerEnquiries;
-
-            const computedTotal = enquiries.reduce((acc, curr) => acc + curr.requiredQty, 0);
+          if (data && data.success && data.rfqData) {
+            const rfq = data.rfqData;
+            const enquiries = Array.isArray(data.buyerBreakdown) && data.buyerBreakdown.length > 0
+              ? data.buyerBreakdown
+              : [];
+            const computedTotal = enquiries.length > 0
+              ? enquiries.reduce((acc, curr) => acc + (Number(curr.requiredQty) || 0), 0)
+              : (rfq.totalDemand || 0);
 
             setRfqDetails((prev) => ({
               ...prev,
-              productName: opp.productName || prev.productName,
-              category: opp.category || prev.category,
-              grade: opp.grade || opp.gradeVariant || prev.grade,
-              totalDemand: computedTotal || opp.totalDemand || prev.totalDemand,
-              uom: opp.uom || prev.uom,
-              destination: opp.destination || prev.destination,
+              rfqReference: rfq.rfqReference || prev.rfqReference || initialRfqRef,
+              opportunityId: rfq.opportunityId || prev.opportunityId || initialProdId,
+              productName: rfq.productName || prev.productName || initialProduct,
+              category: rfq.category || prev.category || initialCategory,
+              grade: rfq.grade || prev.grade || initialGrade,
+              totalDemand: computedTotal || rfq.totalDemand || prev.totalDemand || initialDemand,
+              uom: rfq.uom || prev.uom || initialUom,
+              destination: rfq.destination || prev.destination || initialDest,
+              vendorName: rfq.vendorName || prev.vendorName || initialVendorName,
               buyerEnquiries: enquiries
             }));
 
-            // Sync form allocations
-            setFormData((prev) => ({
-              ...prev,
-              offeredQuantity: computedTotal || prev.offeredQuantity,
-              allocations: enquiries.map((enq) => ({
-                enquiryRef: enq.enquiryRef,
-                buyerName: enq.buyerName,
-                requiredQty: enq.requiredQty,
-                offeredQty: enq.requiredQty,
-                destination: enq.destination
-              })),
-              staggeredSchedule: [
-                {
-                  id: 1,
-                  sequence: 'Consignment #1',
-                  quantity: computedTotal || prev.offeredQuantity,
-                  dispatchDate: todayStr,
-                  deliveryDate: defaultValidDate
-                }
-              ]
-            }));
+            // Sync form allocations & previous offer details (if under negotiation/revision)
+            setFormData((prev) => {
+              const prevOff = data.prevOffer;
+              const newDemand = computedTotal || rfq.totalDemand || prev.offeredQuantity || initialDemand;
+              return {
+                ...prev,
+                contactPerson: prevOff?.ContactPerson || rfq.contactPerson || prev.contactPerson || initialVendorName || '',
+                emailAddress: prevOff?.VendorEmail || rfq.vendorEmail || prev.emailAddress || initialEmail || '',
+                mobileNumber: prevOff?.MobileNumber || rfq.mobileNumber || prev.mobileNumber || '',
+                offeredQuantity: prevOff?.OfferedQuantity ? Number(prevOff.OfferedQuantity) : (newDemand || prev.offeredQuantity),
+                moq: prevOff?.Moq ? Number(prevOff.Moq) : Math.min(10, newDemand || 10),
+                maxSupplyCapacity: prevOff?.MaxSupplyCapacity ? Number(prevOff.MaxSupplyCapacity) : ((newDemand || 10) * 1.5),
+                offeredUnitPrice: counterRate || (prevOff?.OfferedUnitPrice ? String(prevOff.OfferedUnitPrice) : prev.offeredUnitPrice),
+                packagingType: prevOff?.PackagingType || prev.packagingType,
+                productAvailability: prevOff?.ProductAvailability || prev.productAvailability,
+                paymentTerms: prevOff?.PaymentTerms || prev.paymentTerms,
+                creditPeriodDays: prevOff?.CreditPeriodDays != null ? Number(prevOff.CreditPeriodDays) : prev.creditPeriodDays,
+                advancePaymentPercentage: prevOff?.AdvancePaymentPercentage != null ? Number(prevOff.AdvancePaymentPercentage) : prev.advancePaymentPercentage,
+                deliveryLeadTime: prevOff?.DeliveryLeadTimeDays != null ? String(prevOff.DeliveryLeadTimeDays) : prev.deliveryLeadTime,
+                allocations: enquiries.map((enq) => ({
+                  enquiryRef: enq.enquiryRef,
+                  buyerName: enq.buyerName,
+                  requiredQty: enq.requiredQty,
+                  offeredQty: enq.requiredQty,
+                  destination: enq.destination
+                })),
+                staggeredSchedule: [
+                  {
+                    id: 1,
+                    sequence: 'Consignment #1',
+                    quantity: newDemand || prev.offeredQuantity,
+                    dispatchDate: todayStr,
+                    deliveryDate: defaultValidDate
+                  }
+                ]
+              };
+            });
           }
         })
-        .catch(() => {
-          // Keep defaults smoothly
+        .catch((err) => {
+          console.error("Error fetching RFQ context from DB:", err);
         })
         .finally(() => setLoadingData(false));
     }
-  }, [initialProdId, todayStr, defaultValidDate]);
+  }, [initialRfqRef, initialOfferRef, initialProdId, initialProduct, initialVendorName, initialEmail, initialCategory, initialGrade, initialDemand, initialUom, initialDest, counterRate, todayStr, defaultValidDate]);
 
-  // Restore Draft from localStorage if available
+  // Restore Draft from localStorage if available (ignoring any stale mock data)
   useEffect(() => {
     try {
       const draftKey = `syn_erp_supply_offer_draft_${initialRfqRef}`;
@@ -231,8 +230,13 @@ export default function VendorSupplyOfferForm() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
-          setFormData((prev) => ({ ...prev, ...parsed }));
-          triggerToast('Draft restored from previous session.', 'info');
+          // Clear if old stale test data was stored
+          if (parsed.productName === 'Laptop' || parsed.contactPerson === 'Ketan Aloni') {
+            localStorage.removeItem(draftKey);
+          } else {
+            setFormData((prev) => ({ ...prev, ...parsed }));
+            triggerToast('Draft restored from previous session.', 'info');
+          }
         }
       }
     } catch (e) {
@@ -583,7 +587,8 @@ export default function VendorSupplyOfferForm() {
       termsConfirmed: formData.termsConfirmed,
       declarationConfirmed: formData.declarationConfirmed,
       platformDisclaimerConfirmed: formData.platformDisclaimerConfirmed,
-      status: 'Quotation Received'
+      status: 'Quotation Received',
+      revisingOfferRef: initialOfferRef || searchParams.get('offerRef') || undefined
     };
 
     try {
@@ -836,6 +841,63 @@ export default function VendorSupplyOfferForm() {
           {/* LEFT COLUMN: Main Form Sections */}
           <div className="syn-form-column">
 
+            {/* PRICE REVISION / COUNTER-OFFER REQUEST BANNER */}
+            {counterRate && (
+              <div style={{
+                background: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
+                border: '2px solid #ea580c',
+                borderRadius: '12px',
+                padding: '18px 24px',
+                marginBottom: '20px',
+                boxShadow: '0 4px 16px rgba(234, 88, 12, 0.12)',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '16px'
+              }}>
+                <div style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '50%',
+                  background: '#ea580c',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <RefreshCw size={22} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <span style={{
+                      background: '#ea580c',
+                      color: '#ffffff',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                      padding: '3px 8px',
+                      borderRadius: '4px'
+                    }}>
+                      Price Revision Requested
+                    </span>
+                    <h3 style={{ margin: 0, color: '#9a3412', fontSize: '16px', fontWeight: 700 }}>
+                      Consortium Target Counter-Rate: ₹{counterRate}/{rfqDetails.uom || 'MT'}
+                    </h3>
+                    {prevRate && (
+                      <span style={{ color: '#64748b', fontSize: '13px', textDecoration: 'line-through' }}>
+                        Previous Offer: ₹{prevRate}/{rfqDetails.uom || 'MT'}
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ margin: '6px 0 0', color: '#431407', fontSize: '13px', lineHeight: 1.5 }}>
+                    The Synergy5M Sourcing Committee has shortlisted your quotation for <strong>{rfqDetails.productName || 'this demand'}</strong>. 
+                    To match pooled consortium budgets and award the full volume of <strong>{rfqDetails.totalDemand} {rfqDetails.uom || 'MT'}</strong>, please review and re-submit your updated commercial offer below.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* SECTION 1: RFQ Details (Read Only) */}
             <div className="syn-card syn-card-readonly">
               <div className="syn-card-header">
@@ -910,19 +972,27 @@ export default function VendorSupplyOfferForm() {
                         </tr>
                       </thead>
                       <tbody>
-                        {rfqDetails.buyerEnquiries.map((enq, index) => (
-                          <tr key={index}>
-                            <td className="syn-mono font-medium">{enq.enquiryRef}</td>
-                            <td>Verified Buyer From {enq.destination}</td>
-                            <td className="syn-text-right font-semibold">
-                              {enq.requiredQty} {rfqDetails.uom}
-                            </td>
-                            {/* <td>{enq.destination}</td> */}
-                            <td>
-                              <span className="syn-status-mini syn-status-mini-cyan">Verified</span>
+                        {rfqDetails.buyerEnquiries && rfqDetails.buyerEnquiries.length > 0 ? (
+                          rfqDetails.buyerEnquiries.map((enq, index) => (
+                            <tr key={index}>
+                              <td className="syn-mono font-medium">{enq.enquiryRef}</td>
+                              <td>Verified Buyer From {enq.destination || rfqDetails.destination || 'Consortium'}</td>
+                              <td className="syn-text-right font-semibold">
+                                {enq.requiredQty} {rfqDetails.uom}
+                              </td>
+                              {/* <td>{enq.destination}</td> */}
+                              <td>
+                                <span className="syn-status-mini syn-status-mini-cyan">Verified</span>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="4" style={{ textAlign: 'center', padding: '16px', color: '#64748b' }}>
+                              {loadingData ? 'Syncing verified consortium demand from database...' : `Consolidated demand of ${rfqDetails.totalDemand || 0} ${rfqDetails.uom || 'MT'} pooled from verified buyers.`}
                             </td>
                           </tr>
-                        ))}
+                        )}
                       </tbody>
                       <tfoot>
                         <tr className="syn-table-total-row">
@@ -1719,7 +1789,7 @@ export default function VendorSupplyOfferForm() {
                   className="syn-btn syn-btn-primary syn-btn-lg"
                   onClick={handleOpenSubmitModal}
                 >
-                  <Send size={18} /> Submit Supply Offer
+                  <Send size={18} /> {counterRate ? 'Submit Revised Quotation' : 'Submit Supply Offer'}
                 </button>
               </div>
             </div>
@@ -1861,7 +1931,7 @@ export default function VendorSupplyOfferForm() {
                     className="syn-btn syn-btn-primary syn-btn-block"
                     onClick={handleOpenSubmitModal}
                   >
-                    Submit Supply Offer <ArrowRight size={16} />
+                    {counterRate ? 'Submit Revised Quotation' : 'Submit Supply Offer'} <ArrowRight size={16} />
                   </button>
 
                   <button
@@ -1969,7 +2039,7 @@ export default function VendorSupplyOfferForm() {
                   </>
                 ) : (
                   <>
-                    Confirm & Submit Offer <Check size={16} />
+                    {counterRate ? 'Confirm & Submit Revised Offer' : 'Confirm & Submit Offer'} <Check size={16} />
                   </>
                 )}
               </button>

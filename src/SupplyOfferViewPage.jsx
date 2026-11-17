@@ -171,7 +171,7 @@ export default function SupplyOfferViewPage() {
                     CollectiveBuy Consortium • Verified Industrial Sourcing & Demand Aggregation
                   </p>
                   <p className="sov-company-contact">
-                    Pune, Maharashtra, India • sales@synergy5m.com • www.synergy5m.com
+                    Pune, Maharashtra, India • sales@synergy5m.com • https://synergy5m.com/
                   </p>
                 </div>
               </div>

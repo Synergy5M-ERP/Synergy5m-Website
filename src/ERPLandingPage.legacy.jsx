@@ -332,8 +332,8 @@ const EnhancedERPPage = () => {
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "Synergy 5M LLP",
-    "url": "https://www.synergy5m.com",
-    "logo": "https://www.synergy5m.com/logo.png",
+    "url": "https://synergy5m.com",
+    "logo": "https://synergy5m.com/logo.png",
     "description": "Cloud-Based ERP for Indian MSMEs & Manufacturers. One-Time Cost, Full Data Control, White-Label ERP for Seamless Growth.",
     "email": "info@synergy5m.com",
     "telephone": ["+91-20-48646699", "+91-9423579446"],
@@ -379,8 +379,8 @@ const EnhancedERPPage = () => {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
     "name": "Synergy 5M LLP",
-    "image": "https://www.synergy5m.com/logo.png",
-    "url": "https://www.synergy5m.com",
+    "image": "https://synergy5m.com/logo.png",
+    "url": "https://synergy5m.com",
     "telephone": "+91-9423579446",
     "email": "info@synergy5m.com",
     "address": {
@@ -428,7 +428,7 @@ const EnhancedERPPage = () => {
         <meta name="author" content="Synergy 5M LLP" />
         <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
         <meta name="googlebot" content="index, follow" />
-        <link rel="canonical" href="https://www.synergy5m.com/" />
+        <link rel="canonical" href="https://synergy5m.com/" />
 
         {/* ── Geo / Local SEO ── */}
         <meta name="geo.region" content="IN-MH" />
@@ -438,14 +438,14 @@ const EnhancedERPPage = () => {
 
         {/* ── Open Graph / Facebook ── */}
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://www.synergy5m.com/" />
+        <meta property="og:url" content="https://synergy5m.com/" />
         <meta property="og:site_name" content="Synergy 5M LLP" />
         <meta property="og:title" content="Synergy 5M LLP | Cloud-Based ERP for Indian MSMEs & Manufacturers" />
         <meta
           property="og:description"
           content="SYN-8 ERP — Fully customizable, white-label Cloud ERP built for Indian MSMEs. One-time cost, Azure data ownership, GST compliance. Modules: Sales, Purchase, Inventory, Production, Finance, Quality, HR, MRP & BOM."
         />
-        <meta property="og:image" content="https://www.synergy5m.com/og-image.jpg" />
+        <meta property="og:image" content="https://synergy5m.com/og-image.jpg" />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
         <meta property="og:image:alt" content="Synergy 5M LLP - SYN-8 Cloud ERP Dashboard" />
@@ -460,7 +460,7 @@ const EnhancedERPPage = () => {
           name="twitter:description"
           content="SYN-8 ERP: fully customizable, white-label, one-time cost Cloud ERP for Indian MSMEs & manufacturers. Sales, Inventory, Production, Finance, HR, MRP, BOM & more."
         />
-        <meta name="twitter:image" content="https://www.synergy5m.com/og-image.jpg" />
+        <meta name="twitter:image" content="https://synergy5m.com/og-image.jpg" />
         <meta name="twitter:image:alt" content="SYN-8 ERP by Synergy 5M LLP" />
 
         {/* ── Mobile / PWA ── */}

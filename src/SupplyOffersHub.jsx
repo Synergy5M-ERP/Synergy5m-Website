@@ -24,7 +24,13 @@ import {
   Database,
   Inbox,
   FileCheck,
-  VenusAndMarsIcon
+  VenusAndMarsIcon,
+  Award,
+  Scale,
+  MessageSquare,
+  Split,
+  RotateCcw,
+  Users
 } from 'lucide-react';
 import './AdminAddProduct.css';
 import './SupplyOffersHub.css';
@@ -33,9 +39,11 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Active tab state: 'sent' | 'submitted'
+  // Active tab state: 'sent' | 'submitted' | 'evaluation'
   const initialTab = searchParams.get('tab') || defaultTab;
-  const [activeTab, setActiveTab] = useState(initialTab === 'submitted' ? 'submitted' : 'sent');
+  const [activeTab, setActiveTab] = useState(
+    initialTab === 'submitted' ? 'submitted' : initialTab === 'evaluation' ? 'evaluation' : 'sent'
+  );
 
   // Sidebar toggle states
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -52,6 +60,28 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
 
   // Selected quotation for modal preview
   const [selectedQuote, setSelectedQuote] = useState(null);
+
+  // Evaluation action states (Step 5)
+  const [selectedEvalKey, setSelectedEvalKey] = useState('');
+  const [awardModal, setAwardModal] = useState(null); // { quote, group }
+  const [awardRemarks, setAwardRemarks] = useState('');
+
+  const [counterModal, setCounterModal] = useState(null); // { quote, group }
+  const [counterPrice, setCounterPrice] = useState('');
+  const [counterRemarks, setCounterRemarks] = useState('');
+
+  const [splitModal, setSplitModal] = useState(null); // { group }
+  const [splitState, setSplitState] = useState({}); // { [offerRef]: { allocatedQty, splitPercent, remarks } }
+
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionSuccess, setActionSuccess] = useState('');
+
+  // Stage 7: Buyer Allocation states
+  const [buyerAllocations, setBuyerAllocations] = useState([]);
+  const [allocationsLoading, setAllocationsLoading] = useState(false);
+  const [allocationsGenerating, setAllocationsGenerating] = useState(false);
+  const [emailSendingState, setEmailSendingState] = useState({});
+  const [emailConfirmModal, setEmailConfirmModal] = useState(null); // { allocation }
 
   // Fetch both sent and submitted records
   const fetchHubData = useCallback(async () => {
@@ -88,10 +118,189 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
 
   // Sync tab with URL parameter if passed
   useEffect(() => {
-    if (defaultTab && (defaultTab === 'sent' || defaultTab === 'submitted')) {
+    if (defaultTab && (defaultTab === 'sent' || defaultTab === 'submitted' || defaultTab === 'evaluation')) {
       setActiveTab(defaultTab);
     }
   }, [defaultTab]);
+
+  // Group submitted offers by RFQ Reference and Product Name for Step 5: Commercial Evaluation
+  const evaluationGroups = useMemo(() => {
+    const map = {};
+    (submittedOffers || []).forEach(quote => {
+      const rfq = quote.RfqReference || 'N/A';
+      const prod = quote.ProductName || 'Unknown Product';
+      const key = `${rfq}:::${prod}`;
+      if (!map[key]) {
+        const matchingSent = sentOffers.find(
+          s => s.RfqReference === rfq &&
+            String(s.ProductName || '').trim().toLowerCase() === String(prod).trim().toLowerCase()
+        );
+        map[key] = {
+          key,
+          rfqReference: rfq,
+          productName: prod,
+          category: quote.Category || matchingSent?.Category || '',
+          grade: quote.Grade || matchingSent?.Grade || '',
+          totalDemand: matchingSent?.TotalDemand || quote.TotalRequiredDemand || 0,
+          uom: quote.Uom || matchingSent?.Uom || 'MT',
+          destination: quote.Destination || matchingSent?.Destination || '',
+          sendStatus: matchingSent?.SendStatus || matchingSent?.Status || 'Sent',
+          quotes: []
+        };
+      }
+      map[key].quotes.push(quote);
+    });
+
+    return Object.values(map);
+  }, [submittedOffers, sentOffers]);
+
+  // Initialize selected evaluation product
+  useEffect(() => {
+    if (evaluationGroups.length > 0 && !selectedEvalKey) {
+      setSelectedEvalKey(evaluationGroups[0].key);
+    }
+  }, [evaluationGroups, selectedEvalKey]);
+
+  const activeEvalGroup = useMemo(() => {
+    return evaluationGroups.find(g => g.key === selectedEvalKey) || evaluationGroups[0] || null;
+  }, [evaluationGroups, selectedEvalKey]);
+
+  // Execute Step 5 Evaluation action
+  const handleEvaluateAction = async (payload) => {
+    setActionLoading(true);
+    setActionSuccess('');
+    setError(null);
+    try {
+      const res = await fetch('/api/supply-offers/evaluate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to process evaluation action.');
+      }
+
+      setActionSuccess(data.message || 'Action executed successfully.');
+      setAwardModal(null);
+      setCounterModal(null);
+      setSplitModal(null);
+      await fetchHubData();
+
+      // Automatically generate allocations if quote is awarded or split awarded
+      if (payload.action === 'award' || payload.action === 'multi-source-split') {
+        try {
+          await fetch('/api/buyer-allocations/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              rfqReference: payload.rfqReference,
+              productName: payload.productName,
+              offerRef: payload.offerRef
+            })
+          });
+          if (activeEvalGroup) {
+            await fetchAllocationsForActiveGroup(activeEvalGroup.rfqReference, activeEvalGroup.productName);
+          }
+        } catch (allocErr) {
+          console.warn('Auto-generation of allocations notice:', allocErr);
+        }
+      }
+    } catch (err) {
+      console.error('Evaluation action error:', err);
+      setError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Fetch buyer allocations for the current active product & RFQ
+  const fetchAllocationsForActiveGroup = useCallback(async (rfq, prod) => {
+    if (!rfq || !prod) {
+      setBuyerAllocations([]);
+      return;
+    }
+    setAllocationsLoading(true);
+    try {
+      const res = await fetch(`/api/buyer-allocations?rfqReference=${encodeURIComponent(rfq)}&productName=${encodeURIComponent(prod)}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setBuyerAllocations(data.data);
+      } else {
+        setBuyerAllocations([]);
+      }
+    } catch (err) {
+      console.error('Error fetching allocations:', err);
+      setBuyerAllocations([]);
+    } finally {
+      setAllocationsLoading(false);
+    }
+  }, []);
+
+  // Sync allocations whenever active product or tab changes
+  useEffect(() => {
+    if (activeTab === 'evaluation' && activeEvalGroup) {
+      fetchAllocationsForActiveGroup(activeEvalGroup.rfqReference, activeEvalGroup.productName);
+    }
+  }, [activeTab, activeEvalGroup, fetchAllocationsForActiveGroup]);
+
+  // Generate or refresh buyer allocations for active product
+  const handleGenerateAllocations = async (quoteOfferRef = null) => {
+    if (!activeEvalGroup) return;
+    setAllocationsGenerating(true);
+    setActionSuccess('');
+    setError(null);
+    try {
+      const res = await fetch('/api/buyer-allocations/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rfqReference: activeEvalGroup.rfqReference,
+          productName: activeEvalGroup.productName,
+          offerRef: quoteOfferRef
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to generate buyer allocations.');
+      }
+      setActionSuccess(data.message);
+      await fetchAllocationsForActiveGroup(activeEvalGroup.rfqReference, activeEvalGroup.productName);
+    } catch (err) {
+      console.error('Error generating allocations:', err);
+      setError(err.message);
+    } finally {
+      setAllocationsGenerating(false);
+    }
+  };
+
+  // Dispatch buyer offer email strictly upon manual UI action (never automatically)
+  const handleSendBuyerOfferEmail = async (allocationRef) => {
+    if (!allocationRef) return;
+    setEmailSendingState(prev => ({ ...prev, [allocationRef]: true }));
+    setError(null);
+    try {
+      const res = await fetch('/api/buyer-allocations/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ allocationRef })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to dispatch offer email to buyer.');
+      }
+      setActionSuccess(data.message);
+      setEmailConfirmModal(null);
+      if (activeEvalGroup) {
+        await fetchAllocationsForActiveGroup(activeEvalGroup.rfqReference, activeEvalGroup.productName);
+      }
+    } catch (err) {
+      console.error('Error sending buyer email:', err);
+      setError(err.message);
+    } finally {
+      setEmailSendingState(prev => ({ ...prev, [allocationRef]: false }));
+    }
+  };
 
   // Open Submit Offer page
   const handleOpenSubmitOffer = (url, fallbackRfq = '') => {
@@ -107,10 +316,20 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
     }
   };
 
-  // Filter Dispatched Offers
+  // Filter Dispatched Offers (Deduplicated so 1 vendor and 1 product shows only once)
   const filteredSentOffers = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    return sentOffers.filter(item => {
+    const seen = new Set();
+    const deduped = [];
+    for (const item of (sentOffers || [])) {
+      const key = `${item.RfqReference || ''}:::${(item.ProductName || '').toLowerCase().trim()}:::${(item.VendorName || item.VendorEmail || '').toLowerCase().trim()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduped.push(item);
+      }
+    }
+
+    return deduped.filter(item => {
       const matchesSearch =
         !q ||
         (item.RfqReference && item.RfqReference.toLowerCase().includes(q)) ||
@@ -312,11 +531,7 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                   <FileCheck className="w-4 h-4 text-teal-300 flex-shrink-0" />
                   {!sidebarCollapsed && <span>Opportunity View</span>}
                 </div>
-                {!sidebarCollapsed && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-900/60 text-teal-200 font-bold uppercase tracking-wider">
-                    SG-5
-                  </span>
-                )}
+
               </Link>
               {sidebarCollapsed && (
                 <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden lg:flex items-center z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
@@ -327,16 +542,9 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
               )}
             </div>
 
-            {/* Section Divider: Procurement & Offers */}
-            <div className="pt-3 pb-1 border-t border-slate-700/60 mt-3">
-              {!sidebarCollapsed && (
-                <div className="px-3 text-[10.5px] font-bold uppercase tracking-wider text-teal-400/80 mb-1">
-                  Procurement & Offers
-                </div>
-              )}
-            </div>
 
-            {/* 6. Dispatch RFQ */}
+
+            {/* 6. Sent Supply Offer */}
             <div className="relative group">
               <Link
                 to="/supply-offers"
@@ -349,27 +557,87 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                     ? 'bg-[#0E7C86] text-white shadow-sm font-semibold'
                     : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
                   }`}
-                title="Dispatch RFQ"
+                title="Sent Supply Offer"
               >
                 <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
                   <Send className={`w-4 h-4 flex-shrink-0 ${activeTab === 'sent' ? 'text-teal-100' : 'text-orange-400'}`} />
-                  {!sidebarCollapsed && <span>Dispatch RFQ</span>}
+                  {!sidebarCollapsed && <span>Sent Supply Offer</span>}
                 </div>
-                {!sidebarCollapsed && (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${activeTab === 'sent' ? 'bg-teal-900/60 text-teal-100' : 'bg-orange-500/20 text-orange-300'
-                    }`}>
-                    Sent
-                  </span>
-                )}
+
               </Link>
               {sidebarCollapsed && (
                 <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden lg:flex items-center z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                   <div className="bg-[#0A1E33] text-white text-xs font-semibold px-2.5 py-1.5 rounded shadow-lg border border-slate-700 whitespace-nowrap">
-                    Dispatch RFQ
+                    Sent Supply Offer
                   </div>
                 </div>
               )}
             </div>
+
+
+
+
+            {/* 8. Submitted Offer */}
+            <div className="relative group">
+              <Link
+                to="/submittedoffer"
+                onClick={() => {
+                  setActiveTab('submitted');
+                  setSidebarOpen(false);
+                }}
+                className={`flex items-center rounded-md transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
+                  } ${activeTab === 'submitted'
+                    ? 'bg-[#0E7C86] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                  }`}
+                title="Submitted Offer"
+              >
+                <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+                  <FileText className={`w-4 h-4 flex-shrink-0 ${activeTab === 'submitted' ? 'text-teal-100' : 'text-emerald-400'}`} />
+                  {!sidebarCollapsed && <span>Submitted Offer</span>}
+                </div>
+
+              </Link>
+              {sidebarCollapsed && (
+                <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden lg:flex items-center z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <div className="bg-[#0A1E33] text-white text-xs font-semibold px-2.5 py-1.5 rounded shadow-lg border border-slate-700 whitespace-nowrap">
+                    Submitted Offer
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 9. Commercial Evaluation (Step 5) */}
+            <div className="relative group">
+              <Link
+                to="/commercial-evaluation"
+                onClick={() => {
+                  setActiveTab('evaluation');
+                  window.history.replaceState(null, '', '/commercial-evaluation');
+                  setSidebarOpen(false);
+                }}
+                className={`flex items-center rounded-md transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
+                  } ${activeTab === 'evaluation'
+                    ? 'bg-[#0E7C86] text-white shadow-sm font-semibold'
+                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                  }`}
+                title="Commercial Evaluation & Comparison (Step 5)"
+              >
+                <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+                  <Award className={`w-4 h-4 flex-shrink-0 ${activeTab === 'evaluation' ? 'text-teal-100' : 'text-amber-400'}`} />
+                  {!sidebarCollapsed && <span>Commercial Evaluation</span>}
+                </div>
+
+              </Link>
+              {sidebarCollapsed && (
+                <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden lg:flex items-center z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <div className="bg-[#0A1E33] text-white text-xs font-semibold px-2.5 py-1.5 rounded shadow-lg border border-slate-700 whitespace-nowrap">
+                    Commercial Evaluation
+                  </div>
+                </div>
+              )}
+            </div>
+
 
 
             {/* 7. Admin Panel */}
@@ -399,41 +667,6 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                 <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden lg:flex items-center z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                   <div className="bg-[#0A1E33] text-white text-xs font-semibold px-2.5 py-1.5 rounded shadow-lg border border-slate-700 whitespace-nowrap">
                     Admin Panel
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* 8. Submitted Offer */}
-            <div className="relative group">
-              <Link
-                to="/submittedoffer"
-                onClick={() => {
-                  setActiveTab('submitted');
-                  setSidebarOpen(false);
-                }}
-                className={`flex items-center rounded-md transition-all ${sidebarCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
-                  } ${activeTab === 'submitted'
-                    ? 'bg-[#0E7C86] text-white shadow-sm font-semibold'
-                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-                  }`}
-                title="Submitted Offer"
-              >
-                <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
-                  <FileText className={`w-4 h-4 flex-shrink-0 ${activeTab === 'submitted' ? 'text-teal-100' : 'text-emerald-400'}`} />
-                  {!sidebarCollapsed && <span>Submitted Offer</span>}
-                </div>
-                {!sidebarCollapsed && (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${activeTab === 'submitted' ? 'bg-teal-900/60 text-teal-100' : 'bg-emerald-500/20 text-emerald-300'
-                    }`}>
-                    Quotes
-                  </span>
-                )}
-              </Link>
-              {sidebarCollapsed && (
-                <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden lg:flex items-center z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                  <div className="bg-[#0A1E33] text-white text-xs font-semibold px-2.5 py-1.5 rounded shadow-lg border border-slate-700 whitespace-nowrap">
-                    Submitted Offer
                   </div>
                 </div>
               )}
@@ -506,6 +739,19 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                     <span>Submitted Offers</span>
                     <span className="soh-tab-badge">{submittedOffers.length}</span>
                   </button>
+
+                  <button
+                    type="button"
+                    className={`soh-tab-btn ${activeTab === 'evaluation' ? 'active' : ''}`}
+                    onClick={() => {
+                      setActiveTab('evaluation');
+                      window.history.replaceState(null, '', '/commercial-evaluation');
+                    }}
+                  >
+                    <Award size={15} />
+                    <span>Commercial Evaluation (Step 5)</span>
+                    <span className="soh-tab-badge">{evaluationGroups.length}</span>
+                  </button>
                 </div>
 
                 {/* Search bar displayed right in the tabs row */}
@@ -516,7 +762,9 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                     placeholder={
                       activeTab === 'sent'
                         ? 'Search RFQ Ref, Vendor, Product...'
-                        : 'Search Offer Ref, Quotation, Vendor...'
+                        : activeTab === 'submitted'
+                          ? 'Search Offer Ref, Quotation, Vendor...'
+                          : 'Search Evaluation Products, Quotes, Vendors...'
                     }
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
@@ -587,7 +835,7 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                       className="soh-btn-primary"
                       onClick={() => navigate('/admin/opportunity-view')}
                     >
-                      Go to Opportunities to Dispatch RFQ
+                      Go to Opportunities to Sent Supply Offer
                     </button>
                   </div>
                 ) : (
@@ -881,6 +1129,650 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                 )}
               </div>
             )}
+
+            {/* ========================================================================= */}
+            {/* TAB 3: COMMERCIAL EVALUATION & COMPARISON MATRIX (STEP 5) */}
+            {/* ========================================================================= */}
+            {activeTab === 'evaluation' && (
+              <div className="soh-card">
+                <div className="soh-card-header" style={{ borderBottom: 'none', paddingBottom: '8px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                        Commercial Phase
+                      </span>
+                      <h2 className="soh-card-title" style={{ margin: 0 }}>Commercial Evaluation & Quote Awarding</h2>
+                    </div>
+                    <p className="soh-card-subtitle">
+                      Compare competing seller offers on <b>Landed Unit Price</b>, <b>Capacity</b>, <b>Lead Time</b>, and <b>Payment Terms</b>. Award the winning quotation, request price revisions, or execute multi-source splits.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Success Message Banner */}
+                {actionSuccess && (
+                  <div style={{ margin: '0 24px 16px 24px', padding: '12px 16px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '8px', color: '#065f46', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <CheckCircle2 size={16} />
+                      <span>{actionSuccess}</span>
+                    </div>
+                    <button type="button" onClick={() => setActionSuccess('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#065f46' }}>
+                      <X size={15} />
+                    </button>
+                  </div>
+                )}
+
+                {loading ? (
+                  <div className="soh-loading">
+                    <RefreshCw size={28} className="soh-spin" />
+                    <p>Loading quotations for commercial evaluation...</p>
+                  </div>
+                ) : evaluationGroups.length === 0 ? (
+                  <div className="soh-empty">
+                    <Scale size={42} style={{ color: '#94a3b8', margin: '0 auto 16px auto' }} />
+                    <h3>No Quotations Available for Evaluation</h3>
+                    <p>
+                      No sellers have submitted quotations yet. Once vendors respond to dispatched RFQs, their offers will appear here for commercial evaluation.
+                    </p>
+                    <button
+                      type="button"
+                      className="soh-btn-primary"
+                      onClick={() => setActiveTab('sent')}
+                    >
+                      View Dispatched RFQ Offers
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ padding: '0 24px 24px 24px' }}>
+                    {/* Horizontal Product Selector Chips */}
+                    <div className="soh-eval-product-selector">
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginRight: '4px' }}>
+                        Products Ready:
+                      </span>
+                      {evaluationGroups.map((group) => {
+                        const isSelected = activeEvalGroup?.key === group.key;
+                        const hasAwarded = group.quotes.some(q => q.Status === 'Awarded' || q.Status === 'Split Awarded');
+                        const hasNegotiation = group.quotes.some(q => q.Status === 'Under Negotiation');
+
+                        return (
+                          <button
+                            key={group.key}
+                            type="button"
+                            className={`soh-eval-product-chip ${isSelected ? 'active' : ''}`}
+                            onClick={() => setSelectedEvalKey(group.key)}
+                          >
+                            <span>{group.productName}</span>
+                            <span style={{ fontSize: '11px', opacity: 0.8 }}>({group.rfqReference})</span>
+                            <span className="chip-count">
+                              {group.quotes.length} {group.quotes.length === 1 ? 'Quote' : 'Quotes'}
+                            </span>
+                            {hasAwarded ? (
+                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} title="Awarded" />
+                            ) : hasNegotiation ? (
+                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} title="Under Negotiation" />
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Active Selected Product Summary Bar */}
+                    {activeEvalGroup && (
+                      <div style={{ marginTop: '20px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 20px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
+                              {activeEvalGroup.productName}
+                            </h3>
+                            <span style={{ background: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '4px' }}>
+                              {activeEvalGroup.rfqReference}
+                            </span>
+                            {activeEvalGroup.category && (
+                              <span style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '11px', fontWeight: '600', padding: '2px 8px', borderRadius: '4px' }}>
+                                {activeEvalGroup.category}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '6px', fontSize: '13px', color: '#475569' }}>
+                            <span>Total Pooled Demand: <strong style={{ color: '#0f172a' }}>{activeEvalGroup.totalDemand} {activeEvalGroup.uom}</strong></span>
+                            {activeEvalGroup.destination && <span>• Destination: <strong>{activeEvalGroup.destination}</strong></span>}
+                            <span>• Competing Quotations: <strong>{activeEvalGroup.quotes.length}</strong></span>
+                          </div>
+                        </div>
+
+                        {/* Top Group Actions */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            style={{
+                              background: '#ffffff',
+                              border: '1px solid #cbd5e1',
+                              color: '#334155',
+                              padding: '8px 14px',
+                              borderRadius: '8px',
+                              fontSize: '12.5px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}
+                            title="Execute multi-source volume split across competing vendors"
+                            onClick={() => {
+                              const initSplits = {};
+                              const count = activeEvalGroup.quotes.length;
+                              const eachQty = count > 0 ? (activeEvalGroup.totalDemand / count).toFixed(1) : 0;
+                              const eachPct = count > 0 ? (100 / count).toFixed(1) : 0;
+                              activeEvalGroup.quotes.forEach(q => {
+                                initSplits[q.OfferReference] = {
+                                  allocatedQty: eachQty,
+                                  splitPercent: eachPct,
+                                  remarks: ''
+                                };
+                              });
+                              setSplitState(initSplits);
+                              setSplitModal({ group: activeEvalGroup });
+                            }}
+                          >
+                            <Split size={14} className="text-purple-600" />
+                            <span>Multi-Source Split</span>
+                          </button>
+
+                          {activeEvalGroup.quotes.some(q => q.Status === 'Awarded' || q.Status === 'Split Awarded' || q.Status === 'Under Negotiation') && (
+                            <button
+                              type="button"
+                              style={{
+                                background: '#f8fafc',
+                                border: '1px solid #e2e8f0',
+                                color: '#64748b',
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}
+                              title="Reset all quotes for this product back to Quotation Received"
+                              onClick={() => {
+                                if (window.confirm(`Are you sure you want to reopen and reset all quotes for ${activeEvalGroup.productName} back to Quotation Received?`)) {
+                                  handleEvaluateAction({
+                                    action: 'reset',
+                                    rfqReference: activeEvalGroup.rfqReference,
+                                    productName: activeEvalGroup.productName
+                                  });
+                                }
+                              }}
+                            >
+                              <RotateCcw size={13} />
+                              <span>Reset Status</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Comparison Cards Grid */}
+                    {activeEvalGroup && (
+                      <div className="soh-eval-matrix-grid" style={{ marginTop: '20px' }}>
+                        {activeEvalGroup.quotes.map((quote, idx) => {
+                          const isAwarded = quote.Status === 'Awarded';
+                          const isNegotiation = quote.Status === 'Under Negotiation';
+                          const isSplit = quote.Status === 'Split Awarded';
+                          const isNotSelected = quote.Status === 'Not Selected';
+
+                          // Landed Unit Price Calculation
+                          const basePrice = Number(quote.OfferedUnitPrice || 0);
+                          const freightExtra = !quote.FreightIncluded ? (Number(quote.FreightCharges || 0)) : 0;
+                          const otherCharges = Number(quote.OtherCharges || 0);
+                          const netLandedRate = basePrice + freightExtra + otherCharges;
+
+                          const offeredQty = Number(quote.OfferedQuantity || 0);
+                          const totalDemand = Number(activeEvalGroup.totalDemand || 0);
+                          const supplyPercent = totalDemand > 0 ? Math.min(100, Math.round((offeredQty / totalDemand) * 100)) : 100;
+
+                          return (
+                            <div
+                              key={quote.Id || quote.OfferReference}
+                              className={`soh-eval-card ${isAwarded ? 'is-awarded' : isNegotiation ? 'is-negotiation' : ''}`}
+                            >
+                              {/* Card Header */}
+                              <div className="soh-eval-card-header">
+                                <div style={{ minWidth: 0, flex: 1 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700' }}>
+                                      BID #{idx + 1}
+                                    </span>
+                                    <span className="soh-ref-badge" style={{ fontSize: '11px' }}>
+                                      {quote.OfferReference || `OFF-${quote.Id}`}
+                                    </span>
+                                  </div>
+                                  <h4 style={{ margin: '4px 0 2px 0', fontSize: '15px', fontWeight: '800', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {quote.VendorName}
+                                  </h4>
+                                  <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                                    Quote #{quote.VendorQuotationNo || 'N/A'} • {quote.ContactPerson || quote.VendorEmail}
+                                  </div>
+                                </div>
+
+                                {/* Status Badge */}
+                                <div>
+                                  {isAwarded ? (
+                                    <span className="soh-eval-status-badge awarded">
+                                      <Award size={12} />
+                                      <span>Awarded</span>
+                                    </span>
+                                  ) : isSplit ? (
+                                    <span className="soh-eval-status-badge" style={{ background: '#f3e8ff', color: '#6b21a8', border: '1px solid #d8b4fe' }}>
+                                      <Split size={12} />
+                                      <span>Split Award</span>
+                                    </span>
+                                  ) : isNegotiation ? (
+                                    <span className="soh-eval-status-badge negotiation">
+                                      <MessageSquare size={12} />
+                                      <span>Negotiation</span>
+                                    </span>
+                                  ) : isNotSelected ? (
+                                    <span className="soh-eval-status-badge not-selected">
+                                      <span>Not Selected</span>
+                                    </span>
+                                  ) : (
+                                    <span className="soh-eval-status-badge received">
+                                      <Clock size={12} />
+                                      <span>Under Review</span>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Card Body: 4 Comparison Criteria */}
+                              <div className="soh-eval-card-body">
+                                {/* 1. Net Landed Unit Price */}
+                                <div className="soh-eval-metric-row">
+                                  <div className="soh-eval-metric-title">
+                                    <Scale size={13} className="text-teal-600" />
+                                    <span>1. Net Landed Unit Price</span>
+                                  </div>
+                                  <div className="soh-eval-landed-rate-box">
+                                    <div className="soh-eval-big-price">
+                                      ₹{Number(netLandedRate).toLocaleString('en-IN')}/{quote.Uom || 'MT'}
+                                    </div>
+                                    <div className="soh-eval-breakdown-text">
+                                      Basic: ₹{Number(basePrice).toLocaleString('en-IN')}
+                                      {quote.FreightIncluded ? ' • Freight Inc.' : freightExtra > 0 ? ` • +₹${freightExtra} Freight` : ''}
+                                      {otherCharges > 0 && ` • +₹${otherCharges} Platform Fee`}
+                                      {quote.GstRate && ` • +${quote.GstRate} GST`}
+                                    </div>
+                                    <div style={{ fontSize: '11px', fontWeight: '600', color: '#0f172a', marginTop: '4px' }}>
+                                      Total Order Value: ₹{Number(quote.EstimatedTotalValue || 0).toLocaleString('en-IN')}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* 2. Supply Quantity Availability */}
+                                <div className="soh-eval-metric-row">
+                                  <div className="soh-eval-metric-title">
+                                    <Warehouse size={13} className="text-blue-600" />
+                                    <span>2. Supply Capacity & Availability</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px' }}>
+                                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>
+                                      {quote.OfferedQuantity} {quote.Uom || 'MT'}
+                                      <span style={{ fontSize: '12px', fontWeight: 'normal', color: '#64748b' }}> ({supplyPercent}% of Demand)</span>
+                                    </div>
+                                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${quote.CanSupplyFull ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                                      {quote.CanSupplyFull ? 'Full Supply' : 'Partial Supply'}
+                                    </span>
+                                  </div>
+                                  <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
+                                    MOQ: <b>{quote.Moq || '1'} {quote.Uom || 'MT'}</b> • Availability: <b>{quote.ProductAvailability || 'Ready Stock'}</b>
+                                  </div>
+                                </div>
+
+                                {/* 3. Delivery Lead Time */}
+                                <div className="soh-eval-metric-row">
+                                  <div className="soh-eval-metric-title">
+                                    <Clock size={13} className="text-orange-600" />
+                                    <span>3. Delivery Lead Time & Transport</span>
+                                  </div>
+                                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a', marginTop: '2px' }}>
+                                    {quote.DeliveryLeadTimeDays ? `${quote.DeliveryLeadTimeDays} Days Turnaround` : 'Standard Lead Time'}
+                                  </div>
+                                  <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
+                                    Scope: <b>{quote.TransportationResponsibility || 'Supplier Scope'}</b>
+                                    {quote.ExpectedDispatchDate && ` • Dispatch by: ${new Date(quote.ExpectedDispatchDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
+                                  </div>
+                                </div>
+
+                                {/* 4. Payment Terms & Credit */}
+                                <div className="soh-eval-metric-row">
+                                  <div className="soh-eval-metric-title">
+                                    <Building size={13} className="text-indigo-600" />
+                                    <span>4. Payment Terms & Credit Period</span>
+                                  </div>
+                                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a', marginTop: '2px' }}>
+                                    {quote.PaymentTerms || 'Standard Terms'}
+                                  </div>
+                                  <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
+                                    Advance: <b>{quote.AdvancePaymentPercentage || 0}%</b> • Credit Days: <b>{quote.CreditPeriodDays || 0} Days</b>
+                                  </div>
+                                </div>
+
+                                {/* Commercial Remarks if present */}
+                                {quote.CommercialRemarks && (
+                                  <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: '6px', fontSize: '11px', color: '#475569', borderLeft: '3px solid #cbd5e1' }}>
+                                    <b>Vendor Remarks:</b> {quote.CommercialRemarks}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Card Footer: The 3 Core Actions */}
+                              <div className="soh-eval-card-footer">
+                                {!isAwarded && (
+                                  <button
+                                    type="button"
+                                    className="soh-eval-btn-award"
+                                    onClick={() => {
+                                      setAwardRemarks(`Approved based on competitive unit rate ₹${quote.OfferedUnitPrice}/${quote.Uom || 'MT'} and confirmed delivery lead time.`);
+                                      setAwardModal({ quote, group: activeEvalGroup });
+                                    }}
+                                  >
+                                    <Award size={15} />
+                                    <span>Award & Approve Quotation</span>
+                                  </button>
+                                )}
+
+                                {isAwarded && (
+                                  <div style={{ textAlign: 'center', padding: '6px', background: '#ecfdf5', borderRadius: '6px', color: '#065f46', fontSize: '12.5px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                    <CheckCircle2 size={16} />
+                                    <span>Winning Seller Awarded</span>
+                                  </div>
+                                )}
+
+                                {!isAwarded && (
+                                  <button
+                                    type="button"
+                                    className="soh-eval-btn-negotiate"
+                                    onClick={() => {
+                                      const suggestedCounter = Math.round(Number(quote.OfferedUnitPrice || 0) * 0.95);
+                                      setCounterPrice(suggestedCounter > 0 ? String(suggestedCounter) : '');
+                                      setCounterRemarks(`We have pooled ${activeEvalGroup.totalDemand} ${activeEvalGroup.uom} from verified buyers ready for immediate order if pricing can be matched.`);
+                                      setCounterModal({ quote, group: activeEvalGroup });
+                                    }}
+                                  >
+                                    <MessageSquare size={13} />
+                                    <span>Request Price Revision / Counter-Offer</span>
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  style={{
+                                    background: '#ffffff',
+                                    border: '1px solid #e2e8f0',
+                                    color: '#475569',
+                                    borderRadius: '8px',
+                                    padding: '7px 12px',
+                                    fontSize: '11.5px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '4px'
+                                  }}
+                                  onClick={() => navigate(`/supply-offer/view?offerRef=${encodeURIComponent(quote.OfferReference)}`)}
+                                >
+                                  <span>📄 View Official Quotation PDF</span>
+                                  <ExternalLink size={12} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* ========================================================================= */}
+                    {/* STAGE 7: BUYER ALLOCATION ENGINE & INDIVIDUAL CONSORTIUM OFFERS */}
+                    {/* ========================================================================= */}
+                    {activeEvalGroup && (
+                      <div className="soh-alloc-section">
+                        <div className="soh-alloc-header">
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ background: '#0e7c86', color: '#ffffff', fontSize: '10.5px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                Stage 7
+                              </span>
+                              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
+                                Buyer Allocation Engine & Consortium Offers
+                              </h3>
+                              <span style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '12px' }}>
+                                {buyerAllocations.length} {buyerAllocations.length === 1 ? 'Buyer Allocation' : 'Buyer Allocations'}
+                              </span>
+                            </div>
+                            <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+                              Proportional volume quotas allocated across participating buyers. Sourcing terms are direct from manufacturer with zero intermediary fee. <b>Emails are dispatched strictly upon clicking "Send Offer Email".</b>
+                            </p>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleGenerateAllocations()}
+                              disabled={allocationsGenerating}
+                              style={{
+                                background: '#0e7c86',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '8px 14px',
+                                fontSize: '12.5px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                boxShadow: '0 2px 6px rgba(14, 124, 134, 0.2)'
+                              }}
+                              title="Compute and sync buyer quotas based on the awarded quotation"
+                            >
+                              <RefreshCw size={14} className={allocationsGenerating ? 'soh-spin' : ''} />
+                              <span>{allocationsGenerating ? 'Generating Allocations...' : '⚡ Generate / Sync Allocations'}</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {allocationsLoading ? (
+                          <div style={{ padding: '36px', textAlign: 'center', color: '#64748b' }}>
+                            <RefreshCw size={24} className="soh-spin" style={{ margin: '0 auto 10px auto' }} />
+                            <p style={{ margin: 0, fontSize: '13px' }}>Loading buyer allocations...</p>
+                          </div>
+                        ) : buyerAllocations.length === 0 ? (
+                          <div style={{ padding: '36px 20px', textAlign: 'center', background: '#fafaf9' }}>
+                            <Users size={36} style={{ color: '#cbd5e1', margin: '0 auto 12px auto' }} />
+                            <h4 style={{ margin: '0 0 6px 0', fontSize: '15px', color: '#334155', fontWeight: '700' }}>
+                              No Buyer Allocations Generated Yet
+                            </h4>
+                            <p style={{ margin: '0 auto 16px auto', maxWidth: '520px', fontSize: '12.5px', color: '#64748b', lineHeight: '1.5' }}>
+                              Once a quotation is awarded for <b>{activeEvalGroup.productName}</b>, you can generate individual buyer quotas. Each buyer will receive direct factory pricing and a live 48-hour reservation countdown.
+                            </p>
+                            <button
+                              type="button"
+                              className="soh-alloc-btn-email"
+                              style={{ padding: '8px 16px', fontSize: '12.5px' }}
+                              onClick={() => handleGenerateAllocations()}
+                              disabled={allocationsGenerating}
+                            >
+                              <RefreshCw size={14} className={allocationsGenerating ? 'soh-spin' : ''} />
+                              <span>Generate Allocations from Winning Quote</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="soh-alloc-table-wrapper">
+                            <table className="soh-alloc-table">
+                              <thead>
+                                <tr>
+                                  <th>Allocation Ref</th>
+                                  <th>Buyer Company (Admin Only)</th>
+                                  <th>Location</th>
+                                  <th>Volume Quota</th>
+                                  <th>Factory Price & Landed Value</th>
+                                  <th>Status & Validity</th>
+                                  <th style={{ textAlign: 'right' }}>Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {buyerAllocations.map((alloc) => {
+                                  const statusLower = (alloc.Status || 'allocated').toLowerCase().replace(/\s+/g, '');
+                                  const isSending = Boolean(emailSendingState[alloc.AllocationRef]);
+                                  const isAccepted = alloc.Status === 'Accepted';
+                                  const isDeclined = alloc.Status === 'Declined';
+                                  const isSent = alloc.Status === 'Offer Sent';
+
+                                  return (
+                                    <tr key={alloc.AllocationRef || alloc.Id}>
+                                      {/* 1. Allocation Ref */}
+                                      <td>
+                                        <div style={{ fontWeight: '700', color: '#0f172a', fontFamily: 'monospace', fontSize: '12px' }}>
+                                          {alloc.AllocationRef}
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                                          RFQ: {alloc.RfqReference}
+                                        </div>
+                                      </td>
+
+                                      {/* 2. Buyer Details (Admin View Only) */}
+                                      <td>
+                                        <div style={{ fontWeight: '700', color: '#0f172a' }}>
+                                          {alloc.BuyerCompanyName}
+                                        </div>
+                                        <div style={{ fontSize: '11.5px', color: '#475569', marginTop: '2px' }}>
+                                          {alloc.BuyerContactPerson && <span>{alloc.BuyerContactPerson} • </span>}
+                                          <span style={{ color: '#0e7c86' }}>{alloc.BuyerEmail}</span>
+                                        </div>
+                                        {alloc.BuyerPhone && (
+                                          <div style={{ fontSize: '11px', color: '#64748b' }}>
+                                            Ph: {alloc.BuyerPhone}
+                                          </div>
+                                        )}
+                                      </td>
+
+                                      {/* 3. Destination */}
+                                      <td>
+                                        <div style={{ fontSize: '12.5px', color: '#1e293b', fontWeight: '500' }}>
+                                          {alloc.DeliveryLocation || 'Domestic Delivery'}
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                                          Region: {alloc.Region || 'Domestic'}
+                                        </div>
+                                      </td>
+
+                                      {/* 4. Volume Quota */}
+                                      <td>
+                                        <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                                          {alloc.AllocatedQuantity} {alloc.Uom}
+                                        </div>
+                                        <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
+                                          Requested: {alloc.RequestedQuantity} {alloc.Uom}
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: '#0e7c86', fontWeight: '600' }}>
+                                          {alloc.TotalPoolDemand > 0 ? `${Math.round((alloc.AllocatedQuantity / alloc.TotalPoolDemand) * 100)}% of Pooled Demand` : ''}
+                                        </div>
+                                      </td>
+
+                                      {/* 5. Pricing & Valuation */}
+                                      <td>
+                                        <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a' }}>
+                                          {alloc.Currency === 'USD' ? '$' : '₹'}{Number(alloc.OfferedUnitPrice).toLocaleString('en-IN')}/{alloc.Uom}
+                                        </div>
+                                        <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
+                                          Freight: {alloc.FreightIncluded ? 'Included' : `₹${alloc.FreightCharges}`} • GST: {alloc.GstRate}
+                                        </div>
+                                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#047857', marginTop: '2px' }}>
+                                          Total: {alloc.Currency === 'USD' ? '$' : '₹'}{Number(alloc.TotalEstimatedValue).toLocaleString('en-IN')}
+                                        </div>
+                                      </td>
+
+                                      {/* 6. Status & Timer */}
+                                      <td>
+                                        <div>
+                                          <span className={`soh-alloc-badge ${statusLower}`}>
+                                            {isAccepted ? <CheckCircle2 size={11} /> : isSent ? <Mail size={11} /> : <Clock size={11} />}
+                                            <span>{alloc.Status}</span>
+                                          </span>
+                                        </div>
+                                        {alloc.OfferEmailSentAt && (
+                                          <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '4px' }}>
+                                            Sent: {new Date(alloc.OfferEmailSentAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                          </div>
+                                        )}
+                                        {alloc.OfferValidUntil && !isAccepted && !isDeclined && (
+                                          <div style={{ fontSize: '10.5px', color: '#d97706', fontWeight: '600', marginTop: '2px' }}>
+                                            Valid: {new Date(alloc.OfferValidUntil).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                          </div>
+                                        )}
+                                      </td>
+
+                                      {/* 7. Action Buttons */}
+                                      <td style={{ textAlign: 'right' }}>
+                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+                                          {/* View Buyer Page */}
+                                          <a
+                                            href={`/buyer/offer/${encodeURIComponent(alloc.AllocationRef)}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="soh-alloc-btn-view"
+                                            title="Preview the exact confidential offer page the buyer views"
+                                          >
+                                            <ExternalLink size={12} />
+                                            <span>View Page</span>
+                                          </a>
+
+                                          {/* Manual Email Trigger Button */}
+                                          {!isAccepted && !isDeclined && (
+                                            <button
+                                              type="button"
+                                              className="soh-alloc-btn-email"
+                                              disabled={isSending}
+                                              onClick={() => setEmailConfirmModal({ allocation: alloc })}
+                                              title="Send official offer email to this buyer with 48h reservation timer"
+                                            >
+                                              {isSending ? (
+                                                <>
+                                                  <RefreshCw size={12} className="soh-spin" />
+                                                  <span>Sending...</span>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <Mail size={12} />
+                                                  <span>{isSent ? 'Resend Email' : 'Send Offer Email'}</span>
+                                                </>
+                                              )}
+                                            </button>
+                                          )}
+
+                                          {isAccepted && (
+                                            <span style={{ fontSize: '11px', color: '#065f46', fontWeight: '700', padding: '4px 8px', background: '#ecfdf5', borderRadius: '4px', border: '1px solid #a7f3d0' }}>
+                                              ✓ Order Accepted
+                                            </span>
+                                          )}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* ========================================================================= */}
@@ -1056,6 +1948,398 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                   >
                     <span>Open in Supply Offer Form</span>
                     <ArrowUpRight size={15} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* MODAL 1: AWARD & APPROVE QUOTATION CONFIRMATION */}
+          {/* ========================================================================= */}
+          {awardModal && (
+            <div className="soh-modal-overlay" onClick={() => !actionLoading && setAwardModal(null)}>
+              <div className="soh-modal-card" style={{ maxWidth: '540px' }} onClick={e => e.stopPropagation()}>
+                <div className="soh-modal-header" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#ffffff' }}>
+                  <div className="soh-modal-title-group">
+                    <span className="soh-modal-badge" style={{ background: 'rgba(255,255,255,0.25)', color: '#ffffff' }}>
+                      Option A: Awarding
+                    </span>
+                    <h2 style={{ color: '#ffffff' }}>Award Quotation to {awardModal.quote.VendorName}</h2>
+                  </div>
+                  <button type="button" className="soh-modal-close" style={{ color: '#ffffff' }} onClick={() => setAwardModal(null)}>
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="soh-modal-body">
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '14px', marginBottom: '16px' }}>
+                    <div style={{ fontSize: '13px', color: '#15803d', fontWeight: '700', marginBottom: '6px' }}>
+                      Award Commercial Summary:
+                    </div>
+                    <div style={{ fontSize: '12.5px', color: '#166534', lineHeight: '1.6' }}>
+                      <div>• <strong>Product:</strong> {awardModal.quote.ProductName} ({awardModal.quote.Grade || 'Standard'})</div>
+                      <div>• <strong>Offered Rate:</strong> ₹{Number(awardModal.quote.OfferedUnitPrice).toLocaleString('en-IN')}/{awardModal.quote.Uom || 'MT'}</div>
+                      <div>• <strong>Awarded Volume:</strong> {awardModal.quote.OfferedQuantity} {awardModal.quote.Uom || 'MT'}</div>
+                      <div>• <strong>Total Contract Value:</strong> ₹{Number(awardModal.quote.EstimatedTotalValue || 0).toLocaleString('en-IN')}</div>
+                    </div>
+                  </div>
+
+                  <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 12px 0' }}>
+                    Confirming will mark this quotation status as <span style={{ color: '#059669', fontWeight: '700' }}>Awarded</span>, mark the RFQ opportunity as <span style={{ color: '#059669', fontWeight: '700' }}>Closed / Won</span>, and dispatch an official award notice email to the vendor.
+                  </p>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                      Award Notes / Decision Remarks (Optional):
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={awardRemarks}
+                      onChange={e => setAwardRemarks(e.target.value)}
+                      placeholder="e.g. Sourcing committee selected vendor due to prompt delivery lead time and confirmed factory capacity."
+                      style={{ width: '100%', padding: '8px 10px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+
+                <div className="soh-modal-footer">
+                  <button
+                    type="button"
+                    className="soh-btn-secondary"
+                    disabled={actionLoading}
+                    onClick={() => setAwardModal(null)}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    className="soh-btn-primary"
+                    style={{ background: '#10b981', borderColor: '#10b981' }}
+                    disabled={actionLoading}
+                    onClick={() => {
+                      handleEvaluateAction({
+                        action: 'award',
+                        offerRef: awardModal.quote.OfferReference,
+                        rfqReference: awardModal.quote.RfqReference,
+                        productName: awardModal.quote.ProductName,
+                        awardRemarks
+                      });
+                    }}
+                  >
+                    {actionLoading ? 'Processing Award...' : 'Confirm & Award Winning Offer'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* MODAL 2: REQUEST PRICE REVISION / COUNTER-OFFER */}
+          {/* ========================================================================= */}
+          {counterModal && (
+            <div className="soh-modal-overlay" onClick={() => !actionLoading && setCounterModal(null)}>
+              <div className="soh-modal-card" style={{ maxWidth: '540px' }} onClick={e => e.stopPropagation()}>
+                <div className="soh-modal-header" style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', color: '#ffffff' }}>
+                  <div className="soh-modal-title-group">
+                    <span className="soh-modal-badge" style={{ background: 'rgba(255,255,255,0.25)', color: '#ffffff' }}>
+                      Option B: Price Revision
+                    </span>
+                    <h2 style={{ color: '#ffffff' }}>Request Counter-Offer from {counterModal.quote.VendorName}</h2>
+                  </div>
+                  <button type="button" className="soh-modal-close" style={{ color: '#ffffff' }} onClick={() => setCounterModal(null)}>
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="soh-modal-body">
+                  <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', padding: '14px', marginBottom: '16px' }}>
+                    <div style={{ fontSize: '12.5px', color: '#9a3412', lineHeight: '1.6' }}>
+                      <div>• <strong>Product:</strong> {counterModal.quote.ProductName}</div>
+                      <div>• <strong>Current Quoted Price:</strong> ₹{Number(counterModal.quote.OfferedUnitPrice).toLocaleString('en-IN')}/{counterModal.quote.Uom || 'MT'}</div>
+                      <div>• <strong>Total Demand at Stake:</strong> {counterModal.group.totalDemand} {counterModal.group.uom}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                      Consortium Target Counter-Price (₹ / {counterModal.quote.Uom || 'MT'}): <span style={{ color: '#e11d48' }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={counterPrice}
+                      onChange={e => setCounterPrice(e.target.value)}
+                      placeholder={`e.g. ${Math.round(Number(counterModal.quote.OfferedUnitPrice || 0) * 0.95)}`}
+                      style={{ width: '100%', padding: '8px 10px', fontSize: '13px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box', fontWeight: '700' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                      Negotiation Terms / Message to Vendor:
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={counterRemarks}
+                      onChange={e => setCounterRemarks(e.target.value)}
+                      placeholder="e.g. Our pooled buyers have 1000 MT volume ready for immediate commitment if rate can be revised to ₹X/MT Ex-Works."
+                      style={{ width: '100%', padding: '8px 10px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+
+                <div className="soh-modal-footer">
+                  <button
+                    type="button"
+                    className="soh-btn-secondary"
+                    disabled={actionLoading}
+                    onClick={() => setCounterModal(null)}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    className="soh-btn-primary"
+                    style={{ background: '#ea580c', borderColor: '#ea580c' }}
+                    disabled={actionLoading || !counterPrice}
+                    onClick={() => {
+                      handleEvaluateAction({
+                        action: 'counter-offer',
+                        offerRef: counterModal.quote.OfferReference,
+                        rfqReference: counterModal.quote.RfqReference,
+                        productName: counterModal.quote.ProductName,
+                        counterUnitPrice: counterPrice,
+                        counterRemarks
+                      });
+                    }}
+                  >
+                    {actionLoading ? 'Dispatching...' : 'Dispatch Counter-Offer Request'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* MODAL 3: MULTI-SOURCE SPLIT ALLOCATION */}
+          {/* ========================================================================= */}
+          {splitModal && (
+            <div className="soh-modal-overlay" onClick={() => !actionLoading && setSplitModal(null)}>
+              <div className="soh-modal-card" style={{ maxWidth: '640px' }} onClick={e => e.stopPropagation()}>
+                <div className="soh-modal-header" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)', color: '#ffffff' }}>
+                  <div className="soh-modal-title-group">
+                    <span className="soh-modal-badge" style={{ background: 'rgba(255,255,255,0.25)', color: '#ffffff' }}>
+                      Option C: Split Sourcing
+                    </span>
+                    <h2 style={{ color: '#ffffff' }}>Multi-Source Split: {splitModal.group.productName}</h2>
+                  </div>
+                  <button type="button" className="soh-modal-close" style={{ color: '#ffffff' }} onClick={() => setSplitModal(null)}>
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="soh-modal-body">
+                  <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#5b21b6', fontWeight: '700' }}>
+                      <span>Total Required Demand: {splitModal.group.totalDemand} {splitModal.group.uom}</span>
+                      <span>
+                        Allocated Sum: {Object.values(splitState).reduce((acc, curr) => acc + (parseFloat(curr.allocatedQty) || 0), 0)} / {splitModal.group.totalDemand} {splitModal.group.uom}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px 0' }}>
+                    Distribute the pooled volume across multiple vendors to mitigate supply risk or satisfy partial capacity:
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {splitModal.group.quotes.map(q => {
+                      const cur = splitState[q.OfferReference] || { allocatedQty: '', splitPercent: '', remarks: '' };
+                      return (
+                        <div key={q.OfferReference} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', background: '#f8fafc' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>{q.VendorName}</strong>
+                            <span style={{ fontSize: '12px', color: '#0e7c86', fontWeight: '700' }}>₹{q.OfferedUnitPrice}/{splitModal.group.uom} (Offered: {q.OfferedQuantity} {splitModal.group.uom})</span>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#475569', marginBottom: '2px' }}>
+                                Allocated Volume ({splitModal.group.uom}):
+                              </label>
+                              <input
+                                type="number"
+                                step="any"
+                                value={cur.allocatedQty}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  const pct = splitModal.group.totalDemand > 0 ? ((parseFloat(val) || 0) / splitModal.group.totalDemand * 100).toFixed(1) : 0;
+                                  setSplitState(prev => ({
+                                    ...prev,
+                                    [q.OfferReference]: { ...cur, allocatedQty: val, splitPercent: pct }
+                                  }));
+                                }}
+                                style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px' }}
+                              />
+                            </div>
+
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#475569', marginBottom: '2px' }}>
+                                Split Share (%):
+                              </label>
+                              <input
+                                type="number"
+                                step="any"
+                                value={cur.splitPercent}
+                                onChange={e => {
+                                  const pct = e.target.value;
+                                  const qty = splitModal.group.totalDemand > 0 ? ((parseFloat(pct) || 0) / 100 * splitModal.group.totalDemand).toFixed(1) : 0;
+                                  setSplitState(prev => ({
+                                    ...prev,
+                                    [q.OfferReference]: { ...cur, splitPercent: pct, allocatedQty: qty }
+                                  }));
+                                }}
+                                style={{ width: '100%', padding: '6px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px' }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="soh-modal-footer">
+                  <button
+                    type="button"
+                    className="soh-btn-secondary"
+                    disabled={actionLoading}
+                    onClick={() => setSplitModal(null)}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    className="soh-btn-primary"
+                    style={{ background: '#7c3aed', borderColor: '#7c3aed' }}
+                    disabled={actionLoading}
+                    onClick={() => {
+                      const splits = Object.entries(splitState)
+                        .filter(([_, data]) => parseFloat(data.allocatedQty) > 0)
+                        .map(([offerRef, data]) => ({
+                          offerRef,
+                          allocatedQty: data.allocatedQty,
+                          splitPercent: data.splitPercent,
+                          remarks: data.remarks
+                        }));
+
+                      if (splits.length === 0) {
+                        alert('Please allocate volume to at least one vendor.');
+                        return;
+                      }
+
+                      handleEvaluateAction({
+                        action: 'multi-source-split',
+                        rfqReference: splitModal.group.rfqReference,
+                        productName: splitModal.group.productName,
+                        splits
+                      });
+                    }}
+                  >
+                    {actionLoading ? 'Processing...' : 'Confirm Multi-Source Split'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* MODAL 4: CONFIRM DISPATCH OF BUYER ALLOCATION EMAIL (MANUAL TRIGGER ONLY) */}
+          {/* ========================================================================= */}
+          {emailConfirmModal && (
+            <div className="soh-modal-overlay" onClick={() => !actionLoading && setEmailConfirmModal(null)}>
+              <div className="soh-modal-card" style={{ maxWidth: '580px' }} onClick={e => e.stopPropagation()}>
+                <div className="soh-modal-header" style={{ background: 'linear-gradient(135deg, #0e7c86 0%, #065e66 100%)', color: '#ffffff' }}>
+                  <div className="soh-modal-title-group">
+                    <span className="soh-modal-badge" style={{ background: 'rgba(255,255,255,0.25)', color: '#ffffff' }}>
+                      Stage 7: Offer Email
+                    </span>
+                    <h2 style={{ color: '#ffffff' }}>Dispatch Consortium Offer to Buyer</h2>
+                  </div>
+                  <button type="button" className="soh-modal-close" style={{ color: '#ffffff' }} onClick={() => setEmailConfirmModal(null)}>
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="soh-modal-body">
+                  <div style={{ background: '#f0fdfa', border: '1px solid #ccfbf1', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                      <Building size={16} className="text-teal-700" />
+                      <strong style={{ fontSize: '15px', color: '#0f172a' }}>
+                        {emailConfirmModal.allocation.BuyerCompanyName}
+                      </strong>
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#0f766e', marginBottom: '12px' }}>
+                      Destination Contact: <b>{emailConfirmModal.allocation.BuyerEmail}</b>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', fontSize: '12.5px', background: '#ffffff', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <div>
+                        <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Product</span>
+                        <strong style={{ color: '#0f172a' }}>{emailConfirmModal.allocation.ProductName}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Allocated Volume</span>
+                        <strong style={{ color: '#0f172a' }}>{emailConfirmModal.allocation.AllocatedQuantity} {emailConfirmModal.allocation.Uom}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Direct Factory Rate</span>
+                        <strong style={{ color: '#0e7c86' }}>₹{Number(emailConfirmModal.allocation.OfferedUnitPrice).toLocaleString('en-IN')}/{emailConfirmModal.allocation.Uom}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Total Landed Value</span>
+                        <strong style={{ color: '#047857' }}>₹{Number(emailConfirmModal.allocation.TotalEstimatedValue).toLocaleString('en-IN')}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Confidentiality Notice */}
+                  <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px 14px', fontSize: '12px', color: '#1e40af', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                    <ShieldCheck size={18} style={{ flexShrink: 0, marginTop: '2px', color: '#2563eb' }} />
+                    <div style={{ lineHeight: '1.45' }}>
+                      <b>Strict Mutual Confidentiality Guaranteed:</b>
+                      <div style={{ marginTop: '2px', color: '#3b82f6' }}>
+                        The seller's company name is strictly masked as <i>"Verified Synergy5M Consortium Partner"</i>. The buyer will receive a secure email containing their factory bulk rate and a live 48-hour reservation countdown timer.
+                      </div>
+                    </div>
+                  </div>
+
+                  <p style={{ margin: '14px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+                    Clicking below will dispatch the official notification to <b>{emailConfirmModal.allocation.BuyerEmail}</b> and start their 48-hour acceptance window.
+                  </p>
+                </div>
+
+                <div className="soh-modal-footer">
+                  <button
+                    type="button"
+                    className="soh-btn-secondary"
+                    onClick={() => setEmailConfirmModal(null)}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    className="soh-btn-primary"
+                    style={{ background: '#0e7c86', borderColor: '#0e7c86' }}
+                    onClick={() => handleSendBuyerOfferEmail(emailConfirmModal.allocation.AllocationRef)}
+                  >
+                    <Mail size={14} />
+                    <span>Confirm & Dispatch Offer Email</span>
                   </button>
                 </div>
               </div>
