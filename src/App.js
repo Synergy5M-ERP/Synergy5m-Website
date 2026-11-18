@@ -22,17 +22,34 @@ import SupplyOfferViewPage from './SupplyOfferViewPage';
 import BuyerOfferViewPage from './BuyerOfferViewPage';
 
 // Dispatches /supply-offer route:
-// - If ?offerRef=... or ?view=... is present, load the specific SupplyOfferViewPage (Official Document & PDF)
-// - If ?rfq=... query param is present (e.g. from vendor email link or open action), load VendorSupplyOfferForm
+// - If ?rfq=... query param is present, or mode=revise / counterRate / prevRate, load VendorSupplyOfferForm
+// - If ?view=... or only ?offerRef=... is present, load the specific SupplyOfferViewPage (Official Document & PDF)
 // - If no rfq/offer param is present, load the SupplyOffersHub showing all dispatched RFQs
 function SupplyOfferRouteDispatcher() {
   const [searchParams] = useSearchParams();
-  if (searchParams.has('offerRef') || searchParams.has('view')) {
+
+  // 1. Explicit view parameter -> Document PDF View
+  if (searchParams.get('view') === 'true' || searchParams.get('view') === '1') {
     return <SupplyOfferViewPage />;
   }
-  if (searchParams.has('rfq')) {
+
+  // 2. Any RFQ offer submission or price revision -> VendorSupplyOfferForm
+  if (
+    searchParams.has('rfq') ||
+    searchParams.get('mode') === 'revise' ||
+    searchParams.has('counterRate') ||
+    searchParams.has('prevRate') ||
+    (searchParams.has('product') && !searchParams.has('view'))
+  ) {
     return <VendorSupplyOfferForm />;
   }
+
+  // 3. Isolated offerRef -> Document PDF View
+  if (searchParams.has('offerRef')) {
+    return <SupplyOfferViewPage />;
+  }
+
+  // 4. Default -> Hub
   return <SupplyOffersHub defaultTab="sent" />;
 }
 

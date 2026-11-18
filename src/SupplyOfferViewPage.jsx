@@ -11,7 +11,10 @@ import {
   MapPin,
   ShieldCheck,
   AlertCircle,
-
+  RotateCcw,
+  Info,
+  FileText,
+  ExternalLink
 } from 'lucide-react';
 import './SupplyOfferViewPage.css';
 
@@ -110,8 +113,49 @@ export default function SupplyOfferViewPage() {
     allocations = [];
   }
 
+  // Parse attachments JSON if available
+  let attachments = [];
+  try {
+    if (quote.AttachmentsJson) {
+      attachments = typeof quote.AttachmentsJson === 'string'
+        ? JSON.parse(quote.AttachmentsJson)
+        : quote.AttachmentsJson;
+      if (!Array.isArray(attachments)) attachments = [];
+    }
+  } catch (e) {
+    attachments = [];
+  }
+
   const currencySymbol = quote.Currency === 'USD' ? '$' : (quote.Currency === 'EUR' ? '€' : (quote.Currency === 'AED' ? 'AED ' : '₹'));
   const effectiveUnitRate = Number(quote.OfferedUnitPrice || 0) + Number(quote.OtherCharges || 0);
+
+  const handleReviseOffer = () => {
+    if (!quote) return;
+    const demandVal = quote.TotalRequiredDemand || quote.OfferedQuantity || 0;
+    let counterRate = '';
+    if (quote.CommercialRemarks && quote.CommercialRemarks.includes('Proposed Rate:')) {
+      const match = quote.CommercialRemarks.match(/Proposed Rate:\s*₹?([0-9.]+)/i);
+      if (match) counterRate = match[1];
+    }
+    const params = new URLSearchParams();
+    params.set('mode', 'revise');
+    if (quote.RfqReference) params.set('rfq', quote.RfqReference);
+    if (quote.OfferReference) params.set('offerRef', quote.OfferReference);
+    if (quote.OpportunityId) params.set('prodId', quote.OpportunityId);
+    if (quote.VendorName) params.set('vendor', quote.VendorName);
+    if (quote.VendorEmail) params.set('email', quote.VendorEmail);
+    if (quote.ProductName) params.set('product', quote.ProductName);
+    if (quote.Category) params.set('category', quote.Category);
+    if (quote.Grade) params.set('grade', quote.Grade);
+    params.set('demand', demandVal);
+    params.set('uom', quote.Uom || 'MT');
+    if (quote.Destination) params.set('dest', quote.Destination);
+    if (quote.OfferedUnitPrice) params.set('prevRate', quote.OfferedUnitPrice);
+    if (counterRate) params.set('counterRate', counterRate);
+
+    // Navigate directly to the vendor supply offer form for revision
+    navigate(`/vendor/supply-offer?${params.toString()}`);
+  };
 
   return (
     <div className="sov-page">
@@ -133,15 +177,23 @@ export default function SupplyOfferViewPage() {
           </div>
 
           <div className="sov-action-right">
-            {/* <button
-              type="button"
-              className={`sov-btn sov-btn-secondary ${copied ? 'copied' : ''}`}
-              onClick={handleCopyLink}
-              title="Copy shareable link to this quotation"
-            >
-              {copied ? <Check size={15} /> : <Copy size={15} />}
-              <span>{copied ? 'Link Copied!' : 'Copy Link'}</span>
-            </button> */}
+            {attachments.length > 0 && (
+              <button
+                type="button"
+                className="sov-btn sov-btn-secondary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                onClick={() => {
+                  const el = document.getElementById('quotation-annexure-sheet');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}
+                title="Jump down to view attached documents on Page 2"
+              >
+                <FileText size={15} />
+                <span>View Attached Files ({attachments.length})</span>
+              </button>
+            )}
+
+
 
             <button
               type="button"
@@ -158,6 +210,55 @@ export default function SupplyOfferViewPage() {
 
       {/* Main Quotation Document Sheet (A4 Styled Format) */}
       <main className="sov-doc-wrapper">
+        {quote.EvaluationStatus === 'Counter-Offer Requested' && (
+          <div className="sov-counter-banner no-print" style={{
+            background: '#fff7ed',
+            border: '1px solid #fed7aa',
+            borderRadius: '8px',
+            padding: '12px 18px',
+            marginBottom: '16px',
+            width: '100%',
+            maxWidth: '210mm',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            boxSizing: 'border-box'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Info size={20} color="#ea580c" style={{ flexShrink: 0 }} />
+              <div>
+                <strong style={{ color: '#9a3412', fontSize: '13.5px', display: 'block' }}>
+                  Price Revision Requested by Consortium
+                </strong>
+                <span style={{ color: '#c2410c', fontSize: '12.5px' }}>
+                  A price revision / counter-offer has been requested for this quotation. You can submit your revised quote directly.
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="sov-btn"
+              style={{
+                background: '#ea580c',
+                color: '#ffffff',
+                border: 'none',
+                padding: '8px 16px',
+                fontWeight: '600',
+                fontSize: '12.5px',
+                borderRadius: '6px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+              onClick={handleReviseOffer}
+            >
+              <RotateCcw size={14} /> Send Revised Quotation
+            </button>
+          </div>
+        )}
         <article className="sov-sheet" id="quotation-print-sheet">
 
           {/* Header & Brand Letterhead */}
@@ -527,6 +628,114 @@ export default function SupplyOfferViewPage() {
           </div>
 
         </article>
+
+        {/* Page 2 (Annexure): Vendor Uploaded Documents & Attachments */}
+        {attachments.length > 0 && (
+          <article className="sov-sheet sov-sheet-page2" id="quotation-annexure-sheet" style={{ marginTop: '24px', pageBreakBefore: 'always', breakBefore: 'page' }}>
+            {/* Header & Brand Letterhead */}
+            <div className="sov-sheet-header">
+              <div className="sov-brand-row">
+                <div className="sov-brand-info">
+                  <div className="sov-brand-logo-badge">S5</div>
+                  <div>
+                    <h1 className="sov-company-name">Synergy5M LLP</h1>
+                    <p className="sov-company-sub">
+                      CollectiveBuy Consortium • Official Quotation Annexure
+                    </p>
+                    <p className="sov-company-contact">
+                      Pune, Maharashtra, India • sales@synergy5m.com • https://synergy5m.com/
+                    </p>
+                  </div>
+                </div>
+
+                <div className="sov-doc-stamp-box">
+                  <div className="sov-stamp-title">ANNEXURE A</div>
+                  <div className="sov-stamp-ref">{quote.OfferReference}</div>
+                  <div className="sov-verified-badge">
+                    <CheckCircle2 size={12} /> ATTACHED DOCUMENTS
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Document Header Note */}
+            <div style={{ padding: '14px 0 10px 0', borderBottom: '1px solid #e2e8f0', marginBottom: '18px' }}>
+              <h2 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px 0' }}>
+                Supplier Commercial Quotation & Specification Attachments
+              </h2>
+              <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
+                The following formal documents were submitted by <strong>{quote.VendorName}</strong> for quotation <strong>#{quote.VendorQuotationNo || quote.OfferReference}</strong> ({quote.ProductName}).
+              </p>
+            </div>
+
+            {/* Attached Files List & Embedded Preview */}
+            {attachments.map((att, idx) => (
+              <div key={idx} style={{ marginBottom: '22px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '34px', height: '34px', borderRadius: '6px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb' }}>
+                      <FileText size={18} />
+                    </div>
+                    <div>
+                      <strong style={{ fontSize: '13.5px', color: '#0f172a', display: 'block' }}>
+                        {att.category || 'Vendor Quotation Document'} #{idx + 1}
+                      </strong>
+                      <span style={{ fontSize: '12px', color: '#64748b' }}>
+                        {att.name} • {att.size || 'Verified document'}
+                      </span>
+                    </div>
+                  </div>
+                  {att.data && (
+                    <a
+                      href={att.data}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download={att.name}
+                      className="sov-btn sov-btn-secondary no-print"
+                      style={{ fontSize: '12px', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                    >
+                      <ExternalLink size={13} /> Open / Download
+                    </a>
+                  )}
+                </div>
+
+                {/* Embedded PDF / Image / Document View */}
+                {att.data ? (
+                  <div style={{ marginTop: '14px' }}>
+                    {att.type?.includes('pdf') || att.name?.toLowerCase().endsWith('.pdf') ? (
+                      <iframe
+                        src={att.data}
+                        title={att.name}
+                        width="100%"
+                        height="750px"
+                        style={{ border: '1px solid #cbd5e1', borderRadius: '6px', background: '#f8fafc' }}
+                      />
+                    ) : att.type?.includes('image') || /\.(jpg|jpeg|png|webp)$/i.test(att.name) ? (
+                      <img
+                        src={att.data}
+                        alt={att.name}
+                        style={{ maxWidth: '100%', maxHeight: '750px', objectFit: 'contain', borderRadius: '6px', display: 'block', margin: '0 auto' }}
+                      />
+                    ) : (
+                      <div style={{ padding: '16px', textAlign: 'center', background: '#f8fafc', borderRadius: '6px' }}>
+                        <p style={{ margin: '0 0 10px', fontSize: '13px', color: '#475569' }}>
+                          Document attached: <b>{att.name}</b>
+                        </p>
+                        <a href={att.data} download={att.name} className="sov-btn sov-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
+                          <FileText size={14} /> Download Document
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ marginTop: '10px', padding: '10px 12px', background: '#f8fafc', borderRadius: '6px', fontSize: '12px', color: '#64748b' }}>
+                    Verified document metadata on official record. Reference: <b>{quote.OfferReference}</b>.
+                  </div>
+                )}
+              </div>
+            ))}
+          </article>
+        )}
       </main>
     </div>
   );

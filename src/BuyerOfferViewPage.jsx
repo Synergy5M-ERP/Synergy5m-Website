@@ -124,8 +124,7 @@ export default function BuyerOfferViewPage() {
     if (!allocation) return 0;
     const base = Number(allocation.OfferedUnitPrice || 0);
     const freightExtra = !allocation.FreightIncluded ? Number(allocation.FreightCharges || 0) : 0;
-    const otherCharges = Number(allocation.OtherCharges || 0);
-    return base + freightExtra + otherCharges;
+    return base + freightExtra;
   }, [allocation]);
 
   const poolSharePercent = useMemo(() => {
@@ -286,7 +285,7 @@ export default function BuyerOfferViewPage() {
                 {allocation.Currency === 'USD' ? '$' : '₹'}{Number(calculatedLandedUnitRate).toLocaleString('en-IN')}/{allocation.Uom}
               </div>
               <span className="bov-m-sub">
-                Basic Rate: ₹{Number(allocation.OfferedUnitPrice).toLocaleString('en-IN')}/{allocation.Uom}
+                All-Inclusive Consortium Rate
               </span>
             </div>
 

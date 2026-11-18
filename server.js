@@ -3332,7 +3332,8 @@ app.post('/api/supply-offers/evaluate', async (req, res) => {
         (async () => {
           try {
             const demandVal = quote.TotalRequiredDemand || quote.OfferedQuantity || 0;
-            const reSubmitUrl = `${appBaseUrl}/supply-offer?rfq=${encodeURIComponent(quote.RfqReference)}&offerRef=${encodeURIComponent(quote.OfferReference)}&prodId=${encodeURIComponent(quote.OpportunityId || '')}&vendor=${encodeURIComponent(quote.VendorName)}&email=${encodeURIComponent(quote.VendorEmail || '')}&product=${encodeURIComponent(quote.ProductName)}&category=${encodeURIComponent(quote.Category || '')}&grade=${encodeURIComponent(quote.Grade || '')}&demand=${encodeURIComponent(demandVal)}&uom=${encodeURIComponent(quote.Uom || 'MT')}&dest=${encodeURIComponent(quote.Destination || '')}&counterRate=${encodeURIComponent(counterUnitPrice)}&prevRate=${encodeURIComponent(quote.OfferedUnitPrice || '')}`;
+            const reSubmitUrl = `${appBaseUrl}/vendor/supply-offer?mode=revise&rfq=${encodeURIComponent(quote.RfqReference)}&offerRef=${encodeURIComponent(quote.OfferReference)}&prodId=${encodeURIComponent(quote.OpportunityId || '')}&vendor=${encodeURIComponent(quote.VendorName)}&email=${encodeURIComponent(quote.VendorEmail || '')}&product=${encodeURIComponent(quote.ProductName)}&category=${encodeURIComponent(quote.Category || '')}&grade=${encodeURIComponent(quote.Grade || '')}&demand=${encodeURIComponent(demandVal)}&uom=${encodeURIComponent(quote.Uom || 'MT')}&dest=${encodeURIComponent(quote.Destination || '')}&counterRate=${encodeURIComponent(counterUnitPrice)}&prevRate=${encodeURIComponent(quote.OfferedUnitPrice || '')}`;
+            const viewDocUrl = `${appBaseUrl}/supply-offer/view?offerRef=${encodeURIComponent(quote.OfferReference)}`;
             const counterHtml = `
               <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
                 <div style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); padding: 24px; color: #ffffff; text-align: center;">
@@ -3353,11 +3354,14 @@ app.post('/api/supply-offers/evaluate', async (req, res) => {
                     </ul>
                   </div>
 
-                  <p>Please reply to this email or re-submit your updated offer using the link below:</p>
+                  <p>Please review your current quotation PDF document or submit your updated revised offer using the options below:</p>
 
                   <div style="text-align: center; margin: 30px 0;">
-                    <a href="${reSubmitUrl}" style="background-color: #ea580c; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block;">
-                      🔄 Review & Revise Quotation
+                    <a href="${reSubmitUrl}" style="background-color: #ea580c; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block; margin: 6px 8px; box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);">
+                      🔄 Send Revised Quotation
+                    </a>
+                    <a href="${viewDocUrl}" target="_blank" style="background-color: #0e7c86; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block; margin: 6px 8px; box-shadow: 0 4px 12px rgba(14, 124, 134, 0.3);">
+                      📄 Open Quotation PDF
                     </a>
                   </div>
                 </div>
@@ -3600,12 +3604,16 @@ app.post('/api/buyer-allocations/generate', async (req, res) => {
 
     const totalPoolDemand = enquiries.reduce((sum, e) => sum + (parseFloat(e.RequiredQuantity) || 0), 0) || 1;
     const offeredQuantity = parseFloat(quote.OfferedQuantity) || totalPoolDemand;
-    const unitPrice = parseFloat(quote.OfferedUnitPrice) || 0;
+    const baseUnitPrice = parseFloat(quote.OfferedUnitPrice) || 0;
     const gstRateStr = String(quote.GstRate || '18%');
     const gstRateNum = parseFloat(gstRateStr.replace(/[^0-9.]/g, '')) || 18;
     const freightIncluded = Boolean(quote.FreightIncluded);
     const freightCharges = parseFloat(quote.FreightCharges) || 0;
     const otherCharges = parseFloat(quote.OtherCharges) || 0;
+
+    // Roll Platform Fee into product unit price so the buyer pays full amount without seeing platform fee separated
+    const platformFeePerUnit = offeredQuantity > 0 ? (otherCharges / offeredQuantity) : 0;
+    const combinedUnitPrice = Math.round((baseUnitPrice + platformFeePerUnit) * 100) / 100;
 
     const allocationsGenerated = [];
 
@@ -3616,7 +3624,7 @@ app.post('/api/buyer-allocations/generate', async (req, res) => {
         allocatedQty = Math.round(((reqQty / totalPoolDemand) * offeredQuantity) * 100) / 100;
       }
 
-      const totalBasic = Math.round(allocatedQty * unitPrice);
+      const totalBasic = Math.round(allocatedQty * combinedUnitPrice);
       const totalFreight = freightIncluded ? 0 : Math.round(freightCharges * allocatedQty);
       const totalGst = Math.round((totalBasic * gstRateNum) / 100);
       const totalEstimated = totalBasic + totalFreight + totalGst;
@@ -3643,14 +3651,14 @@ app.post('/api/buyer-allocations/generate', async (req, res) => {
       insReq.input('RequestedQuantity', sql.Decimal(18, 2), reqQty);
       insReq.input('AllocatedQuantity', sql.Decimal(18, 2), allocatedQty);
       insReq.input('Uom', sql.NVarChar(50), quote.Uom || enq.Uom || 'MT');
-      insReq.input('OfferedUnitPrice', sql.Decimal(18, 2), unitPrice);
+      insReq.input('OfferedUnitPrice', sql.Decimal(18, 2), combinedUnitPrice);
       insReq.input('Currency', sql.NVarChar(20), quote.Currency || 'INR');
       insReq.input('PriceBasis', sql.NVarChar(100), quote.PriceBasis || 'FOR Destination');
       insReq.input('FreightIncluded', sql.Bit, freightIncluded ? 1 : 0);
       insReq.input('FreightCharges', sql.Decimal(18, 2), freightCharges);
       insReq.input('GstRate', sql.NVarChar(50), gstRateStr);
       insReq.input('GstAmount', sql.Decimal(18, 2), totalGst);
-      insReq.input('OtherCharges', sql.Decimal(18, 2), otherCharges);
+      insReq.input('OtherCharges', sql.Decimal(18, 2), 0);
       insReq.input('TotalBasicAmount', sql.Decimal(18, 2), totalBasic);
       insReq.input('TotalEstimatedValue', sql.Decimal(18, 2), totalEstimated);
       insReq.input('DeliveryLeadTimeDays', sql.Int, quote.DeliveryLeadTimeDays ? Number(quote.DeliveryLeadTimeDays) : null);
@@ -3669,6 +3677,7 @@ app.post('/api/buyer-allocations/generate', async (req, res) => {
           SET OfferReference = @OfferReference,
               AllocatedQuantity = @AllocatedQuantity,
               OfferedUnitPrice = @OfferedUnitPrice,
+              OtherCharges = @OtherCharges,
               GstAmount = @GstAmount,
               TotalBasicAmount = @TotalBasicAmount,
               TotalEstimatedValue = @TotalEstimatedValue,
@@ -3711,7 +3720,7 @@ app.post('/api/buyer-allocations/generate', async (req, res) => {
         buyerCompanyName: enq.CompanyName,
         buyerEmail: enq.Email,
         allocatedQuantity: allocatedQty,
-        unitPrice,
+        unitPrice: combinedUnitPrice,
         totalEstimated
       });
     }
@@ -3722,8 +3731,8 @@ app.post('/api/buyer-allocations/generate', async (req, res) => {
       allocations: allocationsGenerated
     });
   } catch (err) {
-    console.error('Error generating buyer allocations:', err.message);
-    return res.status(500).json({ success: false, message: 'Server error generating buyer allocations.' });
+    console.error('Error generating buyer allocations:', err);
+    return res.status(500).json({ success: false, message: `Server error generating buyer allocations: ${err.message}` });
   }
 });
 
@@ -3930,12 +3939,12 @@ app.post('/api/buyer-allocations/send-email', async (req, res) => {
                               <td style="color: #047857; font-weight: 800; font-size: 15px;">${alloc.AllocatedQuantity} ${alloc.Uom}</td>
                             </tr>
                             <tr>
-                              <td style="color: #64748b; font-weight: 600;">Offered Unit Rate:</td>
+                              <td style="color: #64748b; font-weight: 600;">Consortium Unit Rate:</td>
                               <td style="color: #0f172a; font-weight: 800; font-size: 16px;">${unitPriceDisplay} / ${alloc.Uom}</td>
                             </tr>
                             <tr>
                               <td style="color: #64748b; font-weight: 600;">Freight Terms:</td>
-                              <td style="color: #334155;">${alloc.FreightIncluded ? 'Freight Included in Price' : `Freight Extra (+₹${alloc.FreightCharges}/${alloc.Uom})`}</td>
+                              <td style="color: #334155;">${alloc.FreightIncluded ? 'Freight Included in Rate (Door Delivery)' : `Freight Extra (+₹${alloc.FreightCharges}/${alloc.Uom})`}</td>
                             </tr>
                             <tr>
                               <td style="color: #64748b; font-weight: 600;">GST / Taxes:</td>
@@ -3943,11 +3952,15 @@ app.post('/api/buyer-allocations/send-email', async (req, res) => {
                             </tr>
                             <tr style="border-top: 1px solid #cbd5e1;">
                               <td style="color: #0f172a; font-weight: 700; padding-top: 10px;">Total Landed Order Value:</td>
-                              <td style="color: #0f172a; font-weight: 800; font-size: 16px; padding-top: 10px;">${totalEstDisplay}</td>
+                              <td style="color: #047857; font-weight: 800; font-size: 17px; padding-top: 10px;">${totalEstDisplay}</td>
+                            </tr>
+                            <tr>
+                              <td style="color: #64748b; font-weight: 600;">Payment Terms:</td>
+                              <td style="color: #334155;">${alloc.SupplierPaymentTerms || 'Direct Supplier Terms'}</td>
                             </tr>
                             <tr>
                               <td style="color: #64748b; font-weight: 600;">Turnaround / Lead Time:</td>
-                              <td style="color: #334155;">${alloc.DeliveryLeadTimeDays ? `${alloc.DeliveryLeadTimeDays} Days` : 'Standard Dispatch'}</td>
+                              <td style="color: #334155;">${alloc.DeliveryLeadTimeDays ? `${alloc.DeliveryLeadTimeDays} Days` : 'Standard Ready Dispatch'}</td>
                             </tr>
                             <tr>
                               <td style="color: #64748b; font-weight: 600;">Delivery Destination:</td>

@@ -240,7 +240,7 @@
   width: 100%;
   max-width: 100%;
   margin: 0;
-  padding: 24px;
+
   box-sizing: border-box;
 }
 
@@ -373,6 +373,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -846,6 +847,7 @@
     opacity: 0;
     transform: scale(0.96);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -1208,7 +1210,7 @@
   font-size: 13px;
   font-weight: 600;
   color: #334155;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .soh-eval-product-chip:hover {
@@ -1572,5 +1574,3 @@
   border-color: #94a3b8;
   color: #0f172a;
 }
-
-

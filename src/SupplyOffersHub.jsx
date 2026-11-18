@@ -4,6 +4,7 @@ import {
   Send,
   FileText,
   CheckCircle2,
+  Check,
   Clock,
   ExternalLink,
   Search,
@@ -30,7 +31,11 @@ import {
   MessageSquare,
   Split,
   RotateCcw,
-  Users
+  Users,
+  SlidersHorizontal,
+  Sparkles,
+  Truck,
+  CreditCard
 } from 'lucide-react';
 import './AdminAddProduct.css';
 import './SupplyOffersHub.css';
@@ -75,6 +80,10 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
 
   const [actionLoading, setActionLoading] = useState(false);
   const [actionSuccess, setActionSuccess] = useState('');
+
+  // Commercial Evaluation Comparison & Smart Recommendation States (default: normal mode)
+  const [compareMode, setCompareMode] = useState(false);
+  const [evalFilterCriterion, setEvalFilterCriterion] = useState('smart'); // 'smart' | 'location_match' | 'price_asc' | 'speed_asc' | 'credit_desc' | 'capacity_desc'
 
   // Stage 7: Buyer Allocation states
   const [buyerAllocations, setBuyerAllocations] = useState([]);
@@ -164,6 +173,169 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
   const activeEvalGroup = useMemo(() => {
     return evaluationGroups.find(g => g.key === selectedEvalKey) || evaluationGroups[0] || null;
   }, [evaluationGroups, selectedEvalKey]);
+
+  // Multi-Factor Comparison & Intelligent Recommendation Engine
+  const comparisonAnalysis = useMemo(() => {
+    if (!activeEvalGroup || !Array.isArray(activeEvalGroup.quotes) || activeEvalGroup.quotes.length === 0) {
+      return { evaluatedList: [], sortedList: [], recommendation: null, bestQuoteRef: '', lowestPriceRef: '' };
+    }
+
+    const quotes = activeEvalGroup.quotes;
+    const targetDest = String(activeEvalGroup.destination || '').toLowerCase().trim();
+    const targetDemand = Number(activeEvalGroup.totalDemand || 0);
+
+    // 1. Calculate raw and normalized metrics for each quotation
+    const scoredQuotes = quotes.map(quote => {
+      const basePrice = Number(quote.OfferedUnitPrice || 0);
+      const freightExtra = !quote.FreightIncluded ? Number(quote.FreightCharges || 0) : 0;
+      const otherCharges = Number(quote.OtherCharges || 0);
+      const netLandedRate = basePrice + freightExtra + otherCharges;
+
+      const offeredQty = Number(quote.OfferedQuantity || 0);
+      const turnaroundDays = Number(quote.DeliveryLeadTimeDays || 14);
+      const creditDays = Number(quote.CreditPeriodDays || 0);
+      const advancePct = Number(quote.AdvancePaymentPercentage || 0);
+      const quoteDest = String(quote.Destination || '').toLowerCase().trim();
+
+      // Factor 1: Location Matching (Weight: 35 points)
+      // If delivery is at buyer destination or door delivery / freight included:
+      const isExactLocation = Boolean(targetDest && (
+        quoteDest.includes(targetDest) ||
+        targetDest.includes(quoteDest) ||
+        (quoteDest.includes('pune') && targetDest.includes('pune'))
+      ));
+      const isDoorDelivery = quote.PriceBasis === 'FOR Destination' || Boolean(quote.FreightIncluded);
+
+      let locationScore = 10;
+      let locationReason = '';
+      if (isExactLocation) {
+        locationScore = 35;
+        locationReason = `Direct plant delivery at ${activeEvalGroup.destination || 'target location'}`;
+      } else if (isDoorDelivery) {
+        locationScore = 28;
+        locationReason = `Delivered to dock (${quote.Destination || 'Destination'})`;
+      } else {
+        locationScore = 12;
+        locationReason = `Ex-factory / Dispatch to ${quote.Destination || 'Vendor Plant'} (Buyer incurs extra transport)`;
+      }
+
+      // Factor 2: Delivery Speed & Readiness (Weight: 20 points)
+      let speedScore = 10;
+      if (turnaroundDays <= 3) speedScore = 20;
+      else if (turnaroundDays <= 7) speedScore = 17;
+      else if (turnaroundDays <= 14) speedScore = 13;
+      else speedScore = 8;
+
+      // Factor 3: Commercial Credit Terms (Weight: 15 points)
+      let creditScore = 5;
+      if (creditDays >= 60) creditScore = 15;
+      else if (creditDays >= 30) creditScore = 12;
+      else if (creditDays >= 15) creditScore = 9;
+      else if (advancePct === 0) creditScore = 7;
+      else creditScore = 4;
+
+      // Factor 4: Supply Volume Capacity (Weight: 10 points)
+      const supplyRatio = targetDemand > 0 ? (offeredQty / targetDemand) : 1;
+      let capacityScore = Math.min(10, Math.round(supplyRatio * 10));
+      if (quote.CanSupplyFull || offeredQty >= targetDemand) capacityScore = 10;
+
+      return {
+        quote,
+        basePrice,
+        netLandedRate,
+        offeredQty,
+        turnaroundDays,
+        creditDays,
+        advancePct,
+        quoteDest,
+        isExactLocation,
+        isDoorDelivery,
+        locationScore,
+        locationReason,
+        speedScore,
+        creditScore,
+        capacityScore
+      };
+    });
+
+    // Find lowest landed rate in this product group
+    const positiveRates = scoredQuotes.map(q => q.netLandedRate).filter(r => r > 0);
+    const minLanded = positiveRates.length > 0 ? Math.min(...positiveRates) : 1;
+
+    // 2. Normalize Price Score (Weight: 35 points) and compute Total Score out of 100
+    const evaluatedList = scoredQuotes.map(item => {
+      const priceRatio = item.netLandedRate > 0 ? (minLanded / item.netLandedRate) : 0.8;
+      const priceScore = Math.round(35 * priceRatio);
+
+      const totalScore = Math.min(100, Math.round(
+        item.locationScore + priceScore + item.speedScore + item.creditScore + item.capacityScore
+      ));
+
+      return {
+        ...item,
+        priceScore,
+        totalScore
+      };
+    });
+
+    // 3. Formulate AI / Smart Recommendation
+    const sortedBySmart = [...evaluatedList].sort((a, b) => b.totalScore - a.totalScore);
+    const sortedByPrice = [...evaluatedList].sort((a, b) => a.netLandedRate - b.netLandedRate);
+    const bestOverall = sortedBySmart[0];
+    const lowestPrice = sortedByPrice[0];
+
+    let recommendation = null;
+    if (bestOverall) {
+      const isLowestPrice = bestOverall.quote.OfferReference === lowestPrice?.quote?.OfferReference;
+      const priceDiff = lowestPrice && !isLowestPrice ? Math.abs(bestOverall.netLandedRate - lowestPrice.netLandedRate) : 0;
+
+      let reasonText = '';
+      if (isLowestPrice) {
+        reasonText = `Offers the lowest net landed rate (₹${bestOverall.netLandedRate.toLocaleString('en-IN')}/${activeEvalGroup.uom}) combined with direct delivery to ${activeEvalGroup.destination || 'plant'} and fast ${bestOverall.turnaroundDays}-day turnaround.`;
+      } else if (bestOverall.isExactLocation && !lowestPrice.isExactLocation) {
+        reasonText = `Although ${lowestPrice.quote.VendorName} has a ₹${priceDiff.toLocaleString('en-IN')}/${activeEvalGroup.uom} lower nominal rate, their dispatch destination is ${lowestPrice.quote.Destination || 'remote plant'} which requires secondary inter-city transport. ${bestOverall.quote.VendorName} delivers directly to ${activeEvalGroup.destination || 'your destination'} (Freight Included), eliminating extra logistics expenditure, while offering ${bestOverall.turnaroundDays}-day turnaround and ${bestOverall.creditDays > 0 ? `${bestOverall.creditDays} days credit` : 'direct terms'}.`;
+      } else {
+        reasonText = `Provides the optimal balance of competitive landed pricing (₹${bestOverall.netLandedRate.toLocaleString('en-IN')}/${activeEvalGroup.uom}), direct plant delivery (${bestOverall.locationReason}), ${bestOverall.turnaroundDays}-day turnaround, and ${bestOverall.creditDays} days credit period.`;
+      }
+
+      recommendation = {
+        bestQuote: bestOverall.quote,
+        bestScore: bestOverall.totalScore,
+        vendorName: bestOverall.quote.VendorName,
+        quotationNo: bestOverall.quote.VendorQuotationNo || bestOverall.quote.OfferReference,
+        netRate: bestOverall.netLandedRate,
+        reasonText,
+        lowestPriceQuote: lowestPrice?.quote,
+        lowestPriceRate: lowestPrice?.netLandedRate,
+        isSameAsLowestPrice: isLowestPrice
+      };
+    }
+
+    // 4. Sort quotes based on the selected user filter criterion
+    let sortedList = evaluatedList;
+    if (evalFilterCriterion === 'price_asc') {
+      sortedList = [...evaluatedList].sort((a, b) => a.netLandedRate - b.netLandedRate);
+    } else if (evalFilterCriterion === 'location_match') {
+      sortedList = [...evaluatedList].sort((a, b) => b.locationScore - a.locationScore || a.netLandedRate - b.netLandedRate);
+    } else if (evalFilterCriterion === 'speed_asc') {
+      sortedList = [...evaluatedList].sort((a, b) => a.turnaroundDays - b.turnaroundDays || a.netLandedRate - b.netLandedRate);
+    } else if (evalFilterCriterion === 'credit_desc') {
+      sortedList = [...evaluatedList].sort((a, b) => b.creditDays - a.creditDays || a.netLandedRate - b.netLandedRate);
+    } else if (evalFilterCriterion === 'capacity_desc') {
+      sortedList = [...evaluatedList].sort((a, b) => b.offeredQty - a.offeredQty || a.netLandedRate - b.netLandedRate);
+    } else {
+      // Default: 'smart' composite score
+      sortedList = sortedBySmart;
+    }
+
+    return {
+      evaluatedList,
+      sortedList,
+      recommendation,
+      bestQuoteRef: bestOverall?.quote?.OfferReference,
+      lowestPriceRef: lowestPrice?.quote?.OfferReference
+    };
+  }, [activeEvalGroup, evalFilterCriterion]);
 
   // Execute Step 5 Evaluation action
   const handleEvaluateAction = async (payload) => {
@@ -260,7 +432,19 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
           offerRef: quoteOfferRef
         })
       });
-      const data = await res.json();
+
+      const contentType = res.headers.get('content-type') || '';
+      let data = {};
+      if (contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(text.includes('Error occurred')
+          ? 'Backend server proxy timeout or connection reset. Please retry in a few moments.'
+          : `Server responded with status ${res.status}: ${text.slice(0, 120)}`
+        );
+      }
+
       if (!res.ok || !data.success) {
         throw new Error(data.message || 'Failed to generate buyer allocations.');
       }
@@ -1136,17 +1320,7 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
             {activeTab === 'evaluation' && (
               <div className="soh-card">
                 <div className="soh-card-header" style={{ borderBottom: 'none', paddingBottom: '8px' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                      <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '4px', textTransform: 'uppercase' }}>
-                        Commercial Phase
-                      </span>
-                      <h2 className="soh-card-title" style={{ margin: 0 }}>Commercial Evaluation & Quote Awarding</h2>
-                    </div>
-                    <p className="soh-card-subtitle">
-                      Compare competing seller offers on <b>Landed Unit Price</b>, <b>Capacity</b>, <b>Lead Time</b>, and <b>Payment Terms</b>. Award the winning quotation, request price revisions, or execute multi-source splits.
-                    </p>
-                  </div>
+
                 </div>
 
                 {/* Success Message Banner */}
@@ -1242,6 +1416,42 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
 
                         {/* Top Group Actions */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          {/* 1. Compare & Intelligent Ranking Button (Placed directly before Multi-Source Split) */}
+                          <button
+                            type="button"
+                            style={{
+                              background: compareMode ? '#0e7c86' : '#ffffff',
+                              border: '1.5px solid #0e7c86',
+                              color: compareMode ? '#ffffff' : '#0e7c86',
+                              padding: '8px 16px',
+                              borderRadius: '8px',
+                              fontSize: '12.5px',
+                              fontWeight: '700',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              boxShadow: compareMode ? '0 2px 10px rgba(14, 124, 134, 0.25)' : 'none',
+                              transition: 'all 0.2s ease'
+                            }}
+                            title={compareMode ? "Click to exit comparison and return to normal mode" : "Compare competing quotations side-by-side with smart ranking"}
+                            onClick={() => setCompareMode(!compareMode)}
+                          >
+                            <Scale size={15} />
+                            <span>{compareMode ? 'Compare (Active)' : 'Compare'}</span>
+                            <span style={{
+                              background: compareMode ? 'rgba(255,255,255,0.25)' : '#e0f2fe',
+                              color: compareMode ? '#ffffff' : '#0369a1',
+                              fontSize: '11px',
+                              padding: '1px 7px',
+                              borderRadius: '10px',
+                              fontWeight: '800'
+                            }}>
+                              {activeEvalGroup.quotes.length} Quotes
+                            </span>
+                          </button>
+
+                          {/* 2. Multi-Source Split Button */}
                           <button
                             type="button"
                             style={{
@@ -1313,22 +1523,169 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                       </div>
                     )}
 
+                    {/* AI / Smart Recommendation Banner */}
+                    {activeEvalGroup && compareMode && comparisonAnalysis.recommendation && (
+                      <div style={{
+                        marginTop: '16px',
+                        background: 'linear-gradient(135deg, #f0fdfa 0%, #ecfeff 100%)',
+                        border: '1.5px solid #99f6e4',
+                        borderRadius: '12px',
+                        padding: '16px 20px',
+                        boxShadow: '0 4px 14px rgba(14, 124, 134, 0.08)'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1, minWidth: '280px' }}>
+                            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#0e7c86', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
+                              <Award size={22} />
+                            </div>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span style={{ background: '#ccfbf1', color: '#0f766e', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', padding: '2px 8px', borderRadius: '4px', letterSpacing: '0.5px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                  <Sparkles size={12} /> Consortium Smart Recommendation
+                                </span>
+                                <strong style={{ fontSize: '15px', color: '#0f172a' }}>
+                                  Rank #1: {comparisonAnalysis.recommendation.vendorName}
+                                </strong>
+                                <span style={{ background: '#ffffff', border: '1px solid #cbd5e1', color: '#0e7c86', fontSize: '11.5px', fontWeight: '700', padding: '2px 8px', borderRadius: '4px' }}>
+                                  Score: {comparisonAnalysis.recommendation.bestScore}/100
+                                </span>
+                              </div>
+
+                              <p style={{ margin: '8px 0 0', fontSize: '13.5px', color: '#134e4a', lineHeight: '1.55' }}>
+                                {comparisonAnalysis.recommendation.reasonText}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <button
+                              type="button"
+                              style={{
+                                background: '#0e7c86',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '9px 18px',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                boxShadow: '0 2px 8px rgba(14, 124, 134, 0.3)'
+                              }}
+                              onClick={() => {
+                                setAwardModal({ quote: comparisonAnalysis.recommendation.bestQuote, group: activeEvalGroup });
+                                setAwardRemarks(`Recommended best match quotation awarded for ${activeEvalGroup.productName} based on multi-factor evaluation.`);
+                              }}
+                            >
+                              <Award size={15} />
+                              <span>Award Recommended #1 Bid</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Interactive Filter & Rank Criteria Strip */}
+                    {activeEvalGroup && compareMode && (
+                      <div style={{
+                        marginTop: '14px',
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '10px',
+                        padding: '12px 18px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px',
+                        flexWrap: 'wrap'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: '700', color: '#475569' }}>
+                            <SlidersHorizontal size={14} className="text-teal-600" />
+                            <span>Filter & Rank By:</span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            {[
+                              { id: 'smart', label: '🌟 Smart Best Match', tip: 'Overall multi-factor score (Location + Price + Speed + Credit)' },
+                              { id: 'location_match', label: `📍 Location (${activeEvalGroup.destination || 'Plant'})`, tip: 'Vendors delivering directly to your target destination' },
+                              { id: 'price_asc', label: '💰 Lowest Landed Price', tip: 'Cheapest total landed unit cost' },
+                              { id: 'speed_asc', label: '⚡ Fastest Lead Time', tip: 'Quickest turnaround & ready stock' },
+                              { id: 'credit_desc', label: '💳 Best Credit Terms', tip: 'Longest credit period (30/60 Days)' },
+                              { id: 'capacity_desc', label: '📦 Highest Capacity', tip: 'Vendors offering full 100% volume' }
+                            ].map(tab => (
+                              <button
+                                key={tab.id}
+                                type="button"
+                                style={{
+                                  background: evalFilterCriterion === tab.id ? '#0e7c86' : '#f8fafc',
+                                  color: evalFilterCriterion === tab.id ? '#ffffff' : '#334155',
+                                  border: evalFilterCriterion === tab.id ? '1px solid #0e7c86' : '1px solid #e2e8f0',
+                                  padding: '5px 12px',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: evalFilterCriterion === tab.id ? '700' : '600',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                onClick={() => setEvalFilterCriterion(tab.id)}
+                                title={tab.tip}
+                              >
+                                {tab.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '12px', color: '#64748b' }}>
+                            Showing <b>{comparisonAnalysis.sortedList.length}</b> competing quotes sorted by <b>{evalFilterCriterion.replace('_', ' ').toUpperCase()}</b>
+                          </span>
+                          <button
+                            type="button"
+                            style={{
+                              background: '#f8fafc',
+                              border: '1px solid #cbd5e1',
+                              color: '#64748b',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              fontSize: '11.5px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                            title="Exit comparison and return to normal view"
+                            onClick={() => setCompareMode(false)}
+                          >
+                            <span>✕ Normal View</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Comparison Cards Grid */}
                     {activeEvalGroup && (
                       <div className="soh-eval-matrix-grid" style={{ marginTop: '20px' }}>
-                        {activeEvalGroup.quotes.map((quote, idx) => {
+                        {(compareMode ? comparisonAnalysis.sortedList : comparisonAnalysis.evaluatedList).map((item, idx) => {
+                          const quote = item.quote;
                           const isAwarded = quote.Status === 'Awarded';
                           const isNegotiation = quote.Status === 'Under Negotiation';
                           const isSplit = quote.Status === 'Split Awarded';
                           const isNotSelected = quote.Status === 'Not Selected';
 
                           // Landed Unit Price Calculation
-                          const basePrice = Number(quote.OfferedUnitPrice || 0);
+                          const basePrice = item.basePrice;
                           const freightExtra = !quote.FreightIncluded ? (Number(quote.FreightCharges || 0)) : 0;
                           const otherCharges = Number(quote.OtherCharges || 0);
-                          const netLandedRate = basePrice + freightExtra + otherCharges;
+                          const netLandedRate = item.netLandedRate;
+                          const isBestOverall = quote.OfferReference === comparisonAnalysis.bestQuoteRef;
+                          const isLowestPrice = quote.OfferReference === comparisonAnalysis.lowestPriceRef;
 
-                          const offeredQty = Number(quote.OfferedQuantity || 0);
+                          const offeredQty = item.offeredQty;
                           const totalDemand = Number(activeEvalGroup.totalDemand || 0);
                           const supplyPercent = totalDemand > 0 ? Math.min(100, Math.round((offeredQty / totalDemand) * 100)) : 100;
 
@@ -1337,6 +1694,27 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                               key={quote.Id || quote.OfferReference}
                               className={`soh-eval-card ${isAwarded ? 'is-awarded' : isNegotiation ? 'is-negotiation' : ''}`}
                             >
+                              {/* Card Rank Header Ribbon */}
+                              {compareMode && (
+                                <div style={{
+                                  background: idx === 0 ? (isBestOverall ? 'linear-gradient(135deg, #0e7c86 0%, #065e66 100%)' : '#0f172a') : '#f8fafc',
+                                  color: idx === 0 ? '#ffffff' : '#64748b',
+                                  borderBottom: '1px solid #e2e8f0',
+                                  padding: '5px 14px',
+                                  fontSize: '11px',
+                                  fontWeight: '800',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between'
+                                }}>
+                                  <span>
+                                    {idx === 0 ? `🏆 RANK #1 • ${isBestOverall ? 'BEST OVERALL BID' : evalFilterCriterion.toUpperCase().replace('_', ' ')}` : `BID RANK #${idx + 1}`}
+                                  </span>
+                                  <span>
+                                    Score: {item.totalScore}/100 {item.isExactLocation && ' • 📍 Location Match'}
+                                  </span>
+                                </div>
+                              )}
                               {/* Card Header */}
                               <div className="soh-eval-card-header">
                                 <div style={{ minWidth: 0, flex: 1 }}>
@@ -1393,6 +1771,11 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                                   <div className="soh-eval-metric-title">
                                     <Scale size={13} className="text-teal-600" />
                                     <span>1. Net Landed Unit Price</span>
+                                    {isLowestPrice && (
+                                      <span style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', fontSize: '10px', fontWeight: '800', padding: '1px 5px', borderRadius: '4px', marginLeft: 'auto' }}>
+                                        💰 Lowest Nominal Rate
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="soh-eval-landed-rate-box">
                                     <div className="soh-eval-big-price">
@@ -1430,7 +1813,7 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                                   </div>
                                 </div>
 
-                                {/* 3. Delivery Lead Time */}
+                                {/* 3. Delivery Lead Time & Destination Transport */}
                                 <div className="soh-eval-metric-row">
                                   <div className="soh-eval-metric-title">
                                     <Clock size={13} className="text-orange-600" />
@@ -1443,12 +1826,25 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                                     Scope: <b>{quote.TransportationResponsibility || 'Supplier Scope'}</b>
                                     {quote.ExpectedDispatchDate && ` • Dispatch by: ${new Date(quote.ExpectedDispatchDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
                                   </div>
+
+                                  {/* Delivery Destination & Freight Efficiency Indicator */}
+                                  <div style={{ marginTop: '6px' }}>
+                                    {item.isExactLocation ? (
+                                      <span style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', borderRadius: '4px', padding: '3px 8px', fontSize: '11px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                        <Check size={12} /> Direct Delivery at {activeEvalGroup.destination || quote.Destination || 'Plant'} (Zero Extra Freight)
+                                      </span>
+                                    ) : (
+                                      <span style={{ background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa', borderRadius: '4px', padding: '3px 8px', fontSize: '11px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                        <Truck size={12} /> Dispatch to: {quote.Destination || 'Vendor Plant'} (Buyer incurs extra transport)
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
 
                                 {/* 4. Payment Terms & Credit */}
                                 <div className="soh-eval-metric-row">
                                   <div className="soh-eval-metric-title">
-                                    <Building size={13} className="text-indigo-600" />
+                                    <CreditCard size={13} className="text-indigo-600" />
                                     <span>4. Payment Terms & Credit Period</span>
                                   </div>
                                   <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a', marginTop: '2px' }}>

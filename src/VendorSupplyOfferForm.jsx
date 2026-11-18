@@ -427,24 +427,36 @@ export default function VendorSupplyOfferForm() {
     }));
   };
 
-  // File Upload Simulator
+  // File Upload Handler (reads file as Data URI to store in DB without local disk storage)
   const handleFileUpload = (e, docCategory) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
 
-    const newAttachments = files.map((file) => ({
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      name: file.name,
-      size: `${(file.size / 1024).toFixed(1)} KB`,
-      type: file.type || 'application/octet-stream',
-      category: docCategory,
-      uploadedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }));
+    files.forEach((file) => {
+      if (file.size > 12 * 1024 * 1024) {
+        triggerToast(`File "${file.name}" exceeds 12MB limit.`, 'error');
+        return;
+      }
 
-    setFormData((prev) => ({
-      ...prev,
-      attachments: [...prev.attachments, ...newAttachments]
-    }));
+      const reader = new FileReader();
+      reader.onload = () => {
+        const newAttachment = {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+          name: file.name,
+          size: `${(file.size / 1024).toFixed(1)} KB`,
+          type: file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream'),
+          category: docCategory,
+          data: reader.result, // Base64 Data URI
+          uploadedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+
+        setFormData((prev) => ({
+          ...prev,
+          attachments: [...prev.attachments, newAttachment]
+        }));
+      };
+      reader.readAsDataURL(file);
+    });
 
     triggerToast(`Attached ${files.length} document${files.length > 1 ? 's' : ''}.`);
     e.target.value = '';
@@ -506,10 +518,8 @@ export default function VendorSupplyOfferForm() {
       errors.otherChargesValue = 'Platform Fee is compulsory (must be greater than 0).';
     }
 
-    // Required documents check (vendor quotation document recommended)
-    if (formData.attachments.length === 0) {
-      errors.attachments = 'Please upload at least one quotation or technical verification document.';
-    }
+    // Required documents check (optional, attached files will display on Page 2 of the quotation document)
+    // if (formData.attachments.length === 0) errors.attachments = 'Please upload at least one quotation or technical verification document.';
 
     if (!formData.termsConfirmed) errors.termsConfirmed = 'Please confirm acceptance of commercial terms.';
     if (!formData.declarationConfirmed) errors.declarationConfirmed = 'Please declare that the submitted terms are authorized and accurate.';
@@ -581,7 +591,13 @@ export default function VendorSupplyOfferForm() {
       creditPeriodDays: parseInt(formData.creditPeriodDays, 10) || 0,
       enquiryAllocationsJson: formData.allocations,
       staggeredScheduleJson: formData.deliverySchedule === 'Partial' ? formData.staggeredSchedule : [],
-      attachmentsJson: formData.attachments.map((a) => ({ name: a.name, size: a.size, category: a.category })),
+      attachmentsJson: formData.attachments.map((a) => ({
+        name: a.name,
+        size: a.size,
+        category: a.category,
+        type: a.type,
+        data: a.data || undefined
+      })),
       commercialRemarks: formData.commercialRemarks,
       specialConditions: formData.specialConditions,
       termsConfirmed: formData.termsConfirmed,
@@ -1642,7 +1658,7 @@ export default function VendorSupplyOfferForm() {
                   {/* Slot 1: Vendor Quotation (PDF/Excel) */}
                   <div className="syn-upload-slot">
                     <span className="syn-slot-title">
-                      Vendor Quotation (PDF/Excel) <span className="syn-required">*</span>
+                      Vendor Quotation (PDF/Excel) <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 'normal' }}>(Optional — displayed on Page 2)</span>
                     </span>
                     <label className="syn-dropzone">
                       <input
