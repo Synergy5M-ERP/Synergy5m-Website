@@ -88,6 +88,7 @@ export default function SendEnquiryToVendors() {
     const [selectedEnqIds, setSelectedEnqIds] = useState([]);
     const [selectedVendorIds, setSelectedVendorIds] = useState([]);
     const [sending, setSending] = useState(false);
+    const [redirecting, setRedirecting] = useState(false);
     const [loading, setLoading] = useState(true);
 
     // Single-vendor manual email sending state
@@ -210,7 +211,7 @@ export default function SendEnquiryToVendors() {
 
     const allEnquiriesChecked = filteredEnquiries.length > 0 && filteredEnquiries.every(e => selectedEnqIds.includes(e.Id));
     const allVendorsChecked = filteredVendors.length > 0 && filteredVendors.every(v => selectedVendorIds.includes(v.Id));
-    const canSend = selectedEnqIds.length > 0 && selectedVendorIds.length > 0 && !sending;
+    const canSend = selectedEnqIds.length > 0 && selectedVendorIds.length > 0 && !sending && !redirecting;
 
     // Helper: Get active enquiries payload (combining all enquiries for this product)
     const getActiveEnquiries = () => {
@@ -298,9 +299,20 @@ export default function SendEnquiryToVendors() {
                 headers: getAuthHeaders(),
                 timeout: 30000
             });
-            showToast(response.data.message || 'Enquiry successfully dispatched to vendors to submit offers!', 'success');
+            const successMsg = response.data?.message || `Enquiry successfully dispatched to ${selectedVendorIds.length} vendor(s) to submit offers!`;
+            showToast(successMsg, 'success');
             setSentEmailIds(prev => Array.from(new Set([...prev, ...selectedVendorIds])));
+            setRedirecting(true);
+
+            // Re-render / navigate back to the Opportunity View for this product
+            const targetId = id || oppData?.id || oppData?.productId;
+            setTimeout(() => {
+                navigate(targetId ? `/admin/opportunity/${targetId}` : '/admin/opportunities', {
+                    state: { message: successMsg }
+                });
+            }, 900);
         } catch (error) {
+            setRedirecting(false);
             if (error.response?.status === 401 || error.response?.status === 403) {
                 handleAuthError(error.response.status, navigate);
                 return;
@@ -588,7 +600,7 @@ export default function SendEnquiryToVendors() {
                             <b>{selectedVendorIds.length}</b> checked {selectedVendorIds.length === 1 ? 'vendor' : 'vendors'}
                         </div>
                         <button type="button" className="sev-send" onClick={handleSendNotification} disabled={!canSend}>
-                            {sending ? 'Sending...' : 'Send to Checked Vendors'}
+                            {redirecting ? '✅ Sent! Redirecting...' : sending ? 'Sending...' : 'Send to Checked Vendors'}
                         </button>
                     </div>
                 </div>

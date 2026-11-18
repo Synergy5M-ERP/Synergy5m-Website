@@ -781,7 +781,7 @@ export default function VendorSupplyOfferForm() {
             </div>
           </div>
 
-          <div className="syn-nav-meta">
+          {/* <div className="syn-nav-meta">
             <button
               type="button"
               className="syn-btn-nav-link"
@@ -812,7 +812,7 @@ export default function VendorSupplyOfferForm() {
               <span className="syn-pill-label">RFQ REF:</span>
               <strong className="syn-mono">{rfqDetails.rfqReference}</strong>
             </div>
-          </div>
+          </div> */}
         </div>
       </header>
 
@@ -907,7 +907,7 @@ export default function VendorSupplyOfferForm() {
                     )}
                   </div>
                   <p style={{ margin: '6px 0 0', color: '#431407', fontSize: '13px', lineHeight: 1.5 }}>
-                    The Synergy5M Sourcing Committee has shortlisted your quotation for <strong>{rfqDetails.productName || 'this demand'}</strong>. 
+                    The Synergy5M Sourcing Committee has shortlisted your quotation for <strong>{rfqDetails.productName || 'this demand'}</strong>.
                     To match pooled consortium budgets and award the full volume of <strong>{rfqDetails.totalDemand} {rfqDetails.uom || 'MT'}</strong>, please review and re-submit your updated commercial offer below.
                   </p>
                 </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
 import { getAuthHeaders } from './AdminAuthGuard';
 import {
   Package,
@@ -35,6 +35,7 @@ import './AdminAddProduct.css';
 export default function OpportunityView() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const location = useLocation();
 
   // Sidebar States
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -74,6 +75,14 @@ export default function OpportunityView() {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
   };
+
+  // Listen for redirected toast messages (e.g. from SendEnquiryToVendors)
+  useEffect(() => {
+    if (location.state?.message) {
+      showToast(location.state.message, 'success');
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Fetch opportunity details and buyer enquiries
   const fetchOpportunityData = useCallback(async (targetId) => {
