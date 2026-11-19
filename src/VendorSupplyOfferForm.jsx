@@ -45,6 +45,25 @@ export default function VendorSupplyOfferForm() {
   const counterRate = searchParams.get('counterRate') || '';
   const prevRate = searchParams.get('prevRate') || '';
 
+  // Initial breakdown derived from destination list if multiple buyers are present
+  const destSegments = useMemo(() => {
+    return (initialDest || '').split(',').map((s) => s.trim()).filter(Boolean);
+  }, [initialDest]);
+
+  const initialBuyerEnquiries = useMemo(() => {
+    if (destSegments.length > 1 && initialDemand > 0) {
+      const share = Math.round((initialDemand / destSegments.length) * 100) / 100;
+      return destSegments.map((loc, idx) => ({
+        enquiryRef: `#CE-${idx + 1}`,
+        buyerName: `Verified Buyer from 📍 ${loc}`,
+        requiredQty: share,
+        destination: loc,
+        targetDeliveryDate: 'Open / Flexible'
+      }));
+    }
+    return [];
+  }, [destSegments, initialDemand]);
+
   // RFQ Read-Only Details
   const [rfqDetails, setRfqDetails] = useState({
     rfqReference: initialRfqRef,
@@ -56,7 +75,7 @@ export default function VendorSupplyOfferForm() {
     totalDemand: initialDemand,
     uom: initialUom,
     destination: initialDest,
-    buyerEnquiries: []
+    buyerEnquiries: initialBuyerEnquiries
   });
 
   // Today's date in YYYY-MM-DD
@@ -966,7 +985,9 @@ export default function VendorSupplyOfferForm() {
                   <div className="syn-meta-item">
                     <span className="syn-label">Active Buyer Enquiries</span>
                     <span className="syn-val font-semibold">
-                      {rfqDetails.buyerEnquiries.length} Verified Buyers
+                      {rfqDetails.buyerEnquiries && rfqDetails.buyerEnquiries.length > 0
+                        ? `${rfqDetails.buyerEnquiries.length} Verified Buyers`
+                        : (loadingData ? 'Syncing...' : '1 Verified Buyer')}
                     </span>
                   </div>
                 </div>
@@ -981,9 +1002,9 @@ export default function VendorSupplyOfferForm() {
                       <thead>
                         <tr>
                           <th>Enquiry Reference</th>
-                          <th>Buyer </th>
+                          <th>Buyer & Destination</th>
                           <th className="syn-text-right">Required Quantity</th>
-                          {/* <th>Destination</th> */}
+                          <th>Target Schedule</th>
                           <th>Status</th>
                         </tr>
                       </thead>
@@ -991,12 +1012,21 @@ export default function VendorSupplyOfferForm() {
                         {rfqDetails.buyerEnquiries && rfqDetails.buyerEnquiries.length > 0 ? (
                           rfqDetails.buyerEnquiries.map((enq, index) => (
                             <tr key={index}>
-                              <td className="syn-mono font-medium">{enq.enquiryRef}</td>
-                              <td>Verified Buyer From {enq.destination || rfqDetails.destination || 'Consortium'}</td>
+                              <td className="syn-mono font-medium" style={{ color: '#ea580c', fontWeight: '700' }}>
+                                {enq.enquiryRef}
+                              </td>
+                              <td>
+                                <div style={{ fontWeight: '600', color: '#1e293b' }}>Verified Buyer</div>
+                                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                  📍 {enq.destination || rfqDetails.destination || 'Consortium Destination'}
+                                </div>
+                              </td>
                               <td className="syn-text-right font-semibold">
                                 {enq.requiredQty} {rfqDetails.uom}
                               </td>
-                              {/* <td>{enq.destination}</td> */}
+                              <td style={{ fontSize: '12.5px', color: '#475569' }}>
+                                {enq.targetDeliveryDate || 'Open / Flexible'}
+                              </td>
                               <td>
                                 <span className="syn-status-mini syn-status-mini-cyan">Verified</span>
                               </td>
@@ -1004,7 +1034,7 @@ export default function VendorSupplyOfferForm() {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="4" style={{ textAlign: 'center', padding: '16px', color: '#64748b' }}>
+                            <td colSpan="5" style={{ textAlign: 'center', padding: '16px', color: '#64748b' }}>
                               {loadingData ? 'Syncing verified consortium demand from database...' : `Consolidated demand of ${rfqDetails.totalDemand || 0} ${rfqDetails.uom || 'MT'} pooled from verified buyers.`}
                             </td>
                           </tr>

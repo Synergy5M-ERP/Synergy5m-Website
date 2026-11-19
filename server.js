@@ -2906,6 +2906,23 @@ app.get('/api/supply-offer/rfq-context', async (req, res) => {
       }
     }
 
+    // 2.5 Fallback to query parameters if no RFQ found in SentSupplyOffers
+    if (!rfqData && (product || rfq)) {
+      rfqData = {
+        rfqReference: rfq || '',
+        opportunityId: req.query.prodId || '',
+        productName: product || '',
+        category: req.query.category || '',
+        grade: req.query.grade || '',
+        totalDemand: Number(req.query.demand) || 0,
+        uom: req.query.uom || 'MT',
+        destination: req.query.dest || '',
+        vendorName: vendor || '',
+        vendorEmail: req.query.email || '',
+        buyerEnquiriesCount: 1
+      };
+    }
+
     // 3. If rfqData found, look up anonymous buyer breakdown
     if (rfqData && rfqData.productName) {
       try {
@@ -2916,35 +2933,58 @@ app.get('/api/supply-offer/rfq-context', async (req, res) => {
             ce.Id,
             ce.RequiredQuantity,
             ce.Uom,
-            ce.DeliveryLocation
+            ce.DeliveryLocation,
+            ce.TargetDeliveryDate,
+            ce.Status
           FROM [dbo].[CollectiveEnquiries] ce
           WHERE LOWER(LTRIM(RTRIM(ce.ProductName))) = LOWER(LTRIM(RTRIM(@Product)))
-            AND (ce.Status = 'Pooled' OR ce.Status = 'Approved' OR ce.Status = 'Verified' OR ce.Status IS NULL)
+            AND (ce.Status IS NULL OR (ce.Status <> 'Cancelled' AND ce.Status <> 'Rejected'))
           ORDER BY ce.Id ASC
         `);
         if (buyerRes.recordset && buyerRes.recordset.length > 0) {
           buyerBreakdown = buyerRes.recordset.map((b, idx) => ({
-            enquiryRef: `CE-${b.Id}`,
-            buyerName: `Verified Buyer ${idx + 1} (${b.DeliveryLocation || rfqData.destination || 'Consortium'})`,
+            enquiryRef: `#CE-${b.Id}`,
+            buyerName: `Verified Buyer from 📍 ${b.DeliveryLocation || rfqData.destination || 'Consortium'}`,
             requiredQty: Number(b.RequiredQuantity || 0),
-            destination: b.DeliveryLocation || rfqData.destination || ''
+            destination: b.DeliveryLocation || rfqData.destination || '',
+            targetDeliveryDate: b.TargetDeliveryDate
+              ? new Date(b.TargetDeliveryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+              : 'Open / Flexible'
           }));
+          rfqData.buyerEnquiriesCount = buyerBreakdown.length;
+          const totalEnqDemand = buyerBreakdown.reduce((sum, b) => sum + (Number(b.requiredQty) || 0), 0);
+          if (totalEnqDemand > 0) {
+            rfqData.totalDemand = totalEnqDemand;
+          }
         }
       } catch (beErr) {
-        // Fallback gracefully
+        console.error("Error fetching buyer breakdown:", beErr);
       }
     }
 
-    // If still no breakdown but totalDemand > 0, provide single synthetic anonymous breakdown
+    // If still no breakdown but totalDemand > 0, provide synthetic anonymous breakdown
     if (buyerBreakdown.length === 0 && rfqData && rfqData.totalDemand > 0) {
-      buyerBreakdown = [
-        {
-          enquiryRef: `DEMAND-1`,
-          buyerName: `Verified Consortium Demand (${rfqData.destination || 'India'})`,
-          requiredQty: rfqData.totalDemand,
-          destination: rfqData.destination || ''
-        }
-      ];
+      const destParts = (rfqData.destination || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (destParts.length > 1) {
+        const eachDemand = Math.round((rfqData.totalDemand / destParts.length) * 100) / 100;
+        buyerBreakdown = destParts.map((dest, idx) => ({
+          enquiryRef: `#CE-${idx + 1}`,
+          buyerName: `Verified Buyer from 📍 ${dest}`,
+          requiredQty: eachDemand,
+          destination: dest,
+          targetDeliveryDate: 'Open / Flexible'
+        }));
+      } else {
+        buyerBreakdown = [
+          {
+            enquiryRef: `#CE-1`,
+            buyerName: `Verified Buyer from 📍 ${rfqData.destination || 'Consortium'}`,
+            requiredQty: rfqData.totalDemand,
+            destination: rfqData.destination || '',
+            targetDeliveryDate: 'Open / Flexible'
+          }
+        ];
+      }
     }
 
     return res.json({
