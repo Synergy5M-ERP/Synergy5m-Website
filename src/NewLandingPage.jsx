@@ -1843,19 +1843,9 @@ function NewLandingPage() {
               <button className="nav-link" onClick={() => scrollTo("home")}>
                 HOME
               </button>
-
-              <button className="nav-link" onClick={() => scrollTo("consulting")}>
-                MANAGEMENT CONSULTING
-              </button>
-
               <button className="nav-link" onClick={() => scrollTo("erp")}>
                 ERP SOFTWARE
               </button>
-
-              <button className="nav-link" onClick={() => scrollTo("connect")}>
-                BUYING & SELLING
-              </button>
-
               <button
                 className="nav-link"
                 onClick={() => scrollTo("collective-buy")}
@@ -1870,6 +1860,18 @@ function NewLandingPage() {
                 COLLECTIVE BUY
 
               </button>
+              <button className="nav-link" onClick={() => scrollTo("connect")}>
+                BUYING & SELLING
+              </button>
+              <button className="nav-link" onClick={() => scrollTo("consulting")}>
+                MANAGEMENT CONSULTING
+              </button>
+
+
+
+
+
+
             </div>
 
             <div className="drawer-footer-action" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -2001,70 +2003,10 @@ function NewLandingPage() {
   `}</style>
         </section>
 
-        <section
-          id="consulting"
-          className="consulting section-wrap dark-anchor"
-        >
-          <div className="section-kicker orange">01</div>
-          <div className="consulting-heading">
-            <div>
-              <h2> MANAGEMENT CONSULTING</h2>
-              <h3>The 5M Framework for Business Excellence</h3>
-              <p>
-                We help businesses optimise every critical element of their
-                operations through our proven 5M approach — for stronger
-                performance, higher productivity and sustainable growth.
-              </p>
-            </div>
-            <img src="/consulting-dart.png" alt="Business target" />
-          </div>
-          <div className="consulting-tabs">
-            {Object.entries(consulting).map(([name, item]) => {
-              const TabIcon = item.Icon;
-              return (
-                <button
-                  key={name}
-                  className={activeConsulting === name ? "active" : ""}
-                  onClick={() => setActiveConsulting(name)}
-                >
-                  <span>
-                    <TabIcon size={20} />
-                  </span>
-                  <b>{name}</b>
-                </button>
-              );
-            })}
-          </div>
-          <div className="consulting-content">
-            <div>
-              <p className="mini-label">{activeConsulting.toUpperCase()}</p>
-              <h3>{consulting[activeConsulting].tagline}</h3>
-              <p className="consulting-intro">
-                {consulting[activeConsulting].intro}
-              </p>
-              <ul>
-                {consulting[activeConsulting].focus.slice(0, 6).map((x) => (
-                  <li key={x}>
-                    <Check size={16} />
-                    {x}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <aside>
-              <h4>Key Outcomes</h4>
-              {consulting[activeConsulting].outcomes.slice(0, 5).map((x) => (
-                <p key={x}>
-                  <Check size={15} />
-                  {x}
-                </p>
-              ))}
-            </aside>
-          </div>
-        </section>
 
+        {/* ERP SOFTWARE */}
         <section id="erp" className="erp section-wrap dark-anchor">
-          <div className="section-kicker blue">02</div>
+          <div className="section-kicker blue">01</div>
           <div className="erp-intro">
             <div>
               <h2> ERP SOFTWARE</h2>
@@ -2147,37 +2089,39 @@ function NewLandingPage() {
           </div>
         </section>
 
+        {/* ========================================================================= */}
+        {/* SECTION 02: COLLECTIVE BUY - DEMAND AGGREGATION & PRODUCTS FOR ENQUIRIES */}
+        {/* ========================================================================= */}
+        <section id="collective-buy" className="collective-buy-landing-section section-wrap" style={{ background: "#F5F8FA", padding: "36px 0 24px 0", borderTop: "1px solid #E2E8F0" }}>
+          <div style={{ maxWidth: "1520px", margin: "0 auto", padding: "0 24px" }}>
+            {/* <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
+              <div className="section-kicker teal" style={{ margin: 0, padding: "4px 14px", background: "#0E7C86", color: "#fff", borderRadius: "4px", fontWeight: "800", fontSize: "14px" }}>
+                02
+              </div>
+              <span style={{ fontSize: "13px", fontWeight: "800", letterSpacing: "1px", textTransform: "uppercase", color: "#0E7C86" }}>
+                Synergy5M <span>CollectiveBuy</span>
+              </span>
+            </div> */}
+
+            {/* Synergy5M CollectiveBuy Showcase */}
+            <CollectiveBuyShowcase
+              onOpenModal={(type) => setModal(type)}
+              onScrollToCatalog={() => {
+                const el = document.getElementById("collective-products-catalog");
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            />
+
+            {/* Live Interactive Product Opportunities & Enquiries */}
+            <ProductsOpenForEnquiries embedded={true} />
+          </div>
+        </section>
+
+        {/* BUYING & SELLING */}
         <section id="connect" className="connect section-wrap dark-anchor">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "8px" }}>
             <div className="section-kicker teal" style={{ margin: 0 }}>03</div>
 
-
-            {/* <div
-              className="blinking-vendor-badge"
-              style={{
-                overflow: "hidden",
-                background: "linear-gradient(135deg, #a0b6d2 0%, #c7d1df 100%)",
-                color: "#ffffff",
-                padding: "6px 16px",
-                borderRadius: "50px",
-                fontSize: "13px",
-                fontWeight: "700",
-                boxShadow: "0 4px 15px rgba(11, 67, 141, 0.3)",
-                display: "flex",
-                alignItems: "center",
-                marginLeft:"110 px",
-                letterSpacing: "0.5px",
-                border: "1px solid rgba(255,255,255,0.4)"
-              }}
-            >
-              <span style={{
-                display: "inline-block",
-                whiteSpace: "nowrap",
-                color: "black"
-              }}>
-               Available  <span style={{ color: "#f01a1a", fontSize: "14px" }}>{vendorCount}</span> VENDORS 
-              </span>
-            </div> */}
             <div
               style={{
                 overflow: "hidden",
@@ -2200,8 +2144,6 @@ function NewLandingPage() {
                 Available <span style={{ color: "#c1290e", fontSize: "15px", fontWeight: "800" }}>{vendorCount}</span> VENDORS
               </span>
             </div>
-
-
 
             {/* Attractive Right-Corner Badge Marquee / Animated Pill */}
             <div
@@ -2320,33 +2262,70 @@ function NewLandingPage() {
           </div>
         </section>
 
-        {/* ========================================================================= */}
-        {/* SECTION 04: COLLECTIVE BUY - DEMAND AGGREGATION & PRODUCTS FOR ENQUIRIES */}
-        {/* ========================================================================= */}
-        <section id="collective-buy" className="collective-buy-landing-section section-wrap" style={{ background: "#F5F8FA", padding: "36px 0 24px 0", borderTop: "1px solid #E2E8F0" }}>
-          <div style={{ maxWidth: "1520px", margin: "0 auto", padding: "0 24px" }}>
-            {/* <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
-              <div className="section-kicker teal" style={{ margin: 0, padding: "4px 14px", background: "#0E7C86", color: "#fff", borderRadius: "4px", fontWeight: "800", fontSize: "14px" }}>
-                04
-              </div>
-              <span style={{ fontSize: "13px", fontWeight: "800", letterSpacing: "1px", textTransform: "uppercase", color: "#0E7C86" }}>
-                Synergy5M <span>CollectiveBuy</span>
-              </span>
-            </div> */}
-
-            {/* Synergy5M CollectiveBuy Showcase */}
-            <CollectiveBuyShowcase
-              onOpenModal={(type) => setModal(type)}
-              onScrollToCatalog={() => {
-                const el = document.getElementById("collective-products-catalog");
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
-            />
-
-            {/* Live Interactive Product Opportunities & Enquiries */}
-            <ProductsOpenForEnquiries embedded={true} />
+        {/* MANAGEMENT CONSULTING */}
+        <section
+          id="consulting"
+          className="consulting section-wrap dark-anchor"
+        >
+          <div className="section-kicker orange">04</div>
+          <div className="consulting-heading">
+            <div>
+              <h2> MANAGEMENT CONSULTING</h2>
+              <h3>The 5M Framework for Business Excellence</h3>
+              <p>
+                We help businesses optimise every critical element of their
+                operations through our proven 5M approach — for stronger
+                performance, higher productivity and sustainable growth.
+              </p>
+            </div>
+            <img src="/consulting-dart.png" alt="Business target" />
+          </div>
+          <div className="consulting-tabs">
+            {Object.entries(consulting).map(([name, item]) => {
+              const TabIcon = item.Icon;
+              return (
+                <button
+                  key={name}
+                  className={activeConsulting === name ? "active" : ""}
+                  onClick={() => setActiveConsulting(name)}
+                >
+                  <span>
+                    <TabIcon size={20} />
+                  </span>
+                  <b>{name}</b>
+                </button>
+              );
+            })}
+          </div>
+          <div className="consulting-content">
+            <div>
+              <p className="mini-label">{activeConsulting.toUpperCase()}</p>
+              <h3>{consulting[activeConsulting].tagline}</h3>
+              <p className="consulting-intro">
+                {consulting[activeConsulting].intro}
+              </p>
+              <ul>
+                {consulting[activeConsulting].focus.slice(0, 6).map((x) => (
+                  <li key={x}>
+                    <Check size={16} />
+                    {x}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <aside>
+              <h4>Key Outcomes</h4>
+              {consulting[activeConsulting].outcomes.slice(0, 5).map((x) => (
+                <p key={x}>
+                  <Check size={15} />
+                  {x}
+                </p>
+              ))}
+            </aside>
           </div>
         </section>
+
+
 
         <section id="about" className="advantage section-wrap">
           <div>

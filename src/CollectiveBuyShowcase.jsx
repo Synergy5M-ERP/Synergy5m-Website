@@ -248,7 +248,7 @@ export default function CollectiveBuyShowcase({ onOpenModal, onScrollToCatalog }
           <div className="cb-hero-tagline">
             {/* Together We Buy Better. Together We Grow. */}
             <div className="cb-hero-title-group">
-              <div className="section-kicker teal">04</div>
+              <div className="section-kicker teal">02</div>
               <h2 className="cb-hero-title">
                 Synergy5M <span>CollectiveBuy</span>
               </h2>
