@@ -303,12 +303,18 @@ app.get("/api/potential-vendors/count", async (req, res) => {
     }
 
     const result = await pool.request().query(`
-      SELECT COUNT(*) AS TotalCount 
+      SELECT 
+        COUNT(*) AS TotalCount,
+        SUM(CASE WHEN UPPER(LTRIM(RTRIM(ISNULL(Source, '')))) = 'DOMESTIC' OR (ISNULL(Source, '') = '' AND (Country IS NULL OR UPPER(LTRIM(RTRIM(Country))) = 'INDIA')) THEN 1 ELSE 0 END) AS DomesticCount,
+        SUM(CASE WHEN UPPER(LTRIM(RTRIM(ISNULL(Source, '')))) = 'INTERNATIONAL' OR (ISNULL(Source, '') = '' AND Country IS NOT NULL AND UPPER(LTRIM(RTRIM(Country))) <> 'INDIA') THEN 1 ELSE 0 END) AS InternationalCount
       FROM [dbo].[Potential_Vendor]
     `);
 
-    const count = result.recordset[0]?.TotalCount || 0;
-    return res.json({ count });
+    const row = result.recordset[0] || {};
+    const count = row.TotalCount || 0;
+    const domesticCount = row.DomesticCount || 0;
+    const internationalCount = row.InternationalCount || 0;
+    return res.json({ count, totalCount: count, domesticCount, internationalCount });
   } catch (err) {
     console.error("Potential vendors count fetch error:", err.message);
     return res.status(500).json({ error: "Failed to fetch count" });

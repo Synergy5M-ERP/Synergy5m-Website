@@ -1582,11 +1582,17 @@ function NewLandingPage() {
   const [countryCode, setCountryCode] = useState("+91");
   const [mobileNumber, setMobileNumber] = useState("");
   const [vendorCount, setVendorCount] = useState(0);
+  const [domesticVendorCount, setDomesticVendorCount] = useState(0);
+  const [intlVendorCount, setIntlVendorCount] = useState(0);
 
   useEffect(() => {
     fetch("/api/potential-vendors/count")
       .then((res) => res.json())
-      .then((data) => setVendorCount(data.count))
+      .then((data) => {
+        setVendorCount(data.count || data.totalCount || 0);
+        setDomesticVendorCount(data.domesticCount || 0);
+        setIntlVendorCount(data.internationalCount || 0);
+      })
       .catch((err) => console.error("Failed to load vendor count:", err));
   }, []);
 
@@ -1905,15 +1911,15 @@ function NewLandingPage() {
 
             <div className="hero-headline-group">
               <h1 className="hero-title-main">One Partner.</h1>
-              <div className="text-danger h2">Three Powerful Solutions.</div>
+              <div className="text-danger h2">Four Powerful Solutions.</div>
               <div className="hero-title-sub">Unlimited Possibilities.</div>
             </div>
-
             <p className="hero-desc">
-              Empowering businesses with <strong>Consulting Excellence</strong>,{" "}
-              <strong>Intelligent ERP</strong> and <strong>Strong Industry Connections.</strong>
+              Transforming businesses through <strong>Intelligent ERP Solutions</strong>,
+              <strong> Collective Buying & Selling</strong>, and
+              <strong>Strategic Management Consulting</strong> to drive growth,
+              efficiency, and stronger business connections.
             </p>
-
             {/* Responsive Vendor Badge Container */}
             <div style={{ marginBottom: "20px", display: "flex", justifyContent: "flex-start" }}>
               <div
@@ -1950,6 +1956,11 @@ function NewLandingPage() {
                     display: "inline-block",
                     animation: "pulseScale 1.5s infinite ease-in-out"
                   }}>{vendorCount}</span> VENDORS
+                  {domesticVendorCount > 0 && (
+                    <span style={{ fontSize: "12px", color: "#fef08a", marginLeft: "6px", fontWeight: "700" }}>
+                      ({domesticVendorCount} Domestic and 🌐 {intlVendorCount} International)
+                    </span>
+                  )}
                 </span>
               </div>
             </div>
@@ -2140,8 +2151,14 @@ function NewLandingPage() {
                 border: "1px solid rgba(255,255,255,0.4)"
               }}
             >
-              <span style={{ display: "inline-block", whiteSpace: "nowrap", color: "#333" }}>
-                Available <span style={{ color: "#c1290e", fontSize: "15px", fontWeight: "800" }}>{vendorCount}</span> VENDORS
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap", color: "#333", flexWrap: "wrap" }}>
+                <span>Available <span style={{ color: "#c1290e", fontSize: "15px", fontWeight: "800" }}>{vendorCount}</span> VENDORS</span>
+                {domesticVendorCount > 0 && (
+                  <span style={{ fontSize: "12px", color: "#1e293b", fontWeight: "700", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                    • <span style={{ color: "#0e7c86" }}>🇮🇳 Domestic: <b>{domesticVendorCount}</b></span>
+                    • <span style={{ color: "#c1290e" }}>🌐 International: <b>{intlVendorCount}</b></span>
+                  </span>
+                )}
               </span>
             </div>
 
@@ -2168,7 +2185,7 @@ function NewLandingPage() {
                 whiteSpace: "nowrap",
                 color: "black"
               }}>
-                🔥 WE HAVE <span style={{ color: "#f01a1a", fontSize: "14px" }}>{vendorCount}</span> VENDORS READY TO CONNECT!
+                🔥 WE HAVE <span style={{ color: "#f01a1a", fontSize: "14px" }}>{vendorCount}</span> VENDORS READY TO CONNECT{domesticVendorCount > 0 ? ` (🇮🇳 ${domesticVendorCount} Domestic • 🌐 ${intlVendorCount} International)` : ''}!
               </span>
             </div>
           </div>
