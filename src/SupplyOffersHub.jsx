@@ -4,7 +4,6 @@ import {
   Send,
   FileText,
   CheckCircle2,
-  Check,
   Clock,
   ExternalLink,
   Search,
@@ -20,6 +19,7 @@ import {
   Menu,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   LayoutDashboard,
   Warehouse,
   Database,
@@ -30,12 +30,13 @@ import {
   Scale,
   MessageSquare,
   Split,
-  RotateCcw,
   Users,
   SlidersHorizontal,
-  Sparkles,
-  Truck,
-  CreditCard
+  CreditCard,
+  Printer,
+  Download,
+  Table as TableIcon,
+  LayoutGrid
 } from 'lucide-react';
 import './AdminAddProduct.css';
 import './SupplyOffersHub.css';
@@ -84,6 +85,7 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
   // Commercial Evaluation Comparison & Smart Recommendation States (default: normal mode)
   const [compareMode, setCompareMode] = useState(false);
   const [evalFilterCriterion, setEvalFilterCriterion] = useState('smart'); // 'smart' | 'location_match' | 'price_asc' | 'speed_asc' | 'credit_desc' | 'capacity_desc'
+  const [compareViewType, setCompareViewType] = useState('chart'); // 'chart' | 'cards'
 
   // Stage 7: Buyer Allocation states
   const [buyerAllocations, setBuyerAllocations] = useState([]);
@@ -150,6 +152,7 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
           productName: prod,
           category: quote.Category || matchingSent?.Category || '',
           grade: quote.Grade || matchingSent?.Grade || '',
+          productCode: quote.OpportunityId || matchingSent?.OpportunityId || matchingSent?.ProductId || quote.RfqReference || '',
           totalDemand: matchingSent?.TotalDemand || quote.TotalRequiredDemand || 0,
           uom: quote.Uom || matchingSent?.Uom || 'MT',
           destination: quote.Destination || matchingSent?.Destination || '',
@@ -336,6 +339,148 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
       lowestPriceRef: lowestPrice?.quote?.OfferReference
     };
   }, [activeEvalGroup, evalFilterCriterion]);
+
+  // Processed Quotations specifically formatted for the Horizontal Quotation Comparison Chart
+  const comparisonQuotes = useMemo(() => {
+    if (!activeEvalGroup || !Array.isArray(activeEvalGroup.quotes)) return [];
+
+    const mapped = activeEvalGroup.quotes.map((quote, idx) => {
+      const basicPrice = Number(quote.OfferedUnitPrice || 0);
+      const qtyOffered = Number(quote.OfferedQuantity || 0);
+      const discountPct = Number(quote.DiscountPercentage || 0);
+      const discountValue = (basicPrice * discountPct) / 100;
+      const netPrice = basicPrice - discountValue;
+
+      const gstRateRaw = String(quote.GstRate || '18%');
+      const gstRateNum = parseFloat(gstRateRaw.replace(/[^0-9.]/g, '')) || 18;
+      const gstValue = Number(quote.GstAmount || ((netPrice * gstRateNum) / 100));
+
+      const isFreightInc = Boolean(quote.FreightIncluded);
+      const freightCharges = !isFreightInc ? Number(quote.FreightCharges || 0) : 0;
+
+      // Net of GST Landed Rate = Net Basic + Freight
+      const netOfGstPrice = netPrice + freightCharges;
+      const totalLandedPrice = netOfGstPrice + gstValue;
+
+      const source = String(quote.Source || (quote.Country && String(quote.Country).toUpperCase() !== 'INDIA' ? 'INTERNATIONAL' : 'DOMESTIC')).toUpperCase();
+      const country = String(quote.Country || 'INDIA').toUpperCase();
+      const uom = quote.Uom || activeEvalGroup.uom || 'MT';
+      const quotationNo = quote.VendorQuotationNo || quote.OfferReference || `OFF-${quote.Id}`;
+      const quotationDate = quote.QuotationDate
+        ? new Date(quote.QuotationDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+        : (quote.CreatedAt ? new Date(quote.CreatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }));
+      const paymentTerms = quote.PaymentTerms || (quote.CreditPeriodDays ? `${quote.CreditPeriodDays} Days Credit` : 'Standard Terms');
+      const priceBasis = quote.PriceBasis || (isFreightInc ? 'FOR Destination' : 'Ex-Works');
+      const validity = quote.QuotationValidUntil
+        ? new Date(quote.QuotationValidUntil).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+        : '30 Days';
+      const moq = `${quote.Moq || '1'} ${uom}`;
+
+      return {
+        quote,
+        index: idx + 1,
+        source,
+        country,
+        uom,
+        quotationNo,
+        quotationDate,
+        paymentTerms,
+        priceBasis,
+        validity,
+        moq,
+        basicPrice,
+        qtyOffered,
+        discountPct,
+        discountValue,
+        netPrice,
+        gstRateNum,
+        gstRateRaw,
+        gstValue,
+        isFreightInc,
+        freightCharges,
+        netOfGstPrice,
+        totalLandedPrice
+      };
+    });
+
+    // Rank suppliers by lowest Net Landed Rate (Net of GST Price) to assign L1, L2, L3...
+    const sorted = [...mapped].sort((a, b) => a.netOfGstPrice - b.netOfGstPrice);
+    const rankMap = {};
+    sorted.forEach((item, rIdx) => {
+      rankMap[item.quote.OfferReference || item.quote.Id] = `L${rIdx + 1}`;
+    });
+
+    return mapped.map(item => {
+      const evalData = comparisonAnalysis.evaluatedList.find(
+        e => (e.quote.OfferReference || e.quote.Id) === (item.quote.OfferReference || item.quote.Id)
+      );
+      const isGoodFit = Boolean(
+        comparisonAnalysis.bestQuoteRef &&
+        (item.quote.OfferReference || item.quote.Id) === comparisonAnalysis.bestQuoteRef
+      );
+      return {
+        ...item,
+        rating: rankMap[item.quote.OfferReference || item.quote.Id] || `L${item.index}`,
+        isL1: rankMap[item.quote.OfferReference || item.quote.Id] === 'L1',
+        isGoodFit,
+        evalData,
+        score: evalData?.totalScore || 0
+      };
+    });
+  }, [activeEvalGroup, comparisonAnalysis]);
+
+  // Export comparison table to CSV
+  const handleExportComparisonCsv = () => {
+    if (!activeEvalGroup || comparisonQuotes.length === 0) return;
+
+    const rows = [
+      ['QUOTATION COMPARISON CHART', '', '', '', '', '', '', `DATE: ${new Date().toLocaleDateString('en-IN')}`],
+      [],
+      ['--- SUPPLIER DETAILS ---'],
+      ['SOURCE', 'SUPPLIER DETAILS', 'NAME', 'COUNTRY', 'UOM', 'QUOTATION NO', 'DATE', 'BASIC PRICE', 'OFFERED QUANTITY', 'PAYMENT TERMS', 'PRICE BASIS', 'OFFER VALIDITY', 'MOQ'],
+      ...comparisonQuotes.map(q => [
+        q.source,
+        q.index,
+        `"${q.quote.VendorName}"`,
+        q.country,
+        q.uom,
+        `"${q.quotationNo}"`,
+        q.quotationDate,
+        q.basicPrice,
+        `"${q.qtyOffered} ${q.uom}"`,
+        `"${q.paymentTerms}"`,
+        `"${q.priceBasis}"`,
+        `"${q.validity}"`,
+        `"${q.moq}"`
+      ]),
+      [],
+      ['--- PRODUCT & COMMERCIAL OFFER EVALUATION ---'],
+      ['PRODUCT DETAILS', ...comparisonQuotes.map((q, idx) => idx === 0 ? `CODE: ${activeEvalGroup.productCode || activeEvalGroup.rfqReference}` : idx === 1 ? `DESC: ${activeEvalGroup.productName}` : idx === 2 ? `GRADE: ${activeEvalGroup.grade || 'Commercial Grade'}` : `PRODUCT: ${activeEvalGroup.productName}`)],
+      ['SUPPLIERS OFFER', ...comparisonQuotes.map(q => `${q.index}. ${q.quote.VendorName}`)],
+      ['BASIC PRICE', ...comparisonQuotes.map(q => q.basicPrice)],
+      ['QTY OFFERED', ...comparisonQuotes.map(q => `${q.qtyOffered} ${q.uom}`)],
+      ['DISCOUNT %', ...comparisonQuotes.map(q => `${q.discountPct}%`)],
+      ['DISCOUNT VALUE', ...comparisonQuotes.map(q => q.discountValue)],
+      ['NET PRICE', ...comparisonQuotes.map(q => q.netPrice)],
+      ['GST TAX %', ...comparisonQuotes.map(q => `${q.gstRateNum}%`)],
+      ['GST TAX VALUE', ...comparisonQuotes.map(q => q.gstValue)],
+      ['FREIGHT', ...comparisonQuotes.map(q => q.isFreightInc ? 'Included' : q.freightCharges)],
+      ['NET OF GST PRICE', ...comparisonQuotes.map(q => q.netOfGstPrice)],
+      ['TOTAL LANDED (INCL GST)', ...comparisonQuotes.map(q => q.totalLandedPrice)],
+      ['SUPPLIER RATING', ...comparisonQuotes.map(q => q.rating)],
+      [],
+      ['PREPARED BY: Synergy5M Sourcing Desk', '', '', 'CHECKED BY: Consortium Procurement Committee']
+    ];
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Quotation_Comparison_Chart_${activeEvalGroup.rfqReference || 'RFQ'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Execute Step 5 Evaluation action
   const handleEvaluateAction = async (payload) => {
@@ -1358,47 +1503,16 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                   </div>
                 ) : (
                   <div style={{ padding: '0 24px 24px 24px' }}>
-                    {/* Horizontal Product Selector Chips */}
-                    <div className="soh-eval-product-selector">
-                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginRight: '4px' }}>
-                        Products Ready:
-                      </span>
-                      {evaluationGroups.map((group) => {
-                        const isSelected = activeEvalGroup?.key === group.key;
-                        const hasAwarded = group.quotes.some(q => q.Status === 'Awarded' || q.Status === 'Split Awarded');
-                        const hasNegotiation = group.quotes.some(q => q.Status === 'Under Negotiation');
-
-                        return (
-                          <button
-                            key={group.key}
-                            type="button"
-                            className={`soh-eval-product-chip ${isSelected ? 'active' : ''}`}
-                            onClick={() => setSelectedEvalKey(group.key)}
-                          >
-                            <span>{group.productName}</span>
-                            <span style={{ fontSize: '11px', opacity: 0.8 }}>({group.rfqReference})</span>
-                            <span className="chip-count">
-                              {group.quotes.length} {group.quotes.length === 1 ? 'Quote' : 'Quotes'}
-                            </span>
-                            {hasAwarded ? (
-                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} title="Awarded" />
-                            ) : hasNegotiation ? (
-                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} title="Under Negotiation" />
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Active Selected Product Summary Bar */}
+                    {/* Unified Commercial Evaluation Header: Product Info, Actions & Product Selector Dropdown */}
                     {activeEvalGroup && (
-                      <div style={{ marginTop: '20px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 20px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div className="soh-eval-header-bar">
+                        {/* 1. Product Info & Pooled Demand Parameters */}
+                        <div className="soh-eval-header-info">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
                               {activeEvalGroup.productName}
                             </h3>
-                            <span style={{ background: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '4px' }}>
+                            <span style={{ background: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
                               {activeEvalGroup.rfqReference}
                             </span>
                             {activeEvalGroup.category && (
@@ -1407,45 +1521,49 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                               </span>
                             )}
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '6px', fontSize: '13px', color: '#475569' }}>
+                          {/* <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginTop: '6px', fontSize: '12.5px', color: '#475569', flexWrap: 'wrap' }}>
                             <span>Total Pooled Demand: <strong style={{ color: '#0f172a' }}>{activeEvalGroup.totalDemand} {activeEvalGroup.uom}</strong></span>
                             {activeEvalGroup.destination && <span>• Destination: <strong>{activeEvalGroup.destination}</strong></span>}
                             <span>• Competing Quotations: <strong>{activeEvalGroup.quotes.length}</strong></span>
-                          </div>
+                          </div> */}
                         </div>
 
-                        {/* Top Group Actions */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                          {/* 1. Compare & Intelligent Ranking Button (Placed directly before Multi-Source Split) */}
+                        {/* 2. Top Group Actions & Products Ready Dropdown (at last side) */}
+                        <div className="soh-eval-header-controls">
+                          {/* 1. Compare & Intelligent Ranking Button */}
                           <button
                             type="button"
                             style={{
                               background: compareMode ? '#0e7c86' : '#ffffff',
                               border: '1.5px solid #0e7c86',
                               color: compareMode ? '#ffffff' : '#0e7c86',
-                              padding: '8px 16px',
-                              borderRadius: '8px',
+                              padding: '7px 14px',
+                              borderRadius: '6px',
                               fontSize: '12.5px',
                               fontWeight: '700',
                               cursor: 'pointer',
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '8px',
-                              boxShadow: compareMode ? '0 2px 10px rgba(14, 124, 134, 0.25)' : 'none',
-                              transition: 'all 0.2s ease'
+                              gap: '6px',
+                              boxShadow: compareMode ? '0 1px 4px rgba(14, 124, 134, 0.25)' : 'none',
+                              transition: 'all 0.15s ease'
                             }}
-                            title={compareMode ? "Click to exit comparison and return to normal mode" : "Compare competing quotations side-by-side with smart ranking"}
-                            onClick={() => setCompareMode(!compareMode)}
+                            title={compareMode ? "Click to exit comparison" : "Compare competing quotations side-by-side with smart ranking"}
+                            onClick={() => {
+                              const next = !compareMode;
+                              setCompareMode(next);
+                              if (next) setCompareViewType('chart');
+                            }}
                           >
-                            <Scale size={15} />
-                            <span>{compareMode ? 'Compare (Active)' : 'Compare'}</span>
+                            <Scale size={14} />
+                            <span>{compareMode ? 'Comparing' : 'Compare'}</span>
                             <span style={{
                               background: compareMode ? 'rgba(255,255,255,0.25)' : '#e0f2fe',
                               color: compareMode ? '#ffffff' : '#0369a1',
                               fontSize: '11px',
-                              padding: '1px 7px',
-                              borderRadius: '10px',
-                              fontWeight: '800'
+                              padding: '1px 6px',
+                              borderRadius: '8px',
+                              fontWeight: '700'
                             }}>
                               {activeEvalGroup.quotes.length} Quotes
                             </span>
@@ -1458,14 +1576,15 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                               background: '#ffffff',
                               border: '1px solid #cbd5e1',
                               color: '#334155',
-                              padding: '8px 14px',
-                              borderRadius: '8px',
+                              padding: '7px 12px',
+                              borderRadius: '6px',
                               fontSize: '12.5px',
                               fontWeight: '600',
                               cursor: 'pointer',
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '6px'
+                              gap: '6px',
+                              transition: 'all 0.15s ease'
                             }}
                             title="Execute multi-source volume split across competing vendors"
                             onClick={() => {
@@ -1488,446 +1607,836 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                             <span>Multi-Source Split</span>
                           </button>
 
-                          {activeEvalGroup.quotes.some(q => q.Status === 'Awarded' || q.Status === 'Split Awarded' || q.Status === 'Under Negotiation') && (
-                            <button
-                              type="button"
-                              style={{
-                                background: '#f8fafc',
-                                border: '1px solid #e2e8f0',
-                                color: '#64748b',
-                                padding: '8px 12px',
-                                borderRadius: '8px',
-                                fontSize: '12px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px'
-                              }}
-                              title="Reset all quotes for this product back to Quotation Received"
-                              onClick={() => {
-                                if (window.confirm(`Are you sure you want to reopen and reset all quotes for ${activeEvalGroup.productName} back to Quotation Received?`)) {
-                                  handleEvaluateAction({
-                                    action: 'reset',
-                                    rfqReference: activeEvalGroup.rfqReference,
-                                    productName: activeEvalGroup.productName
-                                  });
-                                }
-                              }}
-                            >
-                              <RotateCcw size={13} />
-                              <span>Reset Status</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
 
-                    {/* AI / Smart Recommendation Banner */}
-                    {activeEvalGroup && compareMode && comparisonAnalysis.recommendation && (
-                      <div style={{
-                        marginTop: '16px',
-                        background: 'linear-gradient(135deg, #f0fdfa 0%, #ecfeff 100%)',
-                        border: '1.5px solid #99f6e4',
-                        borderRadius: '12px',
-                        padding: '16px 20px',
-                        boxShadow: '0 4px 14px rgba(14, 124, 134, 0.08)'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap' }}>
-                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1, minWidth: '280px' }}>
-                            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#0e7c86', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
-                              <Award size={22} />
-                            </div>
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                <span style={{ background: '#ccfbf1', color: '#0f766e', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', padding: '2px 8px', borderRadius: '4px', letterSpacing: '0.5px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                                  <Sparkles size={12} /> Consortium Smart Recommendation
-                                </span>
-                                <strong style={{ fontSize: '15px', color: '#0f172a' }}>
-                                  Rank #1: {comparisonAnalysis.recommendation.vendorName}
-                                </strong>
-                                <span style={{ background: '#ffffff', border: '1px solid #cbd5e1', color: '#0e7c86', fontSize: '11.5px', fontWeight: '700', padding: '2px 8px', borderRadius: '4px' }}>
-                                  Score: {comparisonAnalysis.recommendation.bestScore}/100
-                                </span>
-                              </div>
 
-                              <p style={{ margin: '8px 0 0', fontSize: '13.5px', color: '#134e4a', lineHeight: '1.55' }}>
-                                {comparisonAnalysis.recommendation.reasonText}
-                              </p>
-                            </div>
-                          </div>
+                          {/* Divider */}
+                          <div className="soh-eval-divider" />
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <button
-                              type="button"
-                              style={{
-                                background: '#0e7c86',
-                                color: '#ffffff',
-                                border: 'none',
-                                padding: '9px 18px',
-                                borderRadius: '8px',
-                                fontSize: '13px',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                boxShadow: '0 2px 8px rgba(14, 124, 134, 0.3)'
-                              }}
-                              onClick={() => {
-                                setAwardModal({ quote: comparisonAnalysis.recommendation.bestQuote, group: activeEvalGroup });
-                                setAwardRemarks(`Recommended best match quotation awarded for ${activeEvalGroup.productName} based on multi-factor evaluation.`);
-                              }}
-                            >
-                              <Award size={15} />
-                              <span>Award Recommended #1 Bid</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Interactive Filter & Rank Criteria Strip */}
-                    {activeEvalGroup && compareMode && (
-                      <div style={{
-                        marginTop: '14px',
-                        background: '#ffffff',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '10px',
-                        padding: '12px 18px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '12px',
-                        flexWrap: 'wrap'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: '700', color: '#475569' }}>
-                            <SlidersHorizontal size={14} className="text-teal-600" />
-                            <span>Filter & Rank By:</span>
-                          </div>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                            {[
-                              { id: 'smart', label: '🌟 Smart Best Match', tip: 'Overall multi-factor score (Location + Price + Speed + Credit)' },
-                              { id: 'location_match', label: `📍 Location (${activeEvalGroup.destination || 'Plant'})`, tip: 'Vendors delivering directly to your target destination' },
-                              { id: 'price_asc', label: '💰 Lowest Landed Price', tip: 'Cheapest total landed unit cost' },
-                              { id: 'speed_asc', label: '⚡ Fastest Lead Time', tip: 'Quickest turnaround & ready stock' },
-                              { id: 'credit_desc', label: '💳 Best Credit Terms', tip: 'Longest credit period (30/60 Days)' },
-                              { id: 'capacity_desc', label: '📦 Highest Capacity', tip: 'Vendors offering full 100% volume' }
-                            ].map(tab => (
-                              <button
-                                key={tab.id}
-                                type="button"
-                                style={{
-                                  background: evalFilterCriterion === tab.id ? '#0e7c86' : '#f8fafc',
-                                  color: evalFilterCriterion === tab.id ? '#ffffff' : '#334155',
-                                  border: evalFilterCriterion === tab.id ? '1px solid #0e7c86' : '1px solid #e2e8f0',
-                                  padding: '5px 12px',
-                                  borderRadius: '6px',
-                                  fontSize: '12px',
-                                  fontWeight: evalFilterCriterion === tab.id ? '700' : '600',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.15s ease'
-                                }}
-                                onClick={() => setEvalFilterCriterion(tab.id)}
-                                title={tab.tip}
+                          {/* 4. Products Ready Dropdown at Last Side */}
+                          <div className="soh-eval-product-dropdown-group">
+                            <label htmlFor="eval-product-select" className="soh-eval-dropdown-label">
+                              Products:
+                            </label>
+                            <div className="soh-eval-select-wrapper">
+                              <select
+                                id="eval-product-select"
+                                className="soh-eval-select"
+                                value={activeEvalGroup.key}
+                                onChange={(e) => setSelectedEvalKey(e.target.value)}
                               >
-                                {tab.label}
-                              </button>
-                            ))}
+                                {evaluationGroups.map((group) => {
+                                  const hasAwarded = group.quotes.some(q => q.Status === 'Awarded' || q.Status === 'Split Awarded');
+                                  const hasNegotiation = group.quotes.some(q => q.Status === 'Under Negotiation');
+                                  const suffix = hasAwarded ? ' (Awarded)' : hasNegotiation ? ' (Negotiation)' : '';
+                                  return (
+                                    <option key={group.key} value={group.key}>
+                                      {group.productName} ({group.rfqReference}) — {group.quotes.length} {group.quotes.length === 1 ? 'Quote' : 'Quotes'}{suffix}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                              <ChevronDown size={14} className="soh-eval-select-arrow" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+
+
+                    {/* Comparison Toolbar & Mode Selector */}
+                    {activeEvalGroup && compareMode && (
+                      <div className="soh-qcc-toolbar" style={{ marginTop: '16px', borderRadius: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '12.5px', fontWeight: '800', color: '#0f172a' }}>
+                            Comparison Format:
+                          </span>
+                          <div className="soh-qcc-view-toggle">
+                            <button
+                              type="button"
+                              className={`soh-qcc-view-btn ${compareViewType === 'chart' ? 'active' : ''}`}
+                              onClick={() => setCompareViewType('chart')}
+                              title="Corporate Excel Quotation Comparison Matrix"
+                            >
+                              <TableIcon size={14} />
+                              <span>Quotation Comparison Chart</span>
+                            </button>
+                            <button
+                              type="button"
+                              className={`soh-qcc-view-btn ${compareViewType === 'cards' ? 'active' : ''}`}
+                              onClick={() => setCompareViewType('cards')}
+                              title="Detailed individual supplier offer cards"
+                            >
+                              <LayoutGrid size={14} />
+                              <span>Cards View</span>
+                            </button>
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{ fontSize: '12px', color: '#64748b' }}>
-                            Showing <b>{comparisonAnalysis.sortedList.length}</b> competing quotes sorted by <b>{evalFilterCriterion.replace('_', ' ').toUpperCase()}</b>
-                          </span>
+                        <div className="soh-qcc-tools-group">
                           <button
                             type="button"
-                            style={{
-                              background: '#f8fafc',
-                              border: '1px solid #cbd5e1',
-                              color: '#64748b',
-                              padding: '4px 10px',
-                              borderRadius: '6px',
-                              fontSize: '11.5px',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}
+                            className="soh-qcc-btn-tool"
+                            onClick={() => window.print()}
+                            title="Print or save comparison chart as PDF"
+                          >
+                            <Printer size={13} />
+                            <span>Print / Save PDF</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="soh-qcc-btn-tool"
+                            onClick={handleExportComparisonCsv}
+                            title="Download comparison sheet as CSV"
+                          >
+                            <Download size={13} />
+                            <span>Export CSV</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="soh-qcc-btn-tool"
+                            style={{ background: '#f8fafc', color: '#64748b' }}
                             title="Exit comparison and return to normal view"
                             onClick={() => setCompareMode(false)}
                           >
-                            <span>✕ Normal View</span>
+                            <span>✕ Exit Comparison</span>
                           </button>
                         </div>
                       </div>
                     )}
 
-                    {/* Comparison Cards Grid */}
-                    {activeEvalGroup && (
-                      <div className="soh-eval-matrix-grid" style={{ marginTop: '20px' }}>
-                        {(compareMode ? comparisonAnalysis.sortedList : comparisonAnalysis.evaluatedList).map((item, idx) => {
-                          const quote = item.quote;
-                          const isAwarded = quote.Status === 'Awarded';
-                          const isNegotiation = quote.Status === 'Under Negotiation';
-                          const isSplit = quote.Status === 'Split Awarded';
-                          const isNotSelected = quote.Status === 'Not Selected';
-
-                          // Landed Unit Price Calculation
-                          const basePrice = item.basePrice;
-                          const freightExtra = !quote.FreightIncluded ? (Number(quote.FreightCharges || 0)) : 0;
-                          const otherCharges = Number(quote.OtherCharges || 0);
-                          const netLandedRate = item.netLandedRate;
-                          const isBestOverall = quote.OfferReference === comparisonAnalysis.bestQuoteRef;
-                          const isLowestPrice = quote.OfferReference === comparisonAnalysis.lowestPriceRef;
-
-                          const offeredQty = item.offeredQty;
-                          const totalDemand = Number(activeEvalGroup.totalDemand || 0);
-                          const supplyPercent = totalDemand > 0 ? Math.min(100, Math.round((offeredQty / totalDemand) * 100)) : 100;
-
-                          return (
-                            <div
-                              key={quote.Id || quote.OfferReference}
-                              className={`soh-eval-card ${isAwarded ? 'is-awarded' : isNegotiation ? 'is-negotiation' : ''}`}
-                            >
-                              {/* Card Rank Header Ribbon */}
-                              {compareMode && (
-                                <div style={{
-                                  background: idx === 0 ? (isBestOverall ? 'linear-gradient(135deg, #0e7c86 0%, #065e66 100%)' : '#0f172a') : '#f8fafc',
-                                  color: idx === 0 ? '#ffffff' : '#64748b',
-                                  borderBottom: '1px solid #e2e8f0',
-                                  padding: '5px 14px',
-                                  fontSize: '11px',
-                                  fontWeight: '800',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between'
-                                }}>
-                                  <span>
-                                    {idx === 0 ? `🏆 RANK #1 • ${isBestOverall ? 'BEST OVERALL BID' : evalFilterCriterion.toUpperCase().replace('_', ' ')}` : `BID RANK #${idx + 1}`}
-                                  </span>
-                                  <span>
-                                    Score: {item.totalScore}/100 {item.isExactLocation && ' • 📍 Location Match'}
-                                  </span>
-                                </div>
-                              )}
-                              {/* Card Header */}
-                              <div className="soh-eval-card-header">
-                                <div style={{ minWidth: 0, flex: 1 }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700' }}>
-                                      BID #{idx + 1}
-                                    </span>
-                                    <span className="soh-ref-badge" style={{ fontSize: '11px' }}>
-                                      {quote.OfferReference || `OFF-${quote.Id}`}
-                                    </span>
-                                  </div>
-                                  <h4 style={{ margin: '4px 0 2px 0', fontSize: '15px', fontWeight: '800', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {quote.VendorName}
-                                  </h4>
-                                  <div style={{ fontSize: '11.5px', color: '#64748b' }}>
-                                    Quote #{quote.VendorQuotationNo || 'N/A'} • {quote.ContactPerson || quote.VendorEmail}
-                                  </div>
-                                </div>
-
-                                {/* Status Badge */}
-                                <div>
-                                  {isAwarded ? (
-                                    <span className="soh-eval-status-badge awarded">
-                                      <Award size={12} />
-                                      <span>Awarded</span>
-                                    </span>
-                                  ) : isSplit ? (
-                                    <span className="soh-eval-status-badge" style={{ background: '#f3e8ff', color: '#6b21a8', border: '1px solid #d8b4fe' }}>
-                                      <Split size={12} />
-                                      <span>Split Award</span>
-                                    </span>
-                                  ) : isNegotiation ? (
-                                    <span className="soh-eval-status-badge negotiation">
-                                      <MessageSquare size={12} />
-                                      <span>Negotiation</span>
-                                    </span>
-                                  ) : isNotSelected ? (
-                                    <span className="soh-eval-status-badge not-selected">
-                                      <span>Not Selected</span>
-                                    </span>
-                                  ) : (
-                                    <span className="soh-eval-status-badge received">
-                                      <Clock size={12} />
-                                      <span>Under Review</span>
-                                    </span>
-                                  )}
-                                </div>
+                    {/* VIEW OPTION A: QUOTATION COMPARISON CHART (HORIZONTAL SPREADSHEET MATRIX) */}
+                    {activeEvalGroup && compareMode && compareViewType === 'chart' && (
+                      <div className="soh-qcc-card">
+                        <div className="soh-qcc-sheet-container">
+                          <div className="soh-qcc-printable-area">
+                            {/* Top Title Bar */}
+                            <div className="soh-qcc-sheet-header">
+                              <div style={{ fontSize: '12.5px', fontWeight: '600', color: '#475569' }}>
+                                RFQ: {activeEvalGroup.rfqReference}
                               </div>
-
-                              {/* Card Body: 4 Comparison Criteria */}
-                              <div className="soh-eval-card-body">
-                                {/* 1. Net Landed Unit Price */}
-                                <div className="soh-eval-metric-row">
-                                  <div className="soh-eval-metric-title">
-                                    <Scale size={13} className="text-teal-600" />
-                                    <span>1. Net Landed Unit Price</span>
-                                    {isLowestPrice && (
-                                      <span style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', fontSize: '10px', fontWeight: '800', padding: '1px 5px', borderRadius: '4px', marginLeft: 'auto' }}>
-                                        💰 Lowest Nominal Rate
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="soh-eval-landed-rate-box">
-                                    <div className="soh-eval-big-price">
-                                      ₹{Number(netLandedRate).toLocaleString('en-IN')}/{quote.Uom || 'MT'}
-                                    </div>
-                                    <div className="soh-eval-breakdown-text">
-                                      Basic: ₹{Number(basePrice).toLocaleString('en-IN')}
-                                      {quote.FreightIncluded ? ' • Freight Inc.' : freightExtra > 0 ? ` • +₹${freightExtra} Freight` : ''}
-                                      {otherCharges > 0 && ` • +₹${otherCharges} Platform Fee`}
-                                      {quote.GstRate && ` • +${quote.GstRate} GST`}
-                                    </div>
-                                    <div style={{ fontSize: '11px', fontWeight: '600', color: '#0f172a', marginTop: '4px' }}>
-                                      Total Order Value: ₹{Number(quote.EstimatedTotalValue || 0).toLocaleString('en-IN')}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* 2. Supply Quantity Availability */}
-                                <div className="soh-eval-metric-row">
-                                  <div className="soh-eval-metric-title">
-                                    <Warehouse size={13} className="text-blue-600" />
-                                    <span>2. Supply Capacity & Availability</span>
-                                  </div>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px' }}>
-                                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>
-                                      {quote.OfferedQuantity} {quote.Uom || 'MT'}
-                                      <span style={{ fontSize: '12px', fontWeight: 'normal', color: '#64748b' }}> ({supplyPercent}% of Demand)</span>
-                                    </div>
-                                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${quote.CanSupplyFull ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                                      {quote.CanSupplyFull ? 'Full Supply' : 'Partial Supply'}
-                                    </span>
-                                  </div>
-                                  <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
-                                    MOQ: <b>{quote.Moq || '1'} {quote.Uom || 'MT'}</b> • Availability: <b>{quote.ProductAvailability || 'Ready Stock'}</b>
-                                  </div>
-                                </div>
-
-                                {/* 3. Delivery Lead Time & Destination Transport */}
-                                <div className="soh-eval-metric-row">
-                                  <div className="soh-eval-metric-title">
-                                    <Clock size={13} className="text-orange-600" />
-                                    <span>3. Delivery Lead Time & Transport</span>
-                                  </div>
-                                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a', marginTop: '2px' }}>
-                                    {quote.DeliveryLeadTimeDays ? `${quote.DeliveryLeadTimeDays} Days Turnaround` : 'Standard Lead Time'}
-                                  </div>
-                                  <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
-                                    Scope: <b>{quote.TransportationResponsibility || 'Supplier Scope'}</b>
-                                    {quote.ExpectedDispatchDate && ` • Dispatch by: ${new Date(quote.ExpectedDispatchDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
-                                  </div>
-
-                                  {/* Delivery Destination & Freight Efficiency Indicator */}
-                                  <div style={{ marginTop: '6px' }}>
-                                    {item.isExactLocation ? (
-                                      <span style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', borderRadius: '4px', padding: '3px 8px', fontSize: '11px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                        <Check size={12} /> Direct Delivery at {activeEvalGroup.destination || quote.Destination || 'Plant'} (Zero Extra Freight)
-                                      </span>
-                                    ) : (
-                                      <span style={{ background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa', borderRadius: '4px', padding: '3px 8px', fontSize: '11px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                        <Truck size={12} /> Dispatch to: {quote.Destination || 'Vendor Plant'} (Buyer incurs extra transport)
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* 4. Payment Terms & Credit */}
-                                <div className="soh-eval-metric-row">
-                                  <div className="soh-eval-metric-title">
-                                    <CreditCard size={13} className="text-indigo-600" />
-                                    <span>4. Payment Terms & Credit Period</span>
-                                  </div>
-                                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a', marginTop: '2px' }}>
-                                    {quote.PaymentTerms || 'Standard Terms'}
-                                  </div>
-                                  <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
-                                    Advance: <b>{quote.AdvancePaymentPercentage || 0}%</b> • Credit Days: <b>{quote.CreditPeriodDays || 0} Days</b>
-                                  </div>
-                                </div>
-
-                                {/* Commercial Remarks if present */}
-                                {quote.CommercialRemarks && (
-                                  <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: '6px', fontSize: '11px', color: '#475569', borderLeft: '3px solid #cbd5e1' }}>
-                                    <b>Vendor Remarks:</b> {quote.CommercialRemarks}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Card Footer: The 3 Core Actions */}
-                              <div className="soh-eval-card-footer">
-                                {!isAwarded && (
-                                  <button
-                                    type="button"
-                                    className="soh-eval-btn-award"
-                                    onClick={() => {
-                                      setAwardRemarks(`Approved based on competitive unit rate ₹${quote.OfferedUnitPrice}/${quote.Uom || 'MT'} and confirmed delivery lead time.`);
-                                      setAwardModal({ quote, group: activeEvalGroup });
-                                    }}
-                                  >
-                                    <Award size={15} />
-                                    <span>Award & Approve Quotation</span>
-                                  </button>
-                                )}
-
-                                {isAwarded && (
-                                  <div style={{ textAlign: 'center', padding: '6px', background: '#ecfdf5', borderRadius: '6px', color: '#065f46', fontSize: '12.5px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                                    <CheckCircle2 size={16} />
-                                    <span>Winning Seller Awarded</span>
-                                  </div>
-                                )}
-
-                                {!isAwarded && (
-                                  <button
-                                    type="button"
-                                    className="soh-eval-btn-negotiate"
-                                    onClick={() => {
-                                      const suggestedCounter = Math.round(Number(quote.OfferedUnitPrice || 0) * 0.95);
-                                      setCounterPrice(suggestedCounter > 0 ? String(suggestedCounter) : '');
-                                      setCounterRemarks(`We have pooled ${activeEvalGroup.totalDemand} ${activeEvalGroup.uom} from verified buyers ready for immediate order if pricing can be matched.`);
-                                      setCounterModal({ quote, group: activeEvalGroup });
-                                    }}
-                                  >
-                                    <MessageSquare size={13} />
-                                    <span>Request Price Revision / Counter-Offer</span>
-                                  </button>
-                                )}
-
-                                <button
-                                  type="button"
-                                  style={{
-                                    background: '#ffffff',
-                                    border: '1px solid #e2e8f0',
-                                    color: '#475569',
-                                    borderRadius: '8px',
-                                    padding: '7px 12px',
-                                    fontSize: '11.5px',
-                                    fontWeight: '600',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '4px'
-                                  }}
-                                  onClick={() => navigate(`/supply-offer/view?offerRef=${encodeURIComponent(quote.OfferReference)}`)}
-                                >
-                                  <span>📄 View Official Quotation PDF</span>
-                                  <ExternalLink size={12} />
-                                </button>
+                              <h2 className="soh-qcc-sheet-title">Quotation Comparison Chart</h2>
+                              <div className="soh-qcc-sheet-date">
+                                Date: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                               </div>
                             </div>
-                          );
-                        })}
+
+                            {/* 1. Supplier Master Summary Table (Subtle Warm Sand Header) */}
+                            <table className="soh-qcc-table">
+                              <thead>
+                                <tr>
+                                  <th className="soh-qcc-th-yellow" style={{ width: '90px' }}>Source</th>
+                                  <th className="soh-qcc-th-yellow" style={{ width: '70px' }}>Supplier</th>
+                                  <th className="soh-qcc-th-yellow" style={{ textAlign: 'left', minWidth: '170px' }}>Name</th>
+                                  <th className="soh-qcc-th-yellow" style={{ width: '80px' }}>Country</th>
+
+                                  <th className="soh-qcc-th-yellow" style={{ width: '120px' }}>Quotation No</th>
+                                  <th className="soh-qcc-th-yellow" style={{ width: '95px' }}>Date</th>
+                                  <th className="soh-qcc-th-yellow" style={{ minWidth: '120px', textAlign: 'right' }}>Basic Price</th>
+                                  <th className="soh-qcc-th-yellow" style={{ minWidth: '110px', textAlign: 'right' }}>Offered Quantity</th>
+                                  <th className="soh-qcc-th-yellow" style={{ minWidth: '120px' }}>Payment Terms</th>
+                                  <th className="soh-qcc-th-yellow" style={{ minWidth: '110px' }}>Price Basis</th>
+                                  <th className="soh-qcc-th-yellow" style={{ width: '90px' }}>Validity</th>
+                                  <th className="soh-qcc-th-yellow" style={{ width: '80px' }}>MOQ</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {comparisonQuotes.map((q, idx) => (
+                                  <tr
+                                    key={q.quote.OfferReference || q.quote.Id}
+                                    className={q.isGoodFit ? 'soh-qcc-row-good-fit' : ''}
+                                  >
+                                    {idx === 0 && (
+                                      <td
+                                        rowSpan={comparisonQuotes.length}
+                                        className="soh-qcc-source-cell"
+                                      >
+                                        {comparisonQuotes.every(c => c.source === comparisonQuotes[0].source)
+                                          ? (comparisonQuotes[0].source === 'DOMESTIC' ? 'Domestic' : 'International')
+                                          : 'Domestic'}
+                                      </td>
+                                    )}
+                                    <td className={`soh-qcc-supplier-index-cell ${q.isGoodFit ? 'good-fit' : ''}`}>{q.index}</td>
+                                    <td style={{ fontWeight: '500', textAlign: 'left' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                        <div style={{ color: '#0f172a', fontWeight: '600' }}>{q.quote.VendorName}</div>
+                                        {/* {q.isGoodFit && (
+                                          <span className="soh-qcc-good-fit-pill">
+                                            <CheckCircle2 size={10} />
+                                            <span>Good Fit · All Factors ({q.score}/100)</span>
+                                          </span>
+                                        )} */}
+                                      </div>
+                                      <div style={{ fontSize: '11px', color: '#64748b' }}>
+                                        {q.quote.ContactPerson || q.quote.VendorEmail}
+                                      </div>
+                                    </td>
+                                    <td style={{ textAlign: 'center', color: '#334155' }}>{q.country}</td>
+
+                                    <td style={{ textAlign: 'center', fontWeight: '500', fontVariantNumeric: 'tabular-nums' }}>{q.quotationNo}</td>
+                                    <td style={{ textAlign: 'center', color: '#475569', fontVariantNumeric: 'tabular-nums' }}>{q.quotationDate}</td>
+                                    <td style={{ textAlign: 'right', fontWeight: '700', color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                                      ₹{q.basicPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </td>
+                                    <td style={{ textAlign: 'right', fontWeight: '600', color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                                      {q.qtyOffered.toLocaleString('en-IN')} {q.uom}
+                                    </td>
+                                    <td style={{ textAlign: 'center', color: '#334155' }}>{q.paymentTerms}</td>
+                                    <td style={{ textAlign: 'center', color: '#334155' }}>{q.priceBasis}</td>
+                                    <td style={{ textAlign: 'center', color: '#475569' }}>{q.validity}</td>
+                                    <td style={{ textAlign: 'center', fontWeight: '600', fontVariantNumeric: 'tabular-nums' }}>{q.moq}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+
+                            {/* 2. Product Details Header & Suppliers Offer Comparison Matrix */}
+                            <table className="soh-qcc-table">
+                              <thead>
+                                {/* Product Details Header Row */}
+                                <tr>
+                                  <th className="soh-qcc-th-orange left-label" style={{ width: '220px' }}>
+                                    Product Details
+                                  </th>
+                                  {comparisonQuotes.map((q, idx) => {
+                                    let label = 'Product Code';
+                                    let val = activeEvalGroup.productCode || activeEvalGroup.rfqReference || 'PROD-001';
+                                    if (idx === 1) {
+                                      label = 'Description';
+                                      val = activeEvalGroup.productName;
+                                    } else if (idx === 2) {
+                                      label = 'Specification / Grade';
+                                      val = activeEvalGroup.grade || 'Commercial Grade';
+                                    } else if (idx > 2) {
+                                      label = 'Specification / Grade';
+                                      val = activeEvalGroup.grade || activeEvalGroup.productName;
+                                    }
+                                    return (
+                                      <th
+                                        key={q.quote.OfferReference || q.quote.Id}
+                                        className={`soh-qcc-th-orange ${q.isGoodFit ? 'is-good-fit' : ''}`}
+                                      >
+                                        {/* {q.isGoodFit && (
+                                          <div className="soh-qcc-col-good-fit-banner">
+                                            <Award size={10} />
+                                            <span>Good Fit ({q.score}/100)</span>
+                                          </div>
+                                        )} */}
+                                        <div style={{ fontSize: '11px', color: '#78350f', fontWeight: '500' }}>{label}</div>
+                                        <div style={{ fontSize: '12px', fontWeight: '600', marginTop: '2px', color: '#1e293b' }}>
+                                          {val}
+                                        </div>
+                                      </th>
+                                    );
+                                  })}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {/* Row 1: Suppliers Offer */}
+                                <tr>
+                                  <td className="soh-qcc-th-cyan">Suppliers Offer</td>
+                                  {comparisonQuotes.map(q => (
+                                    <td
+                                      key={q.quote.OfferReference || q.quote.Id}
+                                      className={`soh-qcc-data-cell ${q.isGoodFit ? 'is-good-fit' : ''}`}
+                                      style={{ fontWeight: '600' }}
+                                    >
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+                                        <span style={{ fontSize: '13.5px', color: '#0f172a' }}>{q.index}</span>
+                                        {q.isGoodFit && (
+                                          <span className="soh-qcc-good-fit-pill">
+                                            Good Fit
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div style={{ fontSize: '11.5px', color: '#475569', fontWeight: '500', marginTop: '2px' }}>
+                                        {q.quote.VendorName}
+                                      </div>
+                                    </td>
+                                  ))}
+                                </tr>
+
+                                {/* Row 2: Basic Price */}
+                                <tr>
+                                  <td className="soh-qcc-th-cyan">Basic Price</td>
+                                  {comparisonQuotes.map(q => (
+                                    <td
+                                      key={q.quote.OfferReference || q.quote.Id}
+                                      className={`soh-qcc-data-cell bold-price ${q.isGoodFit ? 'is-good-fit' : ''}`}
+                                    >
+                                      ₹{q.basicPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      <span style={{ fontSize: '11px', fontWeight: '400', color: '#64748b' }}> /{q.uom}</span>
+                                    </td>
+                                  ))}
+                                </tr>
+
+                                {/* Row 3: Offered Quantity */}
+                                <tr>
+                                  <td className="soh-qcc-th-cyan">Offered Quantity</td>
+                                  {comparisonQuotes.map(q => (
+                                    <td
+                                      key={q.quote.OfferReference || q.quote.Id}
+                                      className={`soh-qcc-data-cell ${q.isGoodFit ? 'is-good-fit' : ''}`}
+                                      style={{ fontWeight: '500' }}
+                                    >
+                                      {q.qtyOffered.toLocaleString('en-IN')} {q.uom}
+                                    </td>
+                                  ))}
+                                </tr>
+
+
+
+                                {/* Row 6: Net Basic Price */}
+                                <tr>
+                                  <td className="soh-qcc-th-cyan">Net Basic Price</td>
+                                  {comparisonQuotes.map(q => (
+                                    <td
+                                      key={q.quote.OfferReference || q.quote.Id}
+                                      className={`soh-qcc-data-cell net-price ${q.isGoodFit ? 'is-good-fit' : ''}`}
+                                    >
+                                      ₹{q.netPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </td>
+                                  ))}
+                                </tr>
+
+                                {/* Row 7: GST Rate */}
+                                <tr>
+                                  <td className="soh-qcc-th-cyan">GST Rate</td>
+                                  {comparisonQuotes.map(q => (
+                                    <td
+                                      key={q.quote.OfferReference || q.quote.Id}
+                                      className={`soh-qcc-data-cell ${q.isGoodFit ? 'is-good-fit' : ''}`}
+                                    >
+                                      {q.gstRateNum}%
+                                    </td>
+                                  ))}
+                                </tr>
+
+                                {/* Row 8: GST Amount */}
+                                <tr>
+                                  <td className="soh-qcc-th-cyan">GST Amount</td>
+                                  {comparisonQuotes.map(q => (
+                                    <td
+                                      key={q.quote.OfferReference || q.quote.Id}
+                                      className={`soh-qcc-data-cell ${q.isGoodFit ? 'is-good-fit' : ''}`}
+                                    >
+                                      ₹{q.gstValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </td>
+                                  ))}
+                                </tr>
+
+                                {/* Row 9: Freight Charges */}
+                                <tr>
+                                  <td className="soh-qcc-th-cyan">Freight Charges</td>
+                                  {comparisonQuotes.map(q => (
+                                    <td
+                                      key={q.quote.OfferReference || q.quote.Id}
+                                      className={`soh-qcc-data-cell ${q.isGoodFit ? 'is-good-fit' : ''}`}
+                                    >
+                                      {q.isFreightInc ? (
+                                        <span style={{ color: '#047857', fontWeight: '500' }}>Included</span>
+                                      ) : (
+                                        `₹${q.freightCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                      )}
+                                    </td>
+                                  ))}
+                                </tr>
+
+                                {/* Row 10: Net Landed Price (Excl. GST) */}
+                                <tr>
+                                  <td className="soh-qcc-th-cyan">Net Landed Price (Excl. GST)</td>
+                                  {comparisonQuotes.map(q => (
+                                    <td
+                                      key={q.quote.OfferReference || q.quote.Id}
+                                      className={`soh-qcc-data-cell ${q.isGoodFit ? 'is-good-fit' : ''}`}
+                                      style={{ fontWeight: '600', fontSize: '13.5px', background: q.isGoodFit ? '#f0fdf9' : '#f8fafc' }}
+                                    >
+                                      ₹{q.netOfGstPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </td>
+                                  ))}
+                                </tr>
+
+                                {/* Row 11: Supplier Rating */}
+                                <tr>
+                                  <td className="soh-qcc-th-cyan">Supplier Rating</td>
+                                  {comparisonQuotes.map(q => (
+                                    <td
+                                      key={q.quote.OfferReference || q.quote.Id}
+                                      className={`soh-qcc-rating-cell ${q.isL1 ? 'is-l1' : q.rating === 'L2' ? 'is-l2' : 'is-l3'} ${q.isGoodFit ? 'is-good-fit-cell' : ''}`}
+                                    >
+                                      <div>{q.isL1 ? `${q.rating} · Lowest Landed` : q.rating}</div>
+                                      {/* {q.isGoodFit && (
+                                        <div style={{ fontSize: '10px', color: '#047857', fontWeight: '700', marginTop: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>
+                                          <CheckCircle2 size={10} />
+                                          <span>Good Fit · All Factors</span>
+                                        </div>
+                                      )} */}
+                                    </td>
+                                  ))}
+                                </tr>
+
+                                {/* Row 12: Actions & Decision (Interactive Row) */}
+                                <tr className="soh-qcc-action-btns">
+                                  <td className="soh-qcc-th-cyan" style={{ background: '#f1f5f9', color: '#0f172a' }}>
+                                    Action / Decision
+                                  </td>
+                                  {comparisonQuotes.map(q => {
+                                    const quote = q.quote;
+                                    const isAwarded = quote.Status === 'Awarded';
+                                    const isNegotiation = quote.Status === 'Under Negotiation';
+                                    const isSplit = quote.Status === 'Split Awarded';
+
+                                    return (
+                                      <td
+                                        key={quote.OfferReference || quote.Id}
+                                        style={{
+                                          padding: '12px 10px',
+                                          textAlign: 'center',
+                                          background: q.isGoodFit ? '#f0fdf9' : '#ffffff',
+                                          verticalAlign: 'top',
+                                          borderLeft: q.isGoodFit ? '2px solid #0e7c86' : undefined,
+                                          borderRight: q.isGoodFit ? '2px solid #0e7c86' : undefined
+                                        }}
+                                      >
+                                        <div style={{ marginBottom: '8px' }}>
+                                          {isAwarded ? (
+                                            <span className="soh-eval-status-badge awarded">
+                                              <Award size={12} /> Awarded
+                                            </span>
+                                          ) : isSplit ? (
+                                            <span className="soh-eval-status-badge" style={{ background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }}>
+                                              <Split size={12} /> Split Award
+                                            </span>
+                                          ) : isNegotiation ? (
+                                            <span className="soh-eval-status-badge negotiation">
+                                              <MessageSquare size={12} /> Under Negotiation
+                                            </span>
+                                          ) : (
+                                            <span className="soh-eval-status-badge received">
+                                              <Clock size={12} /> Under Review
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                          {!isAwarded && (
+                                            <button
+                                              type="button"
+                                              style={{
+                                                background: q.isGoodFit ? '#0e7c86' : q.isL1 ? '#047857' : '#1e293b',
+                                                color: '#ffffff',
+                                                border: 'none',
+                                                padding: '6px 10px',
+                                                borderRadius: '6px',
+                                                fontSize: '11.5px',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '4px',
+                                                boxShadow: q.isGoodFit ? '0 2px 6px rgba(14, 124, 134, 0.25)' : 'none',
+                                                transition: 'background-color 140ms ease'
+                                              }}
+                                              onClick={() => {
+                                                setAwardRemarks(`Approved based on competitive unit rate ₹${quote.OfferedUnitPrice}/${quote.Uom || 'MT'} and confirmed delivery lead time.`);
+                                                setAwardModal({ quote, group: activeEvalGroup });
+                                              }}
+                                            >
+                                              <Award size={12} />
+                                              <span>{q.isGoodFit ? 'Award (Good Fit)' : 'Award Quotation'}</span>
+                                            </button>
+                                          )}
+
+                                          {!isAwarded && (
+                                            <button
+                                              type="button"
+                                              style={{
+                                                background: '#ffffff',
+                                                border: '1px solid #cbd5e1',
+                                                color: '#334155',
+                                                padding: '5px 8px',
+                                                borderRadius: '6px',
+                                                fontSize: '11px',
+                                                fontWeight: '500',
+                                                cursor: 'pointer',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '4px',
+                                                transition: 'background-color 140ms ease'
+                                              }}
+                                              onClick={() => {
+                                                const suggestedCounter = Math.round(Number(quote.OfferedUnitPrice || 0) * 0.95);
+                                                setCounterPrice(suggestedCounter > 0 ? String(suggestedCounter) : '');
+                                                setCounterRemarks(`We have pooled ${activeEvalGroup.totalDemand} ${activeEvalGroup.uom} from verified buyers ready for immediate order if pricing can be matched.`);
+                                                setCounterModal({ quote, group: activeEvalGroup });
+                                              }}
+                                            >
+                                              <MessageSquare size={12} />
+                                              <span>Counter-Offer</span>
+                                            </button>
+                                          )}
+
+                                          <button
+                                            type="button"
+                                            style={{
+                                              background: '#f8fafc',
+                                              border: '1px solid #e2e8f0',
+                                              color: '#64748b',
+                                              padding: '5px 8px',
+                                              borderRadius: '6px',
+                                              fontSize: '11px',
+                                              fontWeight: '500',
+                                              cursor: 'pointer',
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              gap: '4px',
+                                              transition: 'background-color 140ms ease'
+                                            }}
+                                            onClick={() => navigate(`/supply-offer/view?offerRef=${encodeURIComponent(quote.OfferReference)}`)}
+                                          >
+                                            <span>View PDF</span>
+                                            <ExternalLink size={11} />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              </tbody>
+                            </table>
+
+
+                          </div>
+                        </div>
                       </div>
+                    )}
+
+                    {/* VIEW OPTION B (OR NORMAL VIEW): CARDS GRID */}
+                    {activeEvalGroup && (!compareMode || compareViewType === 'cards') && (
+                      <>
+                        {compareMode && (
+                          <div style={{
+                            marginTop: '14px',
+                            background: '#ffffff',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            padding: '12px 16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '12px',
+                            flexWrap: 'wrap'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '600', color: '#475569' }}>
+                                <SlidersHorizontal size={13} className="text-teal-600" />
+                                <span>Filter & Rank by:</span>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                {[
+                                  { id: 'smart', label: 'Smart Match', tip: 'Overall multi-factor score (Location + Price + Speed + Credit)' },
+                                  { id: 'location_match', label: `Location (${activeEvalGroup.destination || 'Plant'})`, tip: 'Vendors delivering directly to your target destination' },
+                                  { id: 'price_asc', label: 'Lowest Landed Price', tip: 'Cheapest total landed unit cost' },
+                                  { id: 'speed_asc', label: 'Fastest Lead Time', tip: 'Quickest turnaround & ready stock' },
+                                  { id: 'credit_desc', label: 'Best Credit Terms', tip: 'Longest credit period (30/60 Days)' },
+                                  { id: 'capacity_desc', label: 'Highest Capacity', tip: 'Vendors offering full volume' }
+                                ].map(tab => (
+                                  <button
+                                    key={tab.id}
+                                    type="button"
+                                    style={{
+                                      background: evalFilterCriterion === tab.id ? '#0e7c86' : '#f8fafc',
+                                      color: evalFilterCriterion === tab.id ? '#ffffff' : '#334155',
+                                      border: evalFilterCriterion === tab.id ? '1px solid #0e7c86' : '1px solid #e2e8f0',
+                                      padding: '4px 10px',
+                                      borderRadius: '6px',
+                                      fontSize: '12px',
+                                      fontWeight: evalFilterCriterion === tab.id ? '600' : '500',
+                                      cursor: 'pointer',
+                                      transition: 'all 140ms ease'
+                                    }}
+                                    onClick={() => setEvalFilterCriterion(tab.id)}
+                                    title={tab.tip}
+                                  >
+                                    {tab.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '12px', color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>
+                                Showing <b>{comparisonAnalysis.sortedList.length}</b> competing quotes
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="soh-eval-matrix-grid" style={{ marginTop: '16px' }}>
+                          {(compareMode ? comparisonAnalysis.sortedList : comparisonAnalysis.evaluatedList).map((item, idx) => {
+                            const quote = item.quote;
+                            const isAwarded = quote.Status === 'Awarded';
+                            const isNegotiation = quote.Status === 'Under Negotiation';
+                            const isSplit = quote.Status === 'Split Awarded';
+                            const isNotSelected = quote.Status === 'Not Selected';
+
+                            // Landed Unit Price Calculation
+                            const basePrice = item.basePrice;
+                            const freightExtra = !quote.FreightIncluded ? (Number(quote.FreightCharges || 0)) : 0;
+                            const otherCharges = Number(quote.OtherCharges || 0);
+                            const netLandedRate = item.netLandedRate;
+                            const isBestOverall = quote.OfferReference === comparisonAnalysis.bestQuoteRef;
+                            const isLowestPrice = quote.OfferReference === comparisonAnalysis.lowestPriceRef;
+
+                            const offeredQty = item.offeredQty;
+                            const totalDemand = Number(activeEvalGroup.totalDemand || 0);
+                            const supplyPercent = totalDemand > 0 ? Math.min(100, Math.round((offeredQty / totalDemand) * 100)) : 100;
+
+                            return (
+                              <div
+                                key={quote.Id || quote.OfferReference}
+                                className={`soh-eval-card ${isAwarded ? 'is-awarded' : isNegotiation ? 'is-negotiation' : ''}`}
+                              >
+                                {/* Card Rank Header Ribbon */}
+                                {compareMode && (
+                                  <div style={{
+                                    background: idx === 0 ? '#0e7c86' : '#f8fafc',
+                                    color: idx === 0 ? '#ffffff' : '#64748b',
+                                    borderBottom: '1px solid #e2e8f0',
+                                    padding: '5px 14px',
+                                    fontSize: '11px',
+                                    fontWeight: '600',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    fontVariantNumeric: 'tabular-nums'
+                                  }}>
+                                    <span>
+                                      {idx === 0 ? `Rank 1 · ${isBestOverall ? 'Recommended Bid' : evalFilterCriterion.replace('_', ' ')}` : `Rank ${idx + 1}`}
+                                    </span>
+                                    <span>
+                                      Score {item.totalScore}/100 {item.isExactLocation && ' · Direct Location'}
+                                    </span>
+                                  </div>
+                                )}
+                                {/* Card Header */}
+                                <div className="soh-eval-card-header">
+                                  <div style={{ minWidth: 0, flex: 1 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                      <span className="soh-eval-bid-tag">Bid {idx + 1}</span>
+                                      <span className="soh-ref-badge">{quote.OfferReference || `OFF-${quote.Id}`}</span>
+                                      {quote.VendorQuotationNo && (
+                                        <span style={{ fontSize: '11px', color: '#64748b' }}>Quote #{quote.VendorQuotationNo}</span>
+                                      )}
+                                    </div>
+                                    <h4 className="soh-eval-card-vendor" title={quote.VendorName}>
+                                      {quote.VendorName}
+                                    </h4>
+                                    <div style={{ fontSize: '11px', color: '#64748b' }}>
+                                      {quote.ContactPerson ? `${quote.ContactPerson} • ` : ''}{quote.VendorEmail || ''}
+                                    </div>
+                                  </div>
+
+                                  {/* Status Badge & Lowest Landed Indicator */}
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                    {isAwarded ? (
+                                      <span className="soh-eval-status-badge awarded">
+                                        <Award size={12} />
+                                        <span>Awarded</span>
+                                      </span>
+                                    ) : isSplit ? (
+                                      <span className="soh-eval-status-badge" style={{ background: '#f5f3ff', color: '#5b21b6', border: '1px solid #ddd6fe' }}>
+                                        <Split size={12} />
+                                        <span>Split Award</span>
+                                      </span>
+                                    ) : isNegotiation ? (
+                                      <span className="soh-eval-status-badge negotiation">
+                                        <MessageSquare size={12} />
+                                        <span>Negotiation</span>
+                                      </span>
+                                    ) : isNotSelected ? (
+                                      <span className="soh-eval-status-badge not-selected">
+                                        <span>Not Selected</span>
+                                      </span>
+                                    ) : (
+                                      <span className="soh-eval-status-badge received">
+                                        <Clock size={12} />
+                                        <span>Under Review</span>
+                                      </span>
+                                    )}
+                                    {isLowestPrice && (
+                                      <span style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', fontSize: '10px', fontWeight: '600', padding: '1px 5px', borderRadius: '4px' }}>
+                                        Lowest Landed
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Card Body: High-Density Institutional Layout */}
+                                <div className="soh-eval-card-body">
+                                  {/* 1. Commercial Pricing Strip */}
+                                  <div className="soh-eval-card-pricing-bar">
+                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                      <div className="soh-eval-field-label">1. Net Landed Unit Rate</div>
+                                      <div className="soh-eval-rate-val">
+                                        ₹{Number(netLandedRate).toLocaleString('en-IN')}
+                                        <span className="soh-eval-uom">/{quote.Uom || 'MT'}</span>
+                                      </div>
+                                      <div className="soh-eval-formula">
+                                        Basic: ₹{Number(basePrice).toLocaleString('en-IN')}
+                                        {quote.FreightIncluded ? ' · Freight Included' : freightExtra > 0 ? ` · +₹${freightExtra} Frt` : ''}
+                                        {otherCharges > 0 && ` · +₹${otherCharges} Platform Fee`}
+                                        {quote.GstRate && ` · +${quote.GstRate} GST`}
+                                      </div>
+                                    </div>
+
+                                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                      <div className="soh-eval-field-label">Total Contract Value</div>
+                                      <div className="soh-eval-total-val">
+                                        ₹{Number(quote.EstimatedTotalValue || 0).toLocaleString('en-IN')}
+                                      </div>
+                                      <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '2px' }}>
+                                        Full Landed Estimate
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* 2. Three-Quadrant Parameter Grid (Capacity, Logistics, Payment) */}
+                                  <div className="soh-eval-params-grid">
+                                    {/* Parameter 1: Capacity & Availability */}
+                                    <div className="soh-eval-param-cell">
+                                      <div className="soh-eval-param-title">
+                                        <Warehouse size={11} className="text-blue-600" />
+                                        <span>2. Supply Capacity</span>
+                                      </div>
+                                      <div className="soh-eval-param-main">
+                                        <span>{quote.OfferedQuantity} {quote.Uom || 'MT'}</span>
+                                        <span className="soh-eval-pct-pill">
+                                          {supplyPercent}% demand
+                                        </span>
+                                      </div>
+                                      <div className="soh-eval-param-sub">
+                                        <span className={`text-[10px] font-semibold px-1.5 py-0.2 rounded mr-1 ${quote.CanSupplyFull ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                                          {quote.CanSupplyFull ? 'Full Supply' : 'Partial'}
+                                        </span>
+                                        MOQ: <b>{quote.Moq || '1'} {quote.Uom || 'MT'}</b> · {quote.ProductAvailability || 'Ready Stock'}
+                                      </div>
+                                    </div>
+
+                                    {/* Parameter 2: Delivery & Transport */}
+                                    <div className="soh-eval-param-cell">
+                                      <div className="soh-eval-param-title">
+                                        <Clock size={11} className="text-orange-600" />
+                                        <span>3. Lead Time & Transport</span>
+                                      </div>
+                                      <div className="soh-eval-param-main">
+                                        <span>{quote.DeliveryLeadTimeDays ? `${quote.DeliveryLeadTimeDays} Days turnaround` : 'Standard turnaround'}</span>
+                                      </div>
+                                      <div className="soh-eval-param-sub">
+                                        Scope: <b>{quote.TransportationResponsibility || 'Vendor'}</b>
+                                        {quote.ExpectedDispatchDate && ` · Dispatch: ${new Date(quote.ExpectedDispatchDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
+                                      </div>
+                                      <div className="soh-eval-dest-tag">
+                                        {item.isExactLocation ? (
+                                          <span className="text-emerald-700">📍 Direct: {activeEvalGroup.destination || quote.Destination || 'Plant'}</span>
+                                        ) : (
+                                          <span className="text-amber-800">🚚 Dest: {quote.Destination || 'Vendor Plant'}</span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Parameter 3: Payment Terms & Credit */}
+                                    <div className="soh-eval-param-cell">
+                                      <div className="soh-eval-param-title">
+                                        <CreditCard size={11} className="text-indigo-600" />
+                                        <span>4. Payment & Credit</span>
+                                      </div>
+                                      <div className="soh-eval-param-main">
+                                        <span>{quote.PaymentTerms || 'Standard Terms'}</span>
+                                      </div>
+                                      <div className="soh-eval-param-sub">
+                                        Advance: <b>{quote.AdvancePaymentPercentage || 0}%</b> · Credit: <b>{quote.CreditPeriodDays || 0} Days</b>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Split Allocation or Vendor Remarks */}
+                                  {quote.CommercialRemarks && (
+                                    <div className="soh-eval-remarks-box">
+                                      {quote.CommercialRemarks.includes('[SPLIT ALLOCATION]') ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#5b21b6', fontSize: '11.5px', fontWeight: '600' }}>
+                                          <Split size={13} className="text-purple-600 flex-shrink-0" />
+                                          <span>{quote.CommercialRemarks.replace(/\[SPLIT ALLOCATION\]:?\s*/i, 'Split Award Allocation: ')}</span>
+                                        </div>
+                                      ) : (
+                                        <div style={{ fontSize: '11px', color: '#475569' }}>
+                                          <strong style={{ color: '#334155' }}>Vendor Remarks:</strong> {quote.CommercialRemarks}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Card Footer: Compact Single-Row Action Strip */}
+                                <div className="soh-eval-card-footer-compact">
+                                  {!isAwarded && (
+                                    <button
+                                      type="button"
+                                      className="soh-eval-btn-award-compact"
+                                      onClick={() => {
+                                        setAwardRemarks(`Approved based on competitive unit rate ₹${quote.OfferedUnitPrice}/${quote.Uom || 'MT'} and confirmed delivery lead time.`);
+                                        setAwardModal({ quote, group: activeEvalGroup });
+                                      }}
+                                      title="Award & Approve Quotation"
+                                    >
+                                      <Award size={13} />
+                                      <span>Award</span>
+                                    </button>
+                                  )}
+
+                                  {isAwarded && (
+                                    <div className="soh-eval-awarded-pill">
+                                      <CheckCircle2 size={13} />
+                                      <span>Winning Seller Awarded</span>
+                                    </div>
+                                  )}
+
+                                  {!isAwarded && (
+                                    <button
+                                      type="button"
+                                      className="soh-eval-btn-negotiate-compact"
+                                      onClick={() => {
+                                        const suggestedCounter = Math.round(Number(quote.OfferedUnitPrice || 0) * 0.95);
+                                        setCounterPrice(suggestedCounter > 0 ? String(suggestedCounter) : '');
+                                        setCounterRemarks(`We have pooled ${activeEvalGroup.totalDemand} ${activeEvalGroup.uom} from verified buyers ready for immediate order if pricing can be matched.`);
+                                        setCounterModal({ quote, group: activeEvalGroup });
+                                      }}
+                                      title="Request Price Revision / Counter-Offer"
+                                    >
+                                      <MessageSquare size={13} />
+                                      <span>Counter-Offer</span>
+                                    </button>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    className="soh-eval-btn-pdf-compact"
+                                    onClick={() => navigate(`/supply-offer/view?offerRef=${encodeURIComponent(quote.OfferReference)}`)}
+                                    title="View Official Quotation PDF"
+                                  >
+                                    <FileText size={12} />
+                                    <span>View PDF</span>
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
                     )}
 
                     {/* ========================================================================= */}
@@ -2322,14 +2831,14 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
                   <button
                     type="button"
                     className="soh-btn-secondary"
-                    style={{ background: '#fff7ed', borderColor: '#fed7aa', color: '#c2410c', fontWeight: '700' }}
                     onClick={() => {
                       const ref = selectedQuote.OfferReference;
                       setSelectedQuote(null);
                       navigate(`/supply-offer/view?offerRef=${encodeURIComponent(ref)}`);
                     }}
                   >
-                    📄 View Official Document (PDF)
+                    <FileText size={14} />
+                    <span>View Official Document (PDF)</span>
                   </button>
                   <button
                     type="button"
@@ -2356,15 +2865,15 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
           {awardModal && (
             <div className="soh-modal-overlay" onClick={() => !actionLoading && setAwardModal(null)}>
               <div className="soh-modal-card" style={{ maxWidth: '540px' }} onClick={e => e.stopPropagation()}>
-                <div className="soh-modal-header" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#ffffff' }}>
+                <div className="soh-modal-header">
                   <div className="soh-modal-title-group">
-                    <span className="soh-modal-badge" style={{ background: 'rgba(255,255,255,0.25)', color: '#ffffff' }}>
-                      Option A: Awarding
+                    <span className="soh-modal-badge" style={{ background: '#ecfdf5', color: '#065f46', borderColor: '#a7f3d0' }}>
+                      Option A · Awarding
                     </span>
-                    <h2 style={{ color: '#ffffff' }}>Award Quotation to {awardModal.quote.VendorName}</h2>
+                    <h2>Award Quotation to {awardModal.quote.VendorName}</h2>
                   </div>
-                  <button type="button" className="soh-modal-close" style={{ color: '#ffffff' }} onClick={() => setAwardModal(null)}>
-                    <X size={20} />
+                  <button type="button" className="soh-modal-close" onClick={() => setAwardModal(null)}>
+                    <X size={18} />
                   </button>
                 </div>
 
@@ -2437,15 +2946,15 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
           {counterModal && (
             <div className="soh-modal-overlay" onClick={() => !actionLoading && setCounterModal(null)}>
               <div className="soh-modal-card" style={{ maxWidth: '540px' }} onClick={e => e.stopPropagation()}>
-                <div className="soh-modal-header" style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', color: '#ffffff' }}>
+                <div className="soh-modal-header">
                   <div className="soh-modal-title-group">
-                    <span className="soh-modal-badge" style={{ background: 'rgba(255,255,255,0.25)', color: '#ffffff' }}>
-                      Option B: Price Revision
+                    <span className="soh-modal-badge" style={{ background: '#fff7ed', color: '#c2410c', borderColor: '#fed7aa' }}>
+                      Option B · Price Revision
                     </span>
-                    <h2 style={{ color: '#ffffff' }}>Request Counter-Offer from {counterModal.quote.VendorName}</h2>
+                    <h2>Request Counter-Offer from {counterModal.quote.VendorName}</h2>
                   </div>
-                  <button type="button" className="soh-modal-close" style={{ color: '#ffffff' }} onClick={() => setCounterModal(null)}>
-                    <X size={20} />
+                  <button type="button" className="soh-modal-close" onClick={() => setCounterModal(null)}>
+                    <X size={18} />
                   </button>
                 </div>
 
@@ -2525,15 +3034,15 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
           {splitModal && (
             <div className="soh-modal-overlay" onClick={() => !actionLoading && setSplitModal(null)}>
               <div className="soh-modal-card" style={{ maxWidth: '640px' }} onClick={e => e.stopPropagation()}>
-                <div className="soh-modal-header" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)', color: '#ffffff' }}>
+                <div className="soh-modal-header">
                   <div className="soh-modal-title-group">
-                    <span className="soh-modal-badge" style={{ background: 'rgba(255,255,255,0.25)', color: '#ffffff' }}>
-                      Option C: Split Sourcing
+                    <span className="soh-modal-badge" style={{ background: '#f5f3ff', color: '#5b21b6', borderColor: '#ddd6fe' }}>
+                      Option C · Split Sourcing
                     </span>
-                    <h2 style={{ color: '#ffffff' }}>Multi-Source Split: {splitModal.group.productName}</h2>
+                    <h2>Multi-Source Split: {splitModal.group.productName}</h2>
                   </div>
-                  <button type="button" className="soh-modal-close" style={{ color: '#ffffff' }} onClick={() => setSplitModal(null)}>
-                    <X size={20} />
+                  <button type="button" className="soh-modal-close" onClick={() => setSplitModal(null)}>
+                    <X size={18} />
                   </button>
                 </div>
 
@@ -2659,15 +3168,15 @@ export default function SupplyOffersHub({ defaultTab = 'sent' }) {
           {emailConfirmModal && (
             <div className="soh-modal-overlay" onClick={() => !actionLoading && setEmailConfirmModal(null)}>
               <div className="soh-modal-card" style={{ maxWidth: '580px' }} onClick={e => e.stopPropagation()}>
-                <div className="soh-modal-header" style={{ background: 'linear-gradient(135deg, #0e7c86 0%, #065e66 100%)', color: '#ffffff' }}>
+                <div className="soh-modal-header">
                   <div className="soh-modal-title-group">
-                    <span className="soh-modal-badge" style={{ background: 'rgba(255,255,255,0.25)', color: '#ffffff' }}>
-                      Stage 7: Offer Email
+                    <span className="soh-modal-badge" style={{ background: '#f0fdfa', color: '#0f766e', borderColor: '#ccfbf1' }}>
+                      Stage 7 · Offer Email
                     </span>
-                    <h2 style={{ color: '#ffffff' }}>Dispatch Consortium Offer to Buyer</h2>
+                    <h2>Dispatch Consortium Offer to Buyer</h2>
                   </div>
-                  <button type="button" className="soh-modal-close" style={{ color: '#ffffff' }} onClick={() => setEmailConfirmModal(null)}>
-                    <X size={20} />
+                  <button type="button" className="soh-modal-close" onClick={() => setEmailConfirmModal(null)}>
+                    <X size={18} />
                   </button>
                 </div>
 
