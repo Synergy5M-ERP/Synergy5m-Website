@@ -2133,7 +2133,7 @@ function NewLandingPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "8px" }}>
             <div className="section-kicker teal" style={{ margin: 0 }}>03</div>
 
-            <div
+            {/* <div
               style={{
                 overflow: "hidden",
                 background: "linear-gradient(135deg, #a0b6d2 0%, #c7d1df 100%)",
@@ -2160,7 +2160,7 @@ function NewLandingPage() {
                   </span>
                 )}
               </span>
-            </div>
+            </div> */}
 
             {/* Attractive Right-Corner Badge Marquee / Animated Pill */}
             <div
@@ -2185,7 +2185,7 @@ function NewLandingPage() {
                 whiteSpace: "nowrap",
                 color: "black"
               }}>
-                🔥 WE HAVE <span style={{ color: "#f01a1a", fontSize: "14px" }}>{vendorCount}</span> VENDORS READY TO CONNECT{domesticVendorCount > 0 ? ` (🇮🇳 ${domesticVendorCount} Domestic • 🌐 ${intlVendorCount} International)` : ''}!
+                🔥 WE HAVE <span style={{ color: "#f01a1a", fontSize: "14px" }}>{vendorCount}</span> VENDORS READY TO CONNECT!
               </span>
             </div>
           </div>
